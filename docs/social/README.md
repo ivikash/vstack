@@ -9,7 +9,8 @@ cd docs/social && python3 poster1.py && python3 poster2.py
 node render.mjs poster1.html seven-stage-cell.png        # needs playwright-core and a Chromium
 node render.mjs poster2.html one-graph-four-harnesses.png
 node render.mjs poster3.html manager-metro-map.png
-node render.mjs poster4.html kernel-clock.png
+node render.mjs poster4.html kernel-clock.png          # python3 poster4.py dark (default)
+python3 poster4.py light && node render.mjs poster4-light.html kernel-clock-light.png
 ```
 
 Fonts (Playfair Display, Caveat, IBM Plex Mono, Inter, Syne, JetBrains Mono, Space Grotesk) are fetched from google/fonts into

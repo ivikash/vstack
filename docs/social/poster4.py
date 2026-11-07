@@ -2,17 +2,25 @@
 import os
 from common import VALIDATOR, FONTS
 
+import sys
+THEME = sys.argv[1] if len(sys.argv)>1 else "dark"
+THEMES = {
+ "dark": """:root{--bg:#0b1220;--panel:#111a2e;--panel2:#162238;--line:#223252;--ink:#e8eef8;--mute:#8fa1c2;--grid:rgba(95,227,211,.07);
+ --cyan:#5fe3d3;--amber:#f6b94a;--coral:#ff7b72;--violet:#b39dfc;--lime:#b8e986;--badge-face:#162238;--badge-line:#223252;--strip:#162238;--night:#0b1220;--lbl:#162238}""",
+ "light": """:root{--bg:#f6f7fb;--panel:#ffffff;--panel2:#f0f3f9;--line:#d6dce8;--ink:#17213a;--mute:#5d6b8a;--grid:rgba(23,33,58,.06);
+ --cyan:#0e8f82;--amber:#b8760a;--coral:#c9463d;--violet:#6b4fd3;--lime:#4f8a1e;--badge-face:#ffffff;--badge-line:#d6dce8;--strip:#e6ebf5;--night:#cfd6e4;--lbl:#ffffff}""",
+}
+THEME_VARS = THEMES[THEME]
 CSS = f"""
 @font-face{{font-family:Syne;src:url(file://{FONTS}/Syne.ttf)}}
 @font-face{{font-family:JB;src:url(file://{FONTS}/JetBrains.ttf)}}
 @font-face{{font-family:Grotesk;src:url(file://{FONTS}/SpaceGrotesk.ttf)}}
-:root{{--bg:#0b1220;--panel:#111a2e;--panel2:#162238;--line:#223252;--ink:#e8eef8;--mute:#8fa1c2;
- --cyan:#5fe3d3;--amber:#f6b94a;--coral:#ff7b72;--violet:#b39dfc;--lime:#b8e986}}
+{THEME_VARS}
 *{{box-sizing:border-box;margin:0;padding:0}}
 html,body{{width:1200px;height:1500px;overflow:hidden;background:var(--bg);color:var(--ink);font-family:Grotesk,sans-serif}}
 .page{{position:relative;width:1200px;height:1500px;background:
- linear-gradient(rgba(95,227,211,.07) 1px,transparent 1px) 0 0/40px 40px,
- linear-gradient(90deg,rgba(95,227,211,.07) 1px,transparent 1px) 0 0/40px 40px, var(--bg)}}
+ linear-gradient(var(--grid) 1px,transparent 1px) 0 0/40px 40px,
+ linear-gradient(90deg,var(--grid) 1px,transparent 1px) 0 0/40px 40px, var(--bg)}}
 .abs{{position:absolute}}
 .card{{position:absolute;background:var(--panel);border:1px solid var(--line);border-radius:14px}}
 .mono{{font-family:JB,monospace}}
@@ -39,12 +47,12 @@ def icon(name, color, size=22):
     return f'<svg viewBox="0 0 24 24" width="{size}" height="{size}" fill="none" stroke="{color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{P}</svg>'
 
 BADGE = f"""<svg viewBox="0 0 160 160" width="160" height="160">
-<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5fe3d3"/><stop offset="1" stop-color="#b39dfc"/></linearGradient></defs>
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--cyan)"/><stop offset="1" stop-color="var(--violet)"/></linearGradient></defs>
 <path d="M80 12 L140 46 V114 L80 148 L20 114 V46 Z" fill="none" stroke="url(#g)" stroke-width="3"/>
-<path d="M80 30 L124 55 V105 L80 130 L36 105 V55 Z" fill="#162238" stroke="#223252" stroke-width="1.5"/>
-<circle cx="80" cy="80" r="26" fill="none" stroke="#5fe3d3" stroke-width="3"/>
-<path d="M80 62v18l12 7" stroke="#f6b94a" stroke-width="4" stroke-linecap="round" fill="none"/>
-<circle cx="80" cy="80" r="3.5" fill="#e8eef8"/>
+<path d="M80 30 L124 55 V105 L80 130 L36 105 V55 Z" fill="var(--badge-face)" stroke="var(--badge-line)" stroke-width="1.5"/>
+<circle cx="80" cy="80" r="26" fill="none" stroke="var(--cyan)" stroke-width="3"/>
+<path d="M80 62v18l12 7" stroke="var(--amber)" stroke-width="4" stroke-linecap="round" fill="none"/>
+<circle cx="80" cy="80" r="3.5" fill="var(--ink)"/>
 </svg>"""
 
 # ---------- the day strip ----------
@@ -61,21 +69,21 @@ PINS = [  # (hour decimal, lane, label, sub, color, icon)
 def strip():
     W=1088; x0=40; hw=(W-2*x0)/24; ys=250; laneH=36; top=ys-40
     o=[f'<svg viewBox="0 0 {W} 300" width="{W}" height="300" style="position:absolute;left:20px;top:46px;overflow:visible">']
-    o.append(f'<rect class="solid" data-name="strip" x="{x0}" y="{ys-6}" width="{W-2*x0}" height="12" rx="6" fill="#162238" stroke="#223252"/>')
+    o.append(f'<rect class="solid" data-name="strip" x="{x0}" y="{ys-6}" width="{W-2*x0}" height="12" rx="6" fill="var(--strip)" stroke="var(--line)"/>')
     # night shading 00-06 and 20-24
-    o.append(f'<rect x="{x0}" y="{ys-6}" width="{6*hw}" height="12" rx="6" fill="#0b1220" stroke="#223252"/>')
-    o.append(f'<rect x="{x0+20*hw}" y="{ys-6}" width="{4*hw}" height="12" rx="6" fill="#0b1220" stroke="#223252"/>')
+    o.append(f'<rect x="{x0}" y="{ys-6}" width="{6*hw}" height="12" rx="6" fill="var(--night)" stroke="var(--line)"/>')
+    o.append(f'<rect x="{x0+20*hw}" y="{ys-6}" width="{4*hw}" height="12" rx="6" fill="var(--night)" stroke="var(--line)"/>')
     for h in range(0,25,2):
         x=x0+h*hw
-        o.append(f'<path d="M{x} {ys+8} v8" stroke="#8fa1c2" stroke-width="1"/>')
-        o.append(f'<text x="{x}" y="{ys+32}" text-anchor="middle" font-family="JB" font-size="10.5" fill="#8fa1c2">{h:02d}</text>')
+        o.append(f'<path d="M{x} {ys+8} v8" stroke="var(--mute)" stroke-width="1"/>')
+        o.append(f'<text x="{x}" y="{ys+32}" text-anchor="middle" font-family="JB" font-size="10.5" fill="var(--mute)">{h:02d}</text>')
     for h,lane,label,sub,color,ic in PINS:
         x=x0+h*hw; yl=top-lane*laneH
         o.append(f'<path class="edge" data-name="pin-{label}" d="M{x} {ys-6} V{yl+2}" stroke="{color}" stroke-width="1.6" stroke-dasharray="3 3"/>')
         o.append(f'<circle class="solid" data-name="dot-{label}" cx="{x}" cy="{ys}" r="5.5" fill="{color}"/>')
-        o.append(f'<g transform="translate({x+8} {yl-20})"><rect class="solid" data-name="lbl-{label}" x="0" y="0" width="148" height="30" rx="6" fill="#162238" stroke="{color}" stroke-width="1"/>'
-                 f'<text x="10" y="13" font-family="JB" font-weight="700" font-size="11" fill="#e8eef8">{label}</text>'
-                 f'<text x="10" y="25" font-family="JB" font-size="9.5" fill="#8fa1c2">{sub}</text></g>')
+        o.append(f'<g transform="translate({x+8} {yl-20})"><rect class="solid" data-name="lbl-{label}" x="0" y="0" width="148" height="30" rx="6" fill="var(--lbl)" stroke="{color}" stroke-width="1"/>'
+                 f'<text x="10" y="13" font-family="JB" font-weight="700" font-size="11" fill="var(--ink)">{label}</text>'
+                 f'<text x="10" y="25" font-family="JB" font-size="9.5" fill="var(--mute)">{sub}</text></g>')
     o.append('</svg>')
     return "".join(o)
 
@@ -175,5 +183,6 @@ body=f"""
 
 html=f"""<!doctype html><html><head><meta charset="utf-8"><title>The Kernel Clock</title><style>{CSS}</style></head>
 <body><div class="page">{body}</div>{VALIDATOR}</body></html>"""
-open(os.path.join(os.path.dirname(os.path.abspath(__file__)),"poster4.html"),"w").write(html)
-print("poster4.html written")
+out="poster4.html" if THEME=="dark" else f"poster4-{THEME}.html"
+open(os.path.join(os.path.dirname(os.path.abspath(__file__)),out),"w").write(html)
+print(out,"written")

@@ -4,6 +4,7 @@ Images (public once this branch is pushed to GitHub):
 
 - Poster 1, The Seven-Stage Cell: https://raw.githubusercontent.com/ivikash/manager-ops-kernel/main/docs/social/seven-stage-cell.png
 - Poster 3, The Manager Metro Map: https://raw.githubusercontent.com/ivikash/manager-ops-kernel/main/docs/social/manager-metro-map.png
+- Poster 4, The Kernel Clock (light): https://raw.githubusercontent.com/ivikash/manager-ops-kernel/main/docs/social/kernel-clock-light.png
 - Poster 4, The Kernel Clock (dark): https://raw.githubusercontent.com/ivikash/manager-ops-kernel/main/docs/social/kernel-clock.png
 - Poster 2, One Graph, Four Harnesses: https://raw.githubusercontent.com/ivikash/manager-ops-kernel/main/docs/social/one-graph-four-harnesses.png
 
