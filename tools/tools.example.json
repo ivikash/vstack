@@ -8,7 +8,7 @@
     "calendar.read":  {"server": "mail-mcp",     "tool": "calendar_view",   "notes": "week view"},
     "chat.search":    {"server": "chat-mcp",     "tool": "search",          "notes": "one keyword per call"},
     "chat.draft":     {"server": "chat-mcp",     "tool": "post_draft",      "notes": "lands in the compose box; the owner presses send"},
-    "corroborate":    {"server": "chat-mcp",     "tool": "ask_assistant",   "notes": "neutral wording only, no ratings"},
+    "chat.corroborate":    {"server": "chat-mcp",     "tool": "ask_assistant",   "notes": "neutral wording only, no ratings"},
     "code.activity":  {"server": "code-mcp",     "tool": "list_reviews",    "notes": "by author and date range"}
   }
 }
