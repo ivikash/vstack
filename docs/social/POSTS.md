@@ -3,6 +3,7 @@
 Images (public once this branch is pushed to GitHub):
 
 - Poster 1, The Seven-Stage Cell: https://raw.githubusercontent.com/ivikash/manager-ops-kernel/main/docs/social/seven-stage-cell.png
+- Poster 3, The Manager Metro Map: https://raw.githubusercontent.com/ivikash/manager-ops-kernel/main/docs/social/manager-metro-map.png
 - Poster 2, One Graph, Four Harnesses: https://raw.githubusercontent.com/ivikash/manager-ops-kernel/main/docs/social/one-graph-four-harnesses.png
 
 Bold text below uses Unicode Mathematical Sans-Serif Bold, which renders on X and LinkedIn without markdown.
@@ -56,3 +57,15 @@ Dry-ran the same cell on all four harnesses this week. Four gated drafts, zero e
 Repos: github.com/ivikash/manager-ops-kernel and github.com/ivikash/Leadership-Writing-Skills
 
 #AgentSkills #EngineeringManagement #MCP #Automation
+
+## X / Twitter, post 3 (with poster 3) · 335 chars
+
+𝗧𝗵𝗲 𝗠𝗮𝗻𝗮𝗴𝗲𝗿 𝗠𝗲𝘁𝗿𝗼 𝗠𝗮𝗽
+
+Lines are bots. Stations are cells. Every line ends at one interchange, the ledger, and the ledger ends at you.
+
+The People line runs on its own memory. The only way out is the ledger, and no rating rides on it.
+
+Add a station: one cell.json. The map is checked, not drawn.
+
+github.com/ivikash/manager-ops-kernel

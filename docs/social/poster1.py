@@ -58,7 +58,7 @@ def ladder():
     out.append('</svg>')
     return "".join(out)
 
-body = header("manager-ops-kernel","seven-stage-cell","field notes · A4 · Nov 2026",
+body = header("manager-ops-kernel","seven-stage-cell","kernel notes · sheet 1 of 3 · Nov 2026",
   "A MANAGER'S AUTOMATION, ONE CELL AT A TIME · KERNEL NOTES",
   "The Seven-Stage Cell",
   "How one unit of manager automation runs on any agent harness, and you only press send.",
@@ -110,11 +110,11 @@ example = """<div class="mono" style="font-size:12px;line-height:1.6">
 
 body += f"""
 <div class="card" style="left:36px;top:286px;width:300px;height:344px">
- <div class="abs k2" style="left:20px;top:18px">field notes · at a glance</div>
+ <div class="abs k2" style="left:20px;top:18px">rules of the road</div>
  <div class="abs" style="left:20px;top:48px;width:262px">{glance}</div>
 </div>
 <div class="card" style="left:36px;top:646px;width:300px;height:374px">
- <div class="abs k2" style="left:20px;top:18px">principles</div>
+ <div class="abs k2" style="left:20px;top:18px">who does what</div>
  <div class="abs" style="left:20px;top:46px;width:262px">{principles}</div>
  <div class="abs" style="left:160px;top:310px">{iso}</div>
 </div>
@@ -125,14 +125,14 @@ body += f"""
 </div>
 <div class="card" style="left:36px;top:1036px;width:1128px;height:396px">
  <div class="abs" style="left:22px;top:16px;font-size:19px"><span class="mono" style="font-weight:700">cell.json</span> <span class="small" style="font-size:15px">one file per unit of automation. Copy it, change the nouns, keep the verbs.</span></div>
- <div class="btn" style="right:22px;top:14px">Copy cell</div>
- <div class="abs kicker" style="left:22px;top:60px">template</div>
+ <div class="btn" style="right:22px;top:14px">cells/*.json ↗</div>
+ <div class="abs kicker" style="left:22px;top:60px">the six fields</div>
  <div class="abs small" style="left:22px;top:82px;width:520px">Use this for anything you write on a cadence: status updates, review packs, 1:1 prep, digests.</div>
  <div class="abs" style="left:22px;top:126px;width:520px">{tmpl}</div>
  <div class="abs" style="left:570px;top:60px;width:1px;height:316px;background:var(--line)"></div>
- <div class="abs kicker" style="left:596px;top:60px">useful commands</div>
+ <div class="abs kicker" style="left:596px;top:60px">the four verbs</div>
  <div class="abs" style="left:596px;top:86px;width:520px">{cmds}</div>
- <div class="abs kicker" style="left:596px;top:222px">example (short)</div>
+ <div class="abs kicker" style="left:596px;top:222px">a real cell, abridged</div>
  <div class="abs" style="left:596px;top:242px;width:520px">{example}</div>
 </div>
 """ + footer("Writing lives in skills (open source). Plumbing lives in the kernel (open source).<br>Tool names, doc ids, rating scales and people live in your own private repo.",

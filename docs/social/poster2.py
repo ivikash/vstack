@@ -103,7 +103,7 @@ def harness():
     o.append('</svg>')
     return "".join(o)
 
-body = header("manager-ops-kernel","architecture","field notes · A4 · Nov 2026",
+body = header("manager-ops-kernel","architecture","kernel notes · sheet 2 of 3 · Nov 2026",
   "GRAPH ENGINEERING FOR A MANAGER'S WEEK · KERNEL NOTES",
   "One Graph, Four Harnesses",
   "Same skills, same cells, same files. Only the runner changes.",
