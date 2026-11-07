@@ -1,0 +1,535 @@
+#!/usr/bin/env python3
+"""kernel: run manager-automation cells on any agent harness.
+
+A *cell* is one JSON file describing one unit of automation as the same seven stages:
+trigger -> gather -> diff -> write -> gate -> land -> record. The kernel renders a cell into a
+single prompt and hands it to the harness you name. Skills (SKILL.md) do the writing and
+checking; MCP tools do the fetching and publishing; the kernel owns only the plumbing.
+
+Subcommands
+  render        print the prompt a cell would run (no model call)
+  run           render, pre-flight (check + verify-skills), execute on a harness, record
+  check         validate graph and cells against the invariants
+  verify-skills compare installed skill copies against a lock file
+  link-skills   make every harness skill dir a symlink to one canonical dir
+  gen-cron      emit crontab lines (or kirocrew cron commands) for every cell with a trigger
+  gen-mcp       emit an MCP server block for one harness from one servers file
+
+Everything is plain files. No daemon, no database.
+"""
+import argparse, datetime as dt, hashlib, json, os, re, shlex, shutil, subprocess, sys, uuid
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent.parent
+HOME = Path.home()
+HARNESSES = ("claude", "codex", "kiro", "kirocrew", "print")
+PRIVATE_COMPONENT_DEFAULT = "hr"
+
+
+# ----------------------------------------------------------------------------- helpers
+def load(p):
+    with open(p) as f:
+        return json.load(f)
+
+
+def expand(s, env):
+    """${config.x} / ${run_id} / ${harness} substitution inside strings."""
+    def one(m):
+        key = m.group(1)
+        cur = env
+        for part in key.split("."):
+            if isinstance(cur, dict) and part in cur:
+                cur = cur[part]
+            else:
+                return m.group(0)
+        return str(cur)
+    return re.sub(r"\$\{([a-zA-Z0-9_.]+)\}", one, s)
+
+
+def slug(s):
+    return re.sub(r"[^a-zA-Z0-9._-]+", "-", s).strip("-").lower()
+
+
+def expand_deep(obj, env):
+    if isinstance(obj, str):
+        return expand(obj, env)
+    if isinstance(obj, list):
+        return [expand_deep(x, env) for x in obj]
+    if isinstance(obj, dict):
+        return {k: expand_deep(v, env) for k, v in obj.items()}
+    return obj
+
+
+def sha(p):
+    h = hashlib.sha256()
+    with open(p, "rb") as f:
+        h.update(f.read())
+    return h.hexdigest()
+
+
+def now():
+    return dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+
+
+def die(msg, code=1):
+    print(f"kernel: {msg}", file=sys.stderr)
+    sys.exit(code)
+
+
+# ----------------------------------------------------------------------------- check
+def check(graph_path, cells_dir, private_component):
+    """Invariants. Returns list of failures (empty = pass)."""
+    fails = []
+    graph = load(graph_path) if graph_path else {"nodes": [], "edges": []}
+    cells = {}
+    for p in sorted(Path(cells_dir).glob("*.json")):
+        try:
+            c = load(p)
+        except Exception as e:  # noqa
+            fails.append(f"{p.name}: not valid JSON ({e})")
+            continue
+        cells[c.get("id", p.stem)] = (p, c)
+
+    for cid, (p, c) in cells.items():
+        for req in ("id", "kind", "component", "sources", "sink", "ledger"):
+            if req not in c:
+                fails.append(f"{cid}: missing field '{req}'")
+        kind = c.get("kind")
+        if kind == "writer":
+            if "writer" not in c or "skill" not in c["writer"]:
+                fails.append(f"{cid}: writer cell has no writer.skill")
+            g = c.get("gate")
+            if not g or "skill" not in g:
+                fails.append(f"{cid}: writer cell has no gate (invariant 3: every draft is gated before it lands)")
+            else:
+                if int(g.get("min_passes", 0)) < 2:
+                    fails.append(f"{cid}: gate.min_passes must be >= 2")
+                if int(g.get("max_passes", 0)) < int(g.get("min_passes", 2)):
+                    fails.append(f"{cid}: gate.max_passes < min_passes")
+        # invariant 2: writers never fetch. The writer skill name must not be a fetch role.
+        for s in c.get("sources", []):
+            if "role" not in s:
+                fails.append(f"{cid}: source without a role (sources are addressed by role, never by tool name)")
+            if "." not in s.get("role", "."):
+                fails.append(f"{cid}: source role '{s.get('role')}' is not namespaced (e.g. docs.read)")
+        # invariant 4: every sink records
+        led = c.get("ledger", {})
+        if not led.get("fields"):
+            fails.append(f"{cid}: ledger.fields is empty (invariant 4: every landing records an outcome)")
+        # invariant 5: privacy cut
+        if c.get("component") == private_component:
+            ws = c.get("workspace", "")
+            if not ws or ws in ("default", ""):
+                fails.append(f"{cid}: component '{private_component}' must name a private workspace")
+            for f in led.get("fields", []):
+                if re.search(r"rating|candidate|promo|salary|comp|feedback_text", f, re.I):
+                    fails.append(f"{cid}: ledger field '{f}' would leak {private_component} data across the privacy cut")
+        # sink must have a dry-run landing
+        if "dry_run_path" not in c.get("sink", {}):
+            fails.append(f"{cid}: sink has no dry_run_path (every cell must be runnable without side effects)")
+
+    # graph: DAG over 'delegates' and 'reads' edges, and no edge from private component outward
+    nodes = {n["id"]: n for n in graph.get("nodes", [])}
+    adj = {}
+    for e in graph.get("edges", []):
+        if e.get("from") not in nodes or e.get("to") not in nodes:
+            fails.append(f"graph: edge {e} references an unknown node")
+            continue
+        adj.setdefault(e["from"], []).append(e["to"])
+        a, b = nodes[e["from"]], nodes[e["to"]]
+        # Privacy cut: only a sink (lands) or a ledger (its sanitised, field-checked lines) may have an
+        # edge out of the private component. Sources, caches, writers, gates and bots never do.
+        if a.get("component") == private_component and b.get("component") not in (private_component, None) \
+                and a.get("type") not in ("D", "L"):
+            fails.append(f"graph: edge {e['from']} -> {e['to']} ({e.get('type')}) crosses the privacy cut from a {a.get('type')} node")
+        if a.get("type") in ("W", "G") and b.get("type") == "S":
+            fails.append(f"graph: writer/gate {e['from']} reaches source {e['to']} (invariant 2: writers never fetch)")
+    # cycle detection
+    state = {}
+
+    def visit(n, stack):
+        state[n] = 1
+        for m in adj.get(n, []):
+            if state.get(m) == 1:
+                fails.append(f"graph: cycle through {' -> '.join(stack + [n, m])}")
+                return
+            if state.get(m) is None:
+                visit(m, stack + [n])
+        state[n] = 2
+    for n in nodes:
+        if state.get(n) is None:
+            visit(n, [])
+    # every W has exactly one G on the way to D, every D records
+    for n in nodes.values():
+        if n.get("type") == "W":
+            gates = [e for e in graph.get("edges", []) if e["from"] == n["id"] and nodes[e["to"]].get("type") == "G"]
+            if len(gates) != 1:
+                fails.append(f"graph: writer {n['id']} has {len(gates)} gate edges, expected exactly 1")
+        if n.get("type") == "D":
+            recs = [e for e in graph.get("edges", []) if e["from"] == n["id"] and e.get("type") == "records"]
+            if not recs:
+                fails.append(f"graph: sink {n['id']} never records to a ledger (invariant 4)")
+    return fails, cells
+
+
+# ----------------------------------------------------------------------------- skills
+def skill_hash(skill_dir):
+    """Hash of every file in a skill dir, order-independent."""
+    h = hashlib.sha256()
+    for p in sorted(Path(skill_dir).rglob("*")):
+        if p.is_file():
+            h.update(p.relative_to(skill_dir).as_posix().encode())
+            h.update(sha(p).encode())
+    return h.hexdigest()
+
+
+def verify_skills(lock_path, dirs, names):
+    """Every named skill must exist in every dir and hash identically across dirs. If a lock file
+    is given, the canonical copy's SKILL.md hash must match the lock's computedHash."""
+    lock = load(lock_path) if lock_path else {}
+    lock_by_path = {}
+    for entry in (lock.get("skills") or {}).values():
+        lock_by_path[Path(entry["skillPath"]).parent.name] = entry.get("computedHash")
+    fails, report = [], []
+    for name in names:
+        hashes = {}
+        for d in dirs:
+            p = Path(d).expanduser() / name
+            if not p.exists():
+                fails.append(f"{name}: missing in {d}")
+                continue
+            hashes[str(d)] = skill_hash(p)
+        if len(set(hashes.values())) > 1:
+            fails.append(f"{name}: copies differ across {', '.join(hashes)}")
+        canon = Path(dirs[0]).expanduser() / name / "SKILL.md"
+        if name in lock_by_path and canon.exists():
+            if sha(canon) != lock_by_path[name]:
+                report.append(f"{name}: SKILL.md differs from lock (local edits or newer upstream)")
+        report.append(f"{name}: {'ok' if name not in [f.split(':')[0] for f in fails] else 'FAIL'} in {len(hashes)} dirs")
+    return fails, report
+
+
+def link_skills(canonical, targets, names, backup_root):
+    canonical = Path(canonical).expanduser()
+    done = []
+    for t in targets:
+        t = Path(t).expanduser()
+        t.mkdir(parents=True, exist_ok=True)
+        for name in names:
+            src = canonical / name
+            dst = t / name
+            if not src.exists():
+                die(f"canonical skill missing: {src}")
+            if dst.is_symlink():
+                if dst.resolve() == src.resolve():
+                    done.append(f"{dst} already -> {src}")
+                    continue
+                dst.unlink()
+            elif dst.exists():
+                bk = Path(backup_root).expanduser() / t.name / name
+                bk.parent.mkdir(parents=True, exist_ok=True)
+                if bk.exists():
+                    shutil.rmtree(bk)
+                shutil.move(str(dst), str(bk))
+                done.append(f"{dst}: real copy moved to {bk}")
+            os.symlink(src, dst)
+            done.append(f"{dst} -> {src}")
+    return done
+
+
+# ----------------------------------------------------------------------------- render
+PROMPT = """# Cell run: {id} ({kind}) on {harness}{dry}
+
+You are executing one automation cell. Follow the stages in order. Do not skip the gate.
+Work only inside the run directory for outputs: {run_dir}
+All paths below are absolute. Read files with your file-reading tool; never guess their contents.
+
+## 0. Rules that apply to every stage
+- Writers never fetch: the writing skill receives evidence you gathered, it does not call tools.
+- Nothing lands ungated: the draft reaches its sink only after the gate loop passes.
+- Record or it did not happen: the final stage appends one ledger line and one result file.
+- Evidence only: no metric, name, date or link that is not in the gathered evidence.
+- Organisation vocabulary comes from the org profile below, not from memory.
+
+## 1. GATHER{gather_mode}
+{gather}
+
+Write the gathered evidence as JSON to: {run_dir}/evidence.json
+
+## 2. DIFF
+Read {cache_path}/last-evidence.json if it exists and list, in {run_dir}/diff.md, what changed
+since the last run (new items, changed dates or statuses, removed items). If the file does not
+exist write "first run" to diff.md. Then copy evidence.json to {cache_path}/last-evidence.json.
+
+## 3. WRITE
+Read these files first, in this order, and apply every rule in them:
+- {skills_dir}/leadership-writing/house-rules.md
+- {skills_dir}/{writer_skill}/SKILL.md (and every file it tells you to read next to it)
+Org profile (overrides the skill's defaults; use these words verbatim):
+{org_profile}
+
+Produce the document the skill describes from evidence.json{writer_inputs}. Save it to
+{run_dir}/draft.md.
+
+## 4. GATE (validation loop)
+Read {skills_dir}/{gate_skill}/SKILL.md and {skills_dir}/{gate_skill}/checklist.md.
+Apply the gate to draft.md with doc type `{doc_type}`. Fix every quoted failure, re-run.
+Rules: minimum {min_passes} passes, maximum {max_passes} passes, stop when a pass has zero blockers
+and zero majors{coverage}. A fix may never invent a fact; an unfixable blocker goes under a closing
+`**Known Gaps**` note in draft.md. Write the last pass report to {run_dir}/gate.md with the pass
+count on its first line as `passes: N`.
+
+## 5. LAND
+{land}
+
+## 6. RECORD
+Append exactly one JSON line to {ledger_path} with these fields, taken from the final draft and
+this run: {ledger_fields}, plus run_id="{run_id}", cell="{id}", harness="{harness}",
+dry_run={dry_json}, landed_at (ISO time), gate_passes (from gate.md).
+Then write {run_dir}/result.json: {{"status": "ok" | "known_gaps" | "failed", "gate_passes": N,
+"draft": "{run_dir}/draft.md", "landed": <where the draft went>}}.
+Reply with the single line: KERNEL_RESULT <status> passes=<N>
+"""
+
+
+def render(cell, tools, org_profile_text, harness, dry_run, run_dir, run_id, skills_dir, cache_root, ledger_root, fixture=None):
+    env = {"config": cell.get("config", {}), "run_id": run_id, "harness": harness, "run_dir": str(run_dir)}
+    cell = expand_deep(cell, env)
+    roles = tools.get("roles", {})
+
+    def tool_for(role):
+        t = roles.get(role)
+        if not t:
+            return f"(no tool mapped for role {role}; report this as a gap and continue)"
+        return f"MCP server `{t['server']}`, tool `{t['tool']}`" + (f" ({t['notes']})" if t.get("notes") else "")
+
+    if dry_run and fixture:
+        gather_mode = " (dry run: fixture instead of live sources)"
+        gather = f"Read the fixture {fixture} and treat its contents as the gathered evidence. Do not call any fetching tool."
+    else:
+        lines = []
+        for s in cell["sources"]:
+            lines.append(f"- role `{s['role']}` -> {tool_for(s['role'])}; ref: {s.get('ref', '')}; {s.get('notes', '')}".rstrip("; "))
+        gather = "Cache-first: if {cache}/last-evidence.json is newer than {ttl} hours, reuse it. Otherwise fetch:\n".format(
+            cache=f"{cache_root}/{slug(cell.get('cache', {}).get('key', cell['id']))}", ttl=cell.get("cache", {}).get("ttl_hours", 0)) + "\n".join(lines)
+        gather_mode = ""
+    sink = cell["sink"]
+    if dry_run:
+        land = f"Dry run: do NOT call any publishing tool. Copy draft.md to {run_dir}/{Path(sink['dry_run_path']).name} and treat that path as 'landed'."
+    else:
+        land = f"Deliver draft.md via role `{sink['role']}` -> {tool_for(sink['role'])}; target: {sink.get('ref', '')}. " \
+               f"Land it as a DRAFT the owner must send or approve; never send on their behalf. Record the returned id or URL."
+    gate = cell.get("gate", {})
+    cov = f", coverage >= {gate['coverage_bar']}%" if gate.get("coverage_bar") else ""
+    writer_inputs = ""
+    if cell.get("writer", {}).get("extra_inputs"):
+        writer_inputs = " and " + ", ".join(cell["writer"]["extra_inputs"])
+    return PROMPT.format(
+        id=cell["id"], kind=cell["kind"], harness=harness, dry=" [DRY RUN]" if dry_run else "",
+        run_dir=run_dir, gather_mode=gather_mode, gather=gather,
+        cache_path=f"{cache_root}/{slug(cell.get('cache', {}).get('key', cell['id']))}",
+        skills_dir=skills_dir, writer_skill=cell.get("writer", {}).get("skill", "(none)"),
+        org_profile=org_profile_text.strip() or "(defaults from the leadership-writing skill)",
+        writer_inputs=writer_inputs,
+        gate_skill=gate.get("skill", "validate-writing"), doc_type=gate.get("doc_type", "passage"),
+        min_passes=gate.get("min_passes", 2), max_passes=gate.get("max_passes", 5), coverage=cov,
+        land=land, ledger_path=f"{ledger_root}/{cell.get('ledger', {}).get('file', cell['id'] + '.jsonl')}",
+        ledger_fields=", ".join(cell.get("ledger", {}).get("fields", [])),
+        run_id=run_id, dry_json="true" if dry_run else "false",
+    )
+
+
+# ----------------------------------------------------------------------------- harness
+def harness_cmd(harness, prompt_file, run_dir, agent=None, model=None):
+    p = str(prompt_file)
+    if harness == "claude":
+        cmd = ["claude", "-p", "--output-format", "text", "--permission-mode", "acceptEdits",
+               "--allowedTools", "Read", "Write", "Edit", "Glob", "Grep", "Bash(mkdir:*)", "Bash(cp:*)", "Bash(cat:*)"]
+        if model:
+            cmd += ["--model", model]
+        return cmd, open(prompt_file).read()
+    if harness == "codex":
+        cmd = ["codex", "exec", "--skip-git-repo-check", "-C", str(run_dir), "-s", "workspace-write"]
+        if model:
+            cmd += ["-m", model]
+        return cmd, open(prompt_file).read()
+    if harness == "kiro":
+        cmd = ["kiro-cli", "chat", "--no-interactive", "--trust-tools=fs_read,fs_write,execute_bash"]
+        if agent:
+            cmd += ["--agent", agent]
+        return cmd + [open(prompt_file).read()], None
+    if harness == "kirocrew":
+        # Native path: a one-shot scheduled job bound to a Bot (its memory, its workspace).
+        name = f"kernel {run_dir.name}"
+        cmd = ["kirocrew", "cron", "add", name, open(prompt_file).read(), "--at", "in 1 minute", "--approval-mode", "auto"]
+        if agent:
+            cmd += ["--agent", agent]
+        return cmd, None
+    die(f"unknown harness {harness}")
+
+
+def run(args):
+    cell_path = Path(args.cell)
+    cell = load(cell_path)
+    tools = load(args.tools) if args.tools else {"roles": {}}
+    org_profile_text = Path(args.org_profile).read_text() if args.org_profile else ""
+    run_id = dt.datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:6]
+    run_dir = Path(args.run_root).expanduser() / cell["id"] / f"{args.harness}-{run_id}"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    skills_dir = str(Path(args.skills_dir).expanduser())
+    cache_root = str(Path(args.cache_root).expanduser())
+    ledger_root = str(Path(args.ledger_root).expanduser())
+    Path(cache_root, slug(expand(cell.get("cache", {}).get("key", cell["id"]), {"config": cell.get("config", {})}))).mkdir(parents=True, exist_ok=True)
+    Path(ledger_root).mkdir(parents=True, exist_ok=True)
+
+    # pre-flight
+    fails, _ = check(args.graph, cell_path.parent, args.private_component)
+    fails = [f for f in fails if f.startswith(cell["id"] + ":") or f.startswith("graph:")]
+    if fails:
+        for f in fails:
+            print("  invariant:", f)
+        die("pre-flight failed (invariants)")
+    needed = [cell.get("writer", {}).get("skill"), cell.get("gate", {}).get("skill"), "leadership-writing"]
+    needed = [n for n in needed if n]
+    sfails, _ = verify_skills(args.skills_lock, [skills_dir] + args.extra_skill_dirs, needed)
+    if sfails:
+        for f in sfails:
+            print("  skills:", f)
+        die("pre-flight failed (skills)")
+
+    fixture = args.fixture or (cell.get("fixture") if args.dry_run else None)
+    if fixture:
+        fixture = str((cell_path.parent / fixture).resolve()) if not Path(fixture).is_absolute() else fixture
+    prompt = render(cell, tools, org_profile_text, args.harness, args.dry_run, run_dir, run_id, skills_dir, cache_root, ledger_root, fixture)
+    prompt_file = run_dir / "prompt.md"
+    prompt_file.write_text(prompt)
+    meta = {"run_id": run_id, "cell": cell["id"], "harness": args.harness, "dry_run": args.dry_run,
+            "started": now(), "prompt": str(prompt_file), "run_dir": str(run_dir)}
+    if args.harness == "print":
+        print(prompt)
+        return 0
+    cmd, stdin = harness_cmd(args.harness, prompt_file, run_dir, agent=args.agent, model=args.model)
+    (run_dir / "command.txt").write_text(" ".join(shlex.quote(c) if len(c) < 200 else "<prompt>" for c in cmd))
+    t0 = dt.datetime.now()
+    with open(run_dir / "stdout.log", "w") as out:
+        proc = subprocess.run(cmd, input=stdin, stdout=out, stderr=subprocess.STDOUT, text=True, timeout=args.timeout)
+    meta.update({"exit": proc.returncode, "seconds": round((dt.datetime.now() - t0).total_seconds(), 1), "finished": now()})
+    result_file = run_dir / "result.json"
+    if result_file.exists():
+        try:
+            meta["result"] = load(result_file)
+        except Exception:
+            meta["result"] = {"status": "unparseable"}
+    elif args.harness == "kirocrew":
+        meta["result"] = {"status": "scheduled", "note": "kirocrew runs asynchronously; result.json appears when the job finishes"}
+    else:
+        meta["result"] = {"status": "failed", "note": "no result.json written"}
+    (run_dir / "meta.json").write_text(json.dumps(meta, indent=2))
+    with open(Path(ledger_root) / "runs.jsonl", "a") as f:
+        f.write(json.dumps(meta) + "\n")
+    print(json.dumps(meta, indent=2))
+    return 0 if meta["result"].get("status") in ("ok", "known_gaps", "scheduled") else 2
+
+
+# ----------------------------------------------------------------------------- generators
+def gen_cron(args):
+    out = []
+    for p in sorted(Path(args.cells).glob("*.json")):
+        c = load(p)
+        trig = c.get("trigger", {})
+        if not trig.get("cron"):
+            continue
+        base = f"{args.kernel_bin} run {p.resolve()} --harness {args.harness} --tools {args.tools}"
+        if args.org_profile:
+            base += f" --org-profile {args.org_profile}"
+        if args.harness == "kirocrew":
+            out.append(f"kirocrew cron add {shlex.quote(c['id'])} {shlex.quote(base.replace(f'--harness {args.harness}', '--harness print') + ' | kirocrew chat -m -')} "
+                       f"--cron {shlex.quote(trig['cron'])} --timezone {shlex.quote(trig.get('timezone', 'UTC'))} --approval-mode auto"
+                       + (f" --agent {shlex.quote(c['agent'])}" if c.get("agent") else ""))
+        else:
+            tz = trig.get("timezone")
+            out.append((f"CRON_TZ={tz} " if tz else "") + f"{trig['cron']} {base} >> {args.log_dir}/{c['id']}.log 2>&1")
+    print("\n".join(out))
+
+
+def gen_mcp(args):
+    servers = load(args.servers)["servers"]
+    if args.target == "codex":
+        for name, s in servers.items():
+            print(f"[mcp_servers.{name}]\ncommand = \"{s['command']}\"\nargs = {json.dumps(s.get('args', []))}")
+            if s.get("env"):
+                print(f"[mcp_servers.{name}.env]")
+                for k, v in s["env"].items():
+                    print(f"{k} = \"{v}\"")
+            print()
+    elif args.target in ("claude", "kiro", "kirocrew"):
+        block = {name: {"command": s["command"], "args": s.get("args", []), **({"env": s["env"]} if s.get("env") else {})} for name, s in servers.items()}
+        print(json.dumps({"mcpServers": block}, indent=2))
+    else:
+        die("target must be codex|claude|kiro|kirocrew")
+
+
+# ----------------------------------------------------------------------------- main
+def main():
+    ap = argparse.ArgumentParser(prog="kernel", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    def common(sp):
+        sp.add_argument("--tools", help="tools.json mapping roles to MCP tools")
+        sp.add_argument("--org-profile", help="org profile markdown passed to the writer")
+        sp.add_argument("--skills-dir", default=str(HOME / ".agents/skills"))
+        sp.add_argument("--extra-skill-dirs", nargs="*", default=[], help="other harness skill dirs that must match")
+        sp.add_argument("--skills-lock", help="skills-lock.json from npx skills")
+        sp.add_argument("--graph", help="graph.json for invariant checks")
+        sp.add_argument("--private-component", default=PRIVATE_COMPONENT_DEFAULT)
+        sp.add_argument("--run-root", default=str(HOME / ".local/state/kernel/runs"))
+        sp.add_argument("--cache-root", default=str(HOME / ".local/state/kernel/cache"))
+        sp.add_argument("--ledger-root", default=str(HOME / ".local/state/kernel/ledger"))
+        sp.add_argument("--fixture", help="evidence file to use instead of live sources")
+        sp.add_argument("--dry-run", action="store_true", help="fixture in, file out, no publishing")
+
+    sp = sub.add_parser("render"); common(sp); sp.add_argument("cell"); sp.add_argument("--harness", default="print")
+    sp = sub.add_parser("run"); common(sp); sp.add_argument("cell"); sp.add_argument("--harness", choices=HARNESSES, required=True)
+    sp.add_argument("--agent", help="agent template (kiro) or Bot name (kirocrew)")
+    sp.add_argument("--model")
+    sp.add_argument("--timeout", type=int, default=1500)
+    sp = sub.add_parser("check"); sp.add_argument("--graph"); sp.add_argument("--cells", required=True); sp.add_argument("--private-component", default=PRIVATE_COMPONENT_DEFAULT)
+    sp = sub.add_parser("verify-skills"); sp.add_argument("--lock"); sp.add_argument("--dirs", nargs="+", required=True); sp.add_argument("--skills", nargs="+", required=True)
+    sp = sub.add_parser("link-skills"); sp.add_argument("--canonical", required=True); sp.add_argument("--targets", nargs="+", required=True)
+    sp.add_argument("--skills", nargs="+", required=True); sp.add_argument("--backup", default=str(HOME / ".local/state/kernel/skill-backups"))
+    sp = sub.add_parser("gen-cron"); sp.add_argument("--cells", required=True); sp.add_argument("--harness", choices=HARNESSES, required=True)
+    sp.add_argument("--tools", required=True); sp.add_argument("--org-profile"); sp.add_argument("--kernel-bin", default=str(HERE / "bin/kernel")); sp.add_argument("--log-dir", default=str(HOME / ".local/state/kernel/logs"))
+    sp = sub.add_parser("gen-mcp"); sp.add_argument("--servers", required=True); sp.add_argument("--target", required=True)
+    args = ap.parse_args()
+
+    if args.cmd == "check":
+        fails, cells = check(args.graph, args.cells, args.private_component)
+        print(f"cells: {len(cells)}  graph: {'yes' if args.graph else 'no'}")
+        for f in fails:
+            print("  FAIL", f)
+        print("invariants:", "PASS" if not fails else f"{len(fails)} failure(s)")
+        sys.exit(1 if fails else 0)
+    if args.cmd == "verify-skills":
+        fails, report = verify_skills(args.lock, args.dirs, args.skills)
+        for r in report:
+            print(" ", r)
+        for f in fails:
+            print("  FAIL", f)
+        print("skills:", "PASS" if not fails else f"{len(fails)} failure(s)")
+        sys.exit(1 if fails else 0)
+    if args.cmd == "link-skills":
+        for line in link_skills(args.canonical, args.targets, args.skills, args.backup):
+            print(" ", line)
+        return
+    if args.cmd == "gen-cron":
+        return gen_cron(args)
+    if args.cmd == "gen-mcp":
+        return gen_mcp(args)
+    if args.cmd in ("render", "run"):
+        if args.cmd == "render":
+            args.harness = "print"; args.agent = None; args.model = None; args.timeout = 0
+        sys.exit(run(args))
+
+
+if __name__ == "__main__":
+    main()

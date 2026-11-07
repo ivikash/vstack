@@ -1,0 +1,50 @@
+{
+  "nodes": [
+    {"id": "src.status-doc", "type": "S", "component": "program", "label": "program status document"},
+    {"id": "src.tasks", "type": "S", "component": "program", "label": "task tracker"},
+    {"id": "src.mail", "type": "S", "component": "program", "label": "meeting summary mail"},
+    {"id": "src.chat", "type": "S", "component": "program", "label": "team chat"},
+    {"id": "cache.program", "type": "C", "component": "program", "label": "program evidence cache"},
+    {"id": "w.exec-update", "type": "W", "component": "program", "label": "write-exec-update"},
+    {"id": "g.validate", "type": "G", "component": "program", "label": "validate-writing"},
+    {"id": "d.leadership-draft", "type": "D", "component": "program", "label": "draft in leadership channel"},
+    {"id": "l.program", "type": "L", "component": "program", "label": "program-update.jsonl"},
+    {"id": "b.program", "type": "B", "component": "program", "label": "Program bot", "cells": ["program-update"]},
+
+    {"id": "src.one-on-one-docs", "type": "S", "component": "hr", "label": "1:1 notes"},
+    {"id": "cache.people", "type": "C", "component": "hr", "label": "per-person evidence cache"},
+    {"id": "w.talent-card", "type": "W", "component": "hr", "label": "write-talent-card"},
+    {"id": "g.validate-hr", "type": "G", "component": "hr", "label": "validate-writing"},
+    {"id": "d.card-draft", "type": "D", "component": "hr", "label": "card draft in private folder"},
+    {"id": "l.people", "type": "L", "component": "hr", "label": "people.jsonl (dates and commitments only)"},
+    {"id": "b.people", "type": "B", "component": "hr", "label": "People bot (private workspace)", "cells": ["one-on-one-prep", "talent-card"]},
+
+    {"id": "w.digest", "type": "W", "component": "hub", "label": "write-exec-update (daily digest)"},
+    {"id": "g.validate-hub", "type": "G", "component": "hub", "label": "validate-writing"},
+    {"id": "d.owner-channel", "type": "D", "component": "hub", "label": "owner's channel"},
+    {"id": "l.hub", "type": "L", "component": "hub", "label": "digest.jsonl"},
+    {"id": "b.chief-of-staff", "type": "B", "component": "hub", "label": "Chief of Staff bot", "cells": ["daily-digest"]}
+  ],
+  "edges": [
+    {"from": "src.status-doc", "to": "cache.program", "type": "reads"},
+    {"from": "src.tasks", "to": "cache.program", "type": "reads"},
+    {"from": "src.mail", "to": "cache.program", "type": "reads"},
+    {"from": "src.chat", "to": "cache.program", "type": "reads"},
+    {"from": "cache.program", "to": "w.exec-update", "type": "writes"},
+    {"from": "w.exec-update", "to": "g.validate", "type": "gates"},
+    {"from": "g.validate", "to": "d.leadership-draft", "type": "lands"},
+    {"from": "d.leadership-draft", "to": "l.program", "type": "records"},
+
+    {"from": "src.one-on-one-docs", "to": "cache.people", "type": "reads"},
+    {"from": "cache.people", "to": "w.talent-card", "type": "writes"},
+    {"from": "w.talent-card", "to": "g.validate-hr", "type": "gates"},
+    {"from": "g.validate-hr", "to": "d.card-draft", "type": "lands"},
+    {"from": "d.card-draft", "to": "l.people", "type": "records"},
+
+    {"from": "l.program", "to": "w.digest", "type": "writes"},
+    {"from": "l.people", "to": "w.digest", "type": "writes"},
+    {"from": "w.digest", "to": "g.validate-hub", "type": "gates"},
+    {"from": "g.validate-hub", "to": "d.owner-channel", "type": "lands"},
+    {"from": "d.owner-channel", "to": "l.hub", "type": "records"}
+  ]
+}
