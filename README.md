@@ -87,7 +87,7 @@ appends one line to `~/.local/state/kernel/ledger/runs.jsonl`.
 |---|---|---|
 | Claude Code | `claude -p --permission-mode acceptEdits --allowedTools Read Write ...` | OS cron (`kernel gen-cron --harness claude`) |
 | Codex | `codex exec -C <run dir> -s workspace-write` | OS cron |
-| Kiro CLI | `kiro-cli chat --no-interactive --trust-tools=fs_read,fs_write,execute_bash` | OS cron |
+| Kiro CLI | `kiro-cli chat --no-interactive --trust-all-tools` (scope reach with `--agent`) | OS cron |
 | Kiro Crew | `kirocrew cron add ... --at "in 1 minute" --agent <bot>` (runs on the Bot's memory and workspace) | native cron bound to a Bot (`kernel gen-cron --harness kirocrew`) |
 
 Skills are read from `~/.agents/skills` by default (what `npx skills add` writes). Run

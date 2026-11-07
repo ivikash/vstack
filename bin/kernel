@@ -354,12 +354,18 @@ def harness_cmd(harness, prompt_file, run_dir, agent=None, model=None):
             cmd += ["-m", model]
         return cmd, open(prompt_file).read()
     if harness == "kiro":
-        cmd = ["kiro-cli", "chat", "--no-interactive", "--trust-tools=fs_read,fs_write,execute_bash"]
+        # kiro-cli 3.x denies any tool not named in --trust-tools and the internal names differ by
+        # version (fs_read vs read, fs_append, list_directory). A cell runs against local files and
+        # the agent's own MCP config, so trusting all tools is the predictable choice; scope what the
+        # agent CAN reach through --agent instead.
+        cmd = ["kiro-cli", "chat", "--no-interactive", "--trust-all-tools"]
         if agent:
             cmd += ["--agent", agent]
         return cmd + [open(prompt_file).read()], None
     if harness == "kirocrew":
-        # Native path: a one-shot scheduled job bound to a Bot (its memory, its workspace).
+        # Native path: a one-shot scheduled job, optionally bound to a Bot (its memory, its
+        # workspace). From inside a Kiro Crew session use the cron_add MCP tool with the rendered
+        # prompt instead; from a shell the CLI form below does the same.
         name = f"kernel {run_dir.name}"
         cmd = ["kirocrew", "cron", "add", name, open(prompt_file).read(), "--at", "in 1 minute", "--approval-mode", "auto"]
         if agent:
