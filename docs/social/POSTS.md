@@ -4,6 +4,7 @@ Images (public once this branch is pushed to GitHub):
 
 - Poster 1, The Seven-Stage Cell: https://raw.githubusercontent.com/ivikash/manager-ops-kernel/main/docs/social/seven-stage-cell.png
 - Poster 3, The Manager Metro Map: https://raw.githubusercontent.com/ivikash/manager-ops-kernel/main/docs/social/manager-metro-map.png
+- Poster 4, The Kernel Clock (dark): https://raw.githubusercontent.com/ivikash/manager-ops-kernel/main/docs/social/kernel-clock.png
 - Poster 2, One Graph, Four Harnesses: https://raw.githubusercontent.com/ivikash/manager-ops-kernel/main/docs/social/one-graph-four-harnesses.png
 
 Bold text below uses Unicode Mathematical Sans-Serif Bold, which renders on X and LinkedIn without markdown.
@@ -67,5 +68,17 @@ Lines are bots. Stations are cells. Every line ends at one interchange, the ledg
 The People line runs on its own memory. The only way out is the ledger, and no rating rides on it.
 
 Add a station: one cell.json. The map is checked, not drawn.
+
+github.com/ivikash/manager-ops-kernel
+
+## X / Twitter, post 4 (with poster 4) · 293 chars
+
+𝗧𝗵𝗲 𝗞𝗲𝗿𝗻𝗲𝗹 𝗖𝗹𝗼𝗰𝗸
+
+Clocks for the cadence work, events for the rest.
+
+By 07:00 you hold one digest, a row of drafts waiting for one click, and a ledger line per run.
+
+Diff before write. Gate before land. Private stays private. Record or it did not happen.
 
 github.com/ivikash/manager-ops-kernel
