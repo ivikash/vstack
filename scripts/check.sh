@@ -3,10 +3,10 @@
 #
 #   identity    every commit author uses the public (non-company) e-mail, and so does git config
 #   no-org      no company-specific term, internal host, ticket id, chat id, account id or e-mail domain
-#   schemas     every JSON file parses; the template instance passes `vstack check`
+#   schemas     every JSON file parses; the example instance passes `vstack check`
 #   frontmatter every SKILL.md has name + description
 #   loop        every writer skill carries the validation loop (gate, min 2, max 5, reads house-rules)
-#   profile     every org-profile key a skill references is defined in leadership-writing/org-profile.md
+#   glossary    every glossary key a skill references is defined in leadership-writing/glossary.md
 #   triggers    every skill description wins its own prompts and loses the others (evals/triggers.json)
 #   rules       every row in docs/RULES.md names an enforcer that exists
 #   instance    the instance pointed at by VSTACK_INSTANCE (if set) is NOT inside this repo and is
@@ -30,7 +30,7 @@ cur=$(git config user.email || true)
 # Add a term here the moment it appears in a private file; never the other way round.
 DENY='amazon|quip|slackbot|midway|mwinit|phonetool|kingpin|chorus\.aws|pippin|taskei|krakenmare|cloudwatch|code\.amazon|w\.amazon|\.corp\.|@amazon\.com|isengard|brazil-build|gitfarm|git\.amazon|\bHV[123]\b|\bOV\b|Leadership Principle(s)? (demonstrated|language)|\bLP-anchored|\bSTO\b|\bL[4-8]\b(?!\s*(·|-|RUNNERS|harness|skills|kernel|instance|state|\d))|\bC0[0-9A-Z]{8,10}\b|\b[A-Z]{1,3}-?[0-9]{6,}\b|\b[0-9]{12}\b|\bP[0-9]{8,}\b|\bV[0-9]{8,}\b'
 hits=$(grep -rniIP "$DENY" --exclude-dir=.git --exclude-dir=scripts --exclude-dir=evals . \
-  | grep -v 'org-profile.md:.*for example `Leadership Principles`' \
+  | grep -v 'glossary.md:.*for example `Leadership Principles`' \
   | grep -vP 'docs/social/.*\.py:.*(<path|markerWidth)' || true)
 if [ -n "$hits" ]; then say no-org "FAIL:"; echo "$hits" | cut -c1-160; fail=1; else say no-org "ok (no company-specific terms or ids)"; fi
 
@@ -38,8 +38,8 @@ if [ -n "$hits" ]; then say no-org "FAIL:"; echo "$hits" | cut -c1-160; fail=1; 
 for f in $(git ls-files '*.json'); do
   python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$f" || { say schemas "FAIL: $f"; fail=1; }
 done
-python3 bin/vstack check --instance example-instance >/dev/null \
-  || { say schemas "FAIL: template instance breaks the invariants"; fail=1; }
+python3 bin/vstack check --instance example >/dev/null \
+  || { say schemas "FAIL: example instance breaks the invariants"; fail=1; }
 [ $fail -eq 0 ] && say schemas "ok"
 
 # frontmatter (Agent Skills spec, agentskills.io/specification) --------------------------------
@@ -66,13 +66,13 @@ for s in write-talent-card write-work-summary write-promo-doc write-exec-update 
 done
 [ $fail -eq 0 ] && say loop "ok (6 writer skills: gate, min 2, max 5, house-rules)"
 
-# profile --------------------------------------------------------------------------------------
+# glossary -------------------------------------------------------------------------------------
 keys=$(grep -rhoE '`(principles|rating|levels|roles)\.[a-z_0-9]+`' skills --include=*.md | tr -d '`' | sort -u)
 for k in $keys; do
   leaf=${k#*.}
-  grep -q "^- \*\*${leaf}\*\*" skills/leadership-writing/org-profile.md || { say profile "FAIL: $k not defined in org-profile.md"; fail=1; }
+  grep -q "^- \*\*${leaf}\*\*" skills/leadership-writing/glossary.md || { say glossary "FAIL: $k not defined in glossary.md"; fail=1; }
 done
-[ $fail -eq 0 ] && say profile "ok ($(echo "$keys" | wc -l | tr -d ' ') profile keys all defined)"
+[ $fail -eq 0 ] && say glossary "ok ($(echo "$keys" | wc -l | tr -d ' ') glossary keys all defined)"
 
 # triggers -------------------------------------------------------------------------------------
 if out=$(python3 scripts/trigger-eval.py 2>&1); then say triggers "ok ($(echo "$out" | tail -1 | sed 's/trigger eval: //'))"; else say triggers "FAIL:"; echo "$out" | head -8; fail=1; fi

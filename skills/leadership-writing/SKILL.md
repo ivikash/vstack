@@ -1,6 +1,6 @@
 ---
 name: leadership-writing
-description: Shared house rules, org-profile defaults and the rationalizations table that every leadership-writing skill reads (talent card, work summary, promo doc, executive update, rewrite, validate). Use when a writing or validating skill tells you to read house-rules.md, org-profile.md or rationalizations.md from here. Not invoked on its own.
+description: Shared house rules, glossary defaults and the rationalizations table that every leadership-writing skill reads (talent card, work summary, promo doc, executive update, rewrite, validate). Use when a writing or validating skill tells you to read house-rules.md, glossary.md or rationalizations.md from here. Not invoked on its own.
 ---
 
 # Leadership Writing (shared foundation)
@@ -13,7 +13,7 @@ Every writing skill (talent card, work summary, promo doc, executive update, and
 skills) and the validator read that file and apply it. Edit a voice rule there; do not restate
 it inside a skill.
 
-Organisation-specific words live in [org-profile.md](org-profile.md): what the organisation calls
+Organisation-specific words live in [glossary.md](glossary.md): what the organisation calls
 its principles, how ratings and levels are labelled, what the direction-setting technical role is
 called. The skills reference these as `principles.name`, `rating.top`, `levels.mid` and so on,
 and substitute the profile's values. The shipped file holds neutral defaults so the skills work

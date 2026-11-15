@@ -24,7 +24,7 @@ Severity key: **blocker** = unfit to share, **major** = weakens the doc, **minor
 - **rating-placement** (doc-type specific):
   - talent-card: the rating lives in the Background Rating / Rating History tables,
     exactly as supplied by the caller. Do NOT invent or alter rating numbers. The Rating
-    Rationale (section 2) argues the case in the language of the org profile's principles and need not
+    Rationale (section 2) argues the case in the language of the glossary's principles and need not
     restate the rating letters, but stating them is not a violation for a talent card.
   - work-summary and promo-doc: no performance rating or tier is printed, named, or
     paraphrased. Fail on a header rating field, a "Rating" section, a tier name, or a
@@ -92,7 +92,7 @@ rules that are NOT generic voice:
 - **sbi-structure**: Each evidence example should map to Situation -> Behavior -> Impact, with
   Behavior (what THIS person specifically did) as the bulk and Situation kept short. Flag
   examples that are all context and no distinct individual behavior.
-- **principle-citation** (promo-doc): follow `principles.cite_per_statement` in the org profile.
+- **principle-citation** (promo-doc): follow `principles.cite_per_statement` in the glossary.
   `false` (default): one roll-up line `<principles.name> demonstrated: X, Y, Z` closes each
   capability section and no per-statement tags appear. `true`: one principle in bold brackets at
   the end of the statement it supports, e.g. `[**principles.example_1**]`, never stacked, never
@@ -104,7 +104,7 @@ rules that are NOT generic voice:
 - **section-length**: No single section is a wall of text. Talent card stays scannable;
   work-summary fields are tight; promo-doc paragraphs are focused, not padded. Rough promo-doc
   guidance (advisory, by target level): Scope of Role <= 500 words; Introduction 100-200;
-  each evidence example 250-1000; 3-5 examples for a `levels.mid` case, 4-6 for `levels.senior` and above (org profile).
+  each evidence example 250-1000; 3-5 examples for a `levels.mid` case, 4-6 for `levels.senior` and above (glossary).
 - **specific-over-generic**: Prefer concrete specifics over generic praise
   ("strong engineer", "great team player") that could apply to anyone.
 

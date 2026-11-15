@@ -27,7 +27,7 @@ by how polished it looks; judge only against the evidence and the checklist.
   for the coverage map in `evaluate` mode; if absent, skip the coverage map and say so.
 
 Always read [checklist.md](checklist.md), [leadership-writing/house-rules.md](../leadership-writing/house-rules.md)
-and the org profile ([leadership-writing/org-profile.md](../leadership-writing/org-profile.md), or the caller's override)
+and the glossary ([leadership-writing/glossary.md](../leadership-writing/glossary.md), or the caller's override)
 first. The checklist holds the type-specific rules; house-rules.md holds the shared voice rules the
 checklist refers to. Together they are the source of truth. Apply every rule relevant to the
 document type.

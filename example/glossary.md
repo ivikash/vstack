@@ -1,7 +1,7 @@
-# Organisation profile (instance override)
+# Glossary (instance override)
 
 Only the keys you change. Anything missing falls back to the neutral defaults in
-`skills/leadership-writing/org-profile.md`. The writers substitute these values verbatim.
+`skills/leadership-writing/glossary.md`. The writers substitute these values verbatim.
 
 ## principles
 

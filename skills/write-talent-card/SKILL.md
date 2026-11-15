@@ -39,13 +39,13 @@ source of truth for the voice; this skill applies it, it does not restate it. Sc
 em-dashes and hedging words before returning.
 
 Organisation-specific words (what principles are called, rating labels, level names) come from
-[leadership-writing/org-profile.md](../leadership-writing/org-profile.md). Read it, or the caller's override, before writing.
+[leadership-writing/glossary.md](../leadership-writing/glossary.md). Read it, or the caller's override, before writing.
 
 The rules below are talent-card-specific and are NOT covered by house-rules; follow them too:
 
 - THE RATING IS SHOWN, in the Background table (section 1), exactly as supplied. Do
   not invent or change rating numbers. Section 2 argues the case behind the rating in
-  the language of the organisation's principles (`principles.name` in the org profile);
+  the language of the organisation's principles (`principles.name` in the glossary);
   it does not need to restate the rating letters. Do NOT recite the `rating.history_label`
   table in section 2 prose ("held `rating.top` in 2022 Q3 and 2023 Q1 ..."). That table is
   section 1's job; repeating it reads as padding.
@@ -82,10 +82,10 @@ shapes, and getting the shape right is as important as the content:
 - **Section 2, Rating Rationale / Key Talking Points = PROSE, EXACTLY FOUR paragraphs,
   in this fixed order** (no orienting preamble sentence, no fifth paragraph):
   1. **Major delivery** - the flagship delivery work this cycle (role, scope, realized
-     impact), anchored to one principle from the org profile in bold.
+     impact), anchored to one principle from the glossary in bold.
   2. **Operational excellence contribution** - OE/COE, on-call, alarms, deprecations,
      tooling/automation, reliability/security hardening, quantified where possible,
-     anchored to one principle from the org profile in bold.
+     anchored to one principle from the glossary in bold.
   3. **Growth Areas** - the paragraph begins with `**Growth Areas:**`; honest, concrete,
      principle-anchored, grounded in the work. Name each gap with ONE concrete example, not an
      exhaustive audit. This is a manager's calibration note, not a code review: do not
@@ -136,4 +136,4 @@ Stop and re-read the rule when you see yourself producing any of these, on top o
 
 - a rating letter or word in section 2 prose
 - a growth area with no example of the behaviour behind it
-- a principle cited that is not in the org profile list
+- a principle cited that is not in the glossary list

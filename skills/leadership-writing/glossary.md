@@ -1,9 +1,9 @@
-# Organisation profile (defaults)
+# Glossary (neutral defaults)
 
 The writing skills and the validator read this file for every organisation-specific word:
 what your company calls its values or principles, how it labels performance ratings, and how
 it names levels. The skills themselves never hard-code these. A caller overrides any value by
-supplying an org profile with the request (a pasted block, or a path to a file with the same
+supplying an glossary with the request (a pasted block, or a path to a file with the same
 headings). When no override is supplied, the defaults below apply and the output reads in
 neutral language that fits any company.
 

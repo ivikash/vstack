@@ -5,7 +5,7 @@
 A weekly leadership update, a daily program status, a talent card, a work summary, a promotion
 document: each is the same job. Gather evidence from the systems that hold it, write in a fixed
 voice, check the draft against a checklist, put it where a human presses send, record what
-happened. vstack turns that job into a file (a **cell**), runs it on the coding agent you already
+happened. vstack turns that job into a file (a **workflow**), runs it on the coding agent you already
 have (Claude Code, Codex, Kiro CLI or Kiro Crew), and refuses to call it done until the artifacts
 prove it.
 
@@ -16,7 +16,7 @@ vstack reads it at run time and never contains it, and a check fails if the line
 - [What you get](#what-you-get)
 - [How a run works](#how-a-run-works)
 - [Install in ten minutes](#install-in-ten-minutes)
-- [Write your first cell](#write-your-first-cell)
+- [Write your first workflow](#write-your-first-workflow)
 - [Run it, by hand and on a schedule](#run-it-by-hand-and-on-a-schedule)
 - [What a finished run looks like](#what-a-finished-run-looks-like)
 - [The skills](#the-skills)
@@ -30,38 +30,46 @@ vstack reads it at run time and never contains it, and a check fails if the line
 
 | Word | Means |
 |---|---|
-| **cell** | one recurring job as one JSON file: trigger, sources, writer, gate, sink, ledger. `cells/weekly-update.json` is a cell. Everything vstack does, it does to a cell |
-| **instance** | the private folder (and repository) that holds your company's words: which tools, which documents, which channels, which people. vstack reads it, never contains it |
-| **role** | a capability name a cell asks for (`chat.search`, `docs.read`). The instance's `tools.json` maps each role to a real MCP server and tool, so cells never name tools |
+| **workflow** | one recurring document as one JSON file: trigger, sources, writer, gate, sink, ledger. `workflows/weekly-update.json` is a workflow. Everything vstack does, it does to a workflow |
+| **instance** | the private folder (and repository) that holds your company's facts: which tools, which documents, which channels, which people. vstack reads it, never contains it |
+| **connector** | a capability name a workflow asks for (`chat.search`, `docs.read`). The instance's `connectors.json` binds each connector to a real MCP server and tool, so workflows never name tools |
 | **harness** | the coding agent that runs the prompt: Claude Code, Codex, Kiro CLI or Kiro Crew |
-| **run** | one execution of one cell: a directory of artifacts under `~/.local/state/vstack/runs/` and one ledger line |
+| **run** | one execution of one workflow: a directory of artifacts under `~/.local/state/vstack/runs/` and one ledger line |
 
-`example-instance/` is a complete instance for a fictional company. Copy it to start yours; the
-checks also use it as the proof that the invariants hold on a real layout.
+Three more words appear once you are inside: a **glossary** is your company's vocabulary the writers
+substitute, **context** is the standing inputs a workflow reads every time (template contracts,
+rules, rubrics), and a **brief** is the three lines you read instead of the draft.
+
+`example/` is a complete instance for a made-up company. Copy it to start yours; the checks also
+use it as the proof that the invariants hold on a real layout.
+
+Everything in vstack is one of three kinds of thing, and the sections below follow that order:
+**Define** (what should happen every time, in the instance), **Run** (what happened this time, on
+disk), **Check** (what refuses a bad definition or a bad run, in the engine).
 
 ## What you get
 
 | Piece | What it does | Where |
 |---|---|---|
-| **engine** | one Python file, no dependencies. Renders a cell into a prompt, runs it on a harness, verifies the run directory, keeps a ledger, prints schedules | `bin/vstack` |
+| **engine** | one Python file, no dependencies. Renders a workflow into a prompt, runs it on a harness, verifies the run directory, keeps a ledger, prints schedules and agent templates | `bin/vstack` |
 | **skills** | the writers (executive update, talent card, work summary, promotion doc), the critic (`validate-writing`), the rewriters, and two plumbing skills. Plain markdown in the open [Agent Skills](https://agentskills.io/specification) format | `skills/` |
 | **harness adapters** | how each of the four agents is invoked non-interactively and where it reads skills from | `harness/README.md`, `harness_cmd` in the engine |
-| **example instance** | a complete instance for a fictional company: tool map, org profile, graph, one cell, one fixture. Copy it to start yours | `example-instance/` |
-| **evals and checks** | a nine-group check script, a routing eval for the skills, synthetic fixtures with expected outcomes | `scripts/`, `evals/` |
+| **example instance** | a complete instance for a made-up company: connectors, glossary, one workflow with its sample evidence. Copy it to start yours | `example/` |
+| **evals and checks** | a nine-group check script, a routing eval for the skills, sample evidence with expected outcomes | `scripts/`, `evals/` |
 
 ## How a run works
 
 ```
    your private instance                 vstack (this repository)               your harness
    ─────────────────────                 ────────────────────────               ────────────
-   cells/weekly-update.json ─┐
-   tools.json                ├─▶ vstack run <cell> --harness claude ─▶  one prompt, absolute paths
-   org-profile.md            │       │                                   │
-   fixtures/ (for dry runs) ─┘       │ pre-flight: invariants,            ▼
+   workflows/weekly-update.json ─┐
+   connectors.json               ├─▶ vstack run <workflow> --harness claude ─▶ one prompt, absolute paths
+   glossary.md                   │       │                                      │
+   context/, *.sample.json      ─┘       │ pre-flight: invariants,               ▼
                                      │ skill copies match the lock    claude -p / codex exec /
                                      │                                kiro-cli chat / kirocrew cron
                                      ▼                                   │
-                        ~/.local/state/vstack/runs/<cell>/<harness>-<id>/│
+                        ~/.local/state/vstack/runs/<workflow>/<harness>-<id>/│
                            evidence.json  diff.md  draft.md  gate.md  brief.md  result.json
                                      │                                   │
                                      │ contract check: are the files there and well-formed?
@@ -72,11 +80,11 @@ checks also use it as the proof that the invariants hold on a real layout.
                         a DRAFT in a compose box or a [Draft] document. A human presses send.
 ```
 
-The prompt the harness runs has eight stages. Every cell, at every scale, is this loop:
+The prompt the harness runs has eight stages. Every workflow is this loop:
 
 | Stage | What happens | Leaves behind |
 |---|---|---|
-| 1 gather | call the tools the cell's **roles** map to, cache-first. Read-only | `evidence.json` with a `sources` list and a content hash |
+| 1 gather | call the tools the workflow's **connectors** bind to, cache-first. Read-only | `evidence.json` with a `sources` list and a content hash |
 | 2 diff | compare with the previous run's evidence | `diff.md` |
 | 3 write | the writer skill turns evidence into a draft in the house voice. The first line says which sources were used and which were unavailable | `draft.md` |
 | 4 gate | `validate-writing` scores the draft, the writer fixes every quoted failure, at least 2 and at most 5 passes | `gate.md`, first line `passes: N` |
@@ -89,7 +97,9 @@ Two optional extras: `--second-opinion <harness>` runs an independent critic on 
 records its quoted findings (never edits, never blocks), and `vstack retro` reads the ledger back
 weekly and lists what keeps going wrong.
 
-## Install in ten minutes
+## Define: install and write your first workflow
+
+### Install in ten minutes
 
 You need Python 3.9 or newer, git, and at least one of: Claude Code, Codex CLI, Kiro CLI, Kiro Crew.
 
@@ -113,7 +123,7 @@ Pass only the target directories for the harnesses you have.
 e-mail, hosted only on your company's git server.
 
 ```bash
-cp -r ~/github/vstack/example-instance ~/work/my-instance
+cp -r ~/github/vstack/example ~/work/my-instance
 cd ~/work/my-instance && git init && git config user.email you@your-company.example
 export VSTACK_INSTANCE=~/work/my-instance        # or pass --instance DIR on every command
 ```
@@ -122,45 +132,46 @@ Then edit, in this order:
 
 | File | Change |
 |---|---|
-| `tools.json` | point each **role** (`docs.read`, `chat.search`, `chat.draft`, ...) at the MCP server and tool your harness has. This is the only file that names real tools |
+| `connectors.json` | bind each **connector** (`docs.read`, `chat.search`, `chat.draft`, ...) to the MCP server and tool your harness has. This is the only file that names real tools |
 | `mcp-servers.json` | the servers those tools come from. `vstack gen-mcp --servers mcp-servers.json --target claude` prints the block for each harness's config |
-| `org-profile.md` | your company's words: what principles are called, the rating scale, level names. Only the keys you change |
-| `cells/program-update.json` | rename, set the `config` values (document id, channel, project), keep the roles |
-| `fixtures/program-update.json` | synthetic evidence for dry runs. Real section names, invented values |
-| `graph.json` | your bots and cells as typed nodes, so the invariants are checked over the whole estate |
+| `glossary.md` | your company's words: what principles are called, the rating scale, level names. Only the keys you change |
+| `workflows/program-update.json` | rename, set the `config` values (document id, channel, project), keep the connectors |
+| `workflows/program-update.sample.json` | made-up evidence for dry runs. Real section names, invented values |
 
-**3. Prove the estate is sound.** No model call, under a second.
+**3. Prove the definition is sound.** No model call, under a second.
 
 ```bash
-$V check                      # invariants over graph.json and cells/
+$V check                      # invariants over workflows/
+$V map                        # the estate derived from them: sources, writers, gates, sinks, ledgers, bots
 cd ~/github/vstack && scripts/check.sh    # the public repo's own checks, including that your instance is private
 ```
 
-**4. Dry run.** Fixture in, files out, nothing published, on whichever harness you have.
+**4. Dry run.** Sample evidence in, files out, nothing published, on whichever harness you have.
 
 ```bash
-$V run ~/work/my-instance/cells/program-update.json --harness claude --dry-run
+$V run ~/work/my-instance/workflows/program-update.json --harness claude --dry-run
 #                                                    --harness codex | kiro | kirocrew
 ```
 
 The command prints `meta.json` when the harness returns. Look for `"status": "ok"` or
 `"known_gaps"` and `"contract": {"met": true}`. The run directory it names holds every artifact.
 
-## Write your first cell
+### Write your first workflow
 
-A cell is one JSON file. This is the example instance's cell with a comment on each field:
+A workflow is one JSON file. This is the example instance's workflow with a comment on each field:
 
 ```jsonc
 {
   "id": "program-update",                 // lowercase-hyphen; names the run dir and ledger
   "kind": "writer",                       // writer | consumer | collector
-  "component": "program",                 // graph partition; "hr" is the private one by default
+  "component": "program",                 // partition; "hr" is the private one by default
   "trigger": {"cron": "29 8 * * 1-5", "timezone": "UTC", "events": []},
-  "sources": [                            // roles, never tool names; resolved through tools.json
-    {"role": "docs.read",   "ref": "${config.statusDocId}", "notes": "latest dated entries"},
-    {"role": "tasks.list",  "ref": "${config.taskProject}", "notes": "owner, due, status, last comment"},
-    {"role": "mail.search", "ref": "${config.meetingSummaryQuery}", "notes": "last ${config.lookbackDays} days"},
-    {"role": "chat.search", "ref": "${config.discussChannel}", "notes": "status and blockers"}
+  "bot": "ProgramStatus",                 // the Kiro Crew bot that hosts it (bound on the Schedule page)
+  "sources": [                            // connectors, never tool names; bound through connectors.json
+    {"connector": "docs.read",   "ref": "${config.statusDocId}", "notes": "latest dated entries"},
+    {"connector": "tasks.list",  "ref": "${config.taskProject}", "notes": "owner, due, status, last comment"},
+    {"connector": "mail.search", "ref": "${config.meetingSummaryQuery}", "notes": "last ${config.lookbackDays} days"},
+    {"connector": "chat.search", "ref": "${config.discussChannel}", "notes": "status and blockers"}
   ],
   "coverage": {"min_sources": 3},         // check fails a writer that reads fewer sources
   "cache": {"key": "program/${config.program}", "ttl_hours": 20},
@@ -168,10 +179,10 @@ A cell is one JSON file. This is the example instance's cell with a comment on e
   "gate": {"skill": "validate-writing", "doc_type": "exec-update",
            "min_passes": 2, "max_passes": 5, "coverage_bar": 85,
            "second_opinion": "codex"},    // optional independent critic
-  "sink": {"role": "chat.draft", "ref": "${config.postChannel}", "dry_run_path": "update.md"},
+  "sink": {"connector": "chat.draft", "ref": "${config.postChannel}", "dry_run_path": "update.md"},
   "ledger": {"file": "program-update.jsonl",
              "fields": ["program", "overall_status", "red_sections", "green_by_dates", "open_action_items", "posted_to"]},
-  "fixture": "../fixtures/program-update.json",
+                                          // sample evidence: program-update.sample.json beside this file, by default
   "config": {"program": "Project Lantern", "statusDocId": "doc-0000", "taskProject": "project-0000",
              "meetingSummaryQuery": "\"Meeting summary\" Lantern", "discussChannel": "#lantern",
              "postChannel": "#lantern-leadership", "lookbackDays": 14}
@@ -180,52 +191,55 @@ A cell is one JSON file. This is the example instance's cell with a comment on e
 
 Rules of thumb:
 
-- **Roles, not tools.** `chat.search` in the cell, `slack-mcp / search` in `tools.json`. Change
-  the tool once, every cell follows.
-- **`${config.x}`** is substituted anywhere in the cell, so ids and channels live in one block.
-- **Three sources or more.** One source is a copy. Add a corroboration role when your chat tool has
-  an assistant you can ask, and put it in `coverage.require_roles` so the check insists on it.
-- **The sink is always a draft.** `chat.draft`, `docs.write` to a `[Draft]`, `mail.draft`. A role
+- **Connectors, not tools.** `chat.search` in the workflow, `slack-mcp / search` in `connectors.json`.
+  Change the tool once, every workflow follows.
+- **`${config.x}`** is substituted anywhere in the workflow, so ids and channels live in one block.
+- **Three sources or more.** One source is a copy. Add a corroboration connector when your chat tool
+  has an assistant you can ask, and put it in `coverage.require_connectors` so the check insists on it.
+- **The sink is always a draft.** `chat.draft`, `docs.write` to a `[Draft]`, `mail.draft`. A connector
   that sends is a bug.
-- **A private cell** (`component: "hr"`) must name a `workspace`, and its ledger fields may not
+- **A private workflow** (`component: "hr"`) must name a `workspace`, and its ledger fields may not
   carry ratings, candidates or feedback text. `vstack check` refuses otherwise.
 
-Full field reference: `schema/cell.schema.json`. Validate with `$V check`.
+Full field reference: `schema/workflow.schema.json`. Validate with `$V check`.
 
-## Run it, by hand and on a schedule
+## Run: by hand and on a schedule
 
 ```bash
 # by hand, live: gathers from real sources, lands a draft, you press send
-$V run <cell> --harness claude
+$V run <workflow> --harness claude
 
 # live gather and gate, but the draft stays a file (for a first look at real evidence)
-$V run <cell> --harness claude --no-publish
+$V run <workflow> --harness claude --no-publish
 
 # with an independent critic on another agent; findings land in meta.json
-$V run <cell> --harness claude --second-opinion codex
+$V run <workflow> --harness claude --second-opinion codex
 
 # see the prompt a harness would get, without running anything
-$V render <cell> --harness kiro
+$V render <workflow> --harness kiro
 
-# standing schedule: one line per cell with a trigger
-$V gen-cron --cells ~/work/my-instance/cells --harness claude     # crontab lines
-$V gen-cron --cells ~/work/my-instance/cells --harness kirocrew   # kirocrew cron add commands
+# standing schedule: one line per workflow with a trigger
+$V gen-cron --harness claude     # crontab lines (workflows from $VSTACK_INSTANCE)
+$V gen-cron --harness kirocrew   # kirocrew cron add commands, with the bot to bind each to
+
+# a Kiro CLI agent template whose tool surface is exactly connectors.json
+$V gen-agent --harness kiro > ~/.kiro/agents/vstack-runner.json
 
 # weekly: what happened, what keeps going wrong
 $V retro --days 7
 ```
 
 On a schedule, the cron line calls `vstack run` directly. For Kiro Crew, the job's message tells
-the agent to render the cell with its shell and follow the printed prompt, so every wake gets a
+the agent to render the workflow with its shell and follow the printed prompt, so every wake gets a
 fresh run directory and the agent's own MCP tools do the gathering.
 
-## What a finished run looks like
+### What a finished run looks like
 
 ```
 ~/.local/state/vstack/runs/program-update/claude-20261115-094200-c0b4fc/
   prompt.md         the exact prompt the harness received
   command.txt       the exact command
-  evidence.json     {"gathered_at", "sources": [{"role","status","items"}], "items": [...], "evidence_hash"}
+  evidence.json     {"gathered_at", "sources": [{"connector","status","items"}], "items": [...], "evidence_hash"}
   diff.md           what changed since the previous run
   draft.md          line 1 title, line 2 "Sources: used ...; unavailable ...", then the document
   gate.md           "passes: 2" then the last pass report, every rule with what it checked
@@ -243,7 +257,7 @@ fresh run directory and the agent's own MCP tools do the gathering.
 A brief from a real dry run, so you know the register:
 
 ```
-PRISM daily exec update (dry run, 11/07 fixture data): RED.
+PRISM daily exec update (dry run, 11/07 sample data): RED.
 Ingestion is RED with no recovery date because the sources give two Hub cut-over targets, 11/05 and 11/19, and the owner owes one date by 11/10 (fixture, test data).
 Draft at .../prism-update.md. Reader action: nothing (dry run, not posted).
 ```
@@ -263,14 +277,14 @@ never publish: they turn evidence into a document and nothing else.
 | `rewrite` | tighten supplied prose to the house rules, every fact and link preserved, nothing added | |
 | `rewrite-and-validate` | the same, then loop through the gate until it passes, at least two passes | |
 | `score-gate` | run any draft through the gate in a fixed loop and return the final draft plus a one-line result | |
-| `gather-evidence` | the gather stage: cache-first, by role, one `evidence.json`, never prose | |
-| `leadership-writing` | not invoked. Holds `house-rules.md` (the voice: 17 rules, 4 of them mechanical blockers), `org-profile.md` (neutral defaults) and `rationalizations.md` (12 excuses with their rebuttals, 7 red flags). Every writer and the critic read all three first | |
+| `gather-evidence` | the gather stage: cache-first, by connector, one `evidence.json`, never prose | |
+| `leadership-writing` | not invoked. Holds `house-rules.md` (the voice: 17 rules, 4 of them mechanical blockers), `glossary.md` (neutral defaults) and `rationalizations.md` (12 excuses with their rebuttals, 7 red flags). Every writer and the critic read all three first | |
 
 The voice in one paragraph: lead with the point and the fact behind it, active voice, no
 superlatives, no hedging, no em-dashes or semicolons, every claim tied to an artifact in the
 evidence, every missing fact labelled `(unverified)` or listed under Known Gaps, never invented.
 
-## The rules, and what enforces them
+## Check: the rules, and what enforces them
 
 A rule nothing enforces is a wish. [docs/RULES.md](docs/RULES.md) pairs every rule with its check.
 The checks, in the order they run:
@@ -282,21 +296,21 @@ The checks, in the order they run:
 | schemas | a JSON file does not parse, or the example instance breaks an invariant |
 | frontmatter | a skill's `name` is not its directory name in lowercase-hyphen, or a description is empty or over 1024 characters |
 | loop | a writer skill lacks the gate loop (min 2, max 5, reads house-rules) |
-| profile | a skill references an org-profile key that is not defined |
+| glossary | a skill references a glossary key that is not defined |
 | triggers | a skill's description does not win its own prompts in `evals/triggers.json` (36 cases, no model) |
 | rules | `docs/RULES.md` names a check or subcommand that does not exist |
 | instance | with `VSTACK_INSTANCE` set: the instance is inside this checkout, is a remote of it, or has a public remote |
 
 And `vstack check` over an instance:
 
-1. The graph is a DAG. The only shared mutable state is the append-only ledger.
-2. Writers and gates never fetch: a W or G node with an edge to a source fails.
-3. Every writer has exactly one gate before its sink, `min_passes` at least 2.
-4. Every sink records: a D node with no `records` edge, or a cell with no ledger fields, fails.
-5. The privacy cut: in the private component only a sink or a ledger may have an edge outward,
-   and ledger fields may not carry rating, candidate, promo, salary or feedback text.
-6. Every cell has a `dry_run_path`, so it can run with no side effects.
-7. A writer reads at least two sources, more when `coverage` says so.
+1. Writers and gates never fetch: a writer receives `evidence.json` and nothing else.
+2. Every writer has exactly one gate before its sink, `min_passes` at least 2.
+3. Every sink records: a workflow with no ledger fields fails.
+4. The privacy cut: a private workflow names a private workspace, and its ledger fields may not
+   carry rating, candidate, promo, salary or feedback text.
+5. Every workflow has a `dry_run_path`, so it can run with no side effects.
+6. A writer reads at least two sources, more when `coverage` says so.
+7. Every source is a connector name, never a tool name.
 
 And after every run, the **contract**: `evidence.json` with sources and hash, `diff.md`, `draft.md`
 with its `Sources:` line, `gate.md` with enough passes, a three-line `brief.md`, `result.json`.
@@ -305,31 +319,33 @@ with its `Sources:` line, `gate.md` with enough passes, a three-line `brief.md`,
 
 | Command | Does |
 |---|---|
-| `vstack render <cell> [--harness h]` | print the prompt, run nothing |
-| `vstack run <cell> --harness h [--dry-run] [--no-publish] [--second-opinion h2] [--agent a] [--model m]` | pre-flight, render, execute, contract check, ledger line |
-| `vstack check [--instance d]` | invariants over the graph and cells |
+| `vstack render <workflow> [--harness h]` | print the prompt, run nothing |
+| `vstack run <workflow> --harness h [--dry-run] [--no-publish] [--second-opinion h2] [--agent a] [--model m]` | pre-flight, render, execute, contract check, ledger line |
+| `vstack check [--instance d]` | invariants over the workflows |
+| `vstack map [--instance d] [--json]` | the estate derived from the workflows: sources, writers, gates, sinks, ledgers, bots |
 | `vstack check-run <run-dir>` | contract check on an existing run directory |
 | `vstack verify-skills --dirs ... --skills ...` | every named skill present and identical in every harness dir |
 | `vstack link-skills --canonical d --targets ... --skills ...` | symlink the canonical skills into each harness dir |
-| `vstack gen-cron --cells d --harness h` | crontab lines, or `kirocrew cron add` commands |
+| `vstack gen-cron --harness h [--instance d]` | crontab lines, or `kirocrew cron add` commands with the bot to bind to |
+| `vstack gen-agent --harness kiro [--instance d]` | a Kiro CLI agent template whose tool surface is exactly `connectors.json` |
 | `vstack gen-mcp --servers f --target h` | the MCP server block for one harness |
-| `vstack retro [--days n]` | per-cell runs, contract misses, gate passes, recurring Known Gaps |
+| `vstack retro [--days n]` | per-workflow runs, contract misses, gate passes, recurring Known Gaps |
 
-Every command accepts `--instance DIR` or reads `$VSTACK_INSTANCE` and fills `--tools`,
-`--org-profile`, `--graph` and `--cells` from it. State lives under `~/.local/state/vstack`.
+Every command accepts `--instance DIR` or reads `$VSTACK_INSTANCE` and fills `--connectors`,
+`--glossary` and `--workflows` from it. State lives under `~/.local/state/vstack`.
 
 ## Layout
 
 ```
 bin/vstack               the CLI, one file, standard library only
-schema/                  cell, graph, tools, ledger (JSON Schema)
+schema/                  workflow, connectors, ledger (JSON Schema)
 skills/                  one canonical copy of every skill
 harness/README.md        the four harnesses: exact command, skills dir, what a run leaves behind
-example-instance/       a complete instance for a fictional company: README, tools.json, org-profile.md, mcp-servers.json, graph.json, cells/, fixtures/, vstack.lock
-evals/                   triggers.json, fixtures/, results/
+example/                 a complete instance for a made-up company: README, connectors.json, glossary.md, mcp-servers.json, workflows/ with sample evidence, vstack.lock
+evals/                   triggers.json, fixtures/ (synthetic evidence packs the skill evals read), results/
 scripts/check.sh         the nine check groups
 scripts/trigger-eval.py  the routing eval
-docs/ARCHITECTURE.md     why two repos, the layers, the run, the graph, the scales
+docs/ARCHITECTURE.md     why two repos, the layers, the run, the derived map, the scales
 docs/RULES.md            every rule and its enforcer
 ```
 
@@ -338,18 +354,18 @@ docs/RULES.md            every rule and its enforcer
 | Symptom | Cause and fix |
 |---|---|
 | `pre-flight failed (skills)` | a harness dir has a stale copy or is missing a skill. `vstack link-skills ...` again, then `vstack verify-skills` |
-| `pre-flight failed (invariants)` | the cell or graph breaks a rule. `vstack check` prints each one |
+| `pre-flight failed (invariants)` | the workflow breaks a rule. `vstack check` prints each one |
 | `"status": "contract_unmet"` with `"claimed_status": "ok"` | the model said done but a file is missing or malformed. `meta.json` lists which; `vstack check-run <dir>` repeats it |
-| `warning: instance pins vstack X, this checkout is Y` | you updated vstack. Dry run every cell once, then write the new short SHA into the instance's `vstack.lock` |
-| draft says `Sources: ... unavailable chat.search` | the role is unmapped in `tools.json`, or the tool returned nothing. Fix the map or the `ref`, never the draft |
-| Kiro CLI denies a tool | kiro-cli 3.x denies any tool not named in `--trust-tools`; the harness adapter passes `--trust-all-tools` and scopes through `--agent` instead |
+| `warning: instance pins vstack X, this checkout is Y` | you updated vstack. Dry run every workflow once, then write the new short SHA into the instance's `vstack.lock` |
+| draft says `Sources: ... unavailable chat.search` | the connector is unbound in `connectors.json`, or the tool returned nothing. Fix the binding or the `ref`, never the draft |
+| Kiro CLI denies a tool | kiro-cli 3.x denies any tool not named in `--trust-tools`; run under the `vstack-runner` template from `vstack gen-agent`, or let the adapter pass `--trust-all-tools` |
 | a `kirocrew` run shows `"status": "scheduled"` | correct: the job runs asynchronously. Its run dir fills in when it finishes; `vstack check-run` on it then |
 | `check.sh no-org` fails on your own text | the word is on the denylist for a reason. Rephrase in the public repo; the term belongs in the instance |
 
 ## Design notes
 
-Why two repositories, what each layer owns, the graph node types, the privacy cut and the same
-cell at four scales: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Recorded test runs:
+Why two repositories, what each layer owns, the derived map, the privacy cut and the same
+workflow at four scales: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Recorded test runs:
 [evals/results/](evals/results/).
 
 ## License

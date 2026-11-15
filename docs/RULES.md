@@ -13,16 +13,16 @@ class at the highest level that works, architecture first, docs last.)
 | Skill frontmatter follows the Agent Skills spec (name = directory, lowercase-hyphen, max 64; description non-empty, max 1024) | `scripts/check.sh frontmatter` | check |
 | Every skill description carries a trigger phrase and wins its own prompts | `scripts/trigger-eval.py` (36 cases) via `check.sh triggers` | check |
 | Every writer runs the gate: minimum 2 passes, maximum 5, reads house-rules | `scripts/check.sh loop` | check |
-| Every org-profile key a skill references exists | `scripts/check.sh profile` | check |
-| Every JSON file parses and the template instance passes the invariants | `scripts/check.sh schemas` | check |
-| Writers and gates never fetch | `vstack check` invariant 2 (graph edges W/G to S) | engine |
-| Every writer has exactly one gate, `min_passes` at least 2 | `vstack check` invariant 3, `schema/cell.schema.json` | engine |
+| Every glossary key a skill references exists | `scripts/check.sh glossary` | check |
+| Every JSON file parses and the example instance passes the invariants | `scripts/check.sh schemas` | check |
+| Writers and gates never fetch | writers receive evidence.json only; `vstack check` invariant 2; the derived map (`vstack map`) has no W/G to S edge by construction | engine |
+| Every writer has exactly one gate, `min_passes` at least 2 | `vstack check` invariant 3, `schema/workflow.schema.json` | engine |
 | Every sink records; ledger fields never empty | `vstack check` invariant 4 | engine |
 | The private component records only dates, ids and counts | `vstack check` invariant 5 (field pattern) | engine |
-| Every cell can run with no side effects | `vstack check` requires `sink.dry_run_path` | engine |
-| A writer reads at least two sources, or the roles the cell requires | `vstack check` coverage (`coverage.min_sources`, `coverage.require_roles`) | engine |
+| Every workflow can run with no side effects | `vstack check` requires `sink.dry_run_path`; a `<workflow>.sample.json` beside it feeds `--dry-run` | engine |
+| A writer reads at least two sources, or the connectors the workflow requires | `vstack check` coverage (`coverage.min_sources`, `coverage.require_connectors`) | engine |
 | A run is done when its artifacts exist, not when the model says so | `verify_contract` in `vstack run`; status becomes `contract_unmet`; `vstack check-run <dir>` | engine |
-| Gather uses read-only tools; the only write outside the run dir is the sink | prompt stage 0 runner contract; Claude harness `--allowedTools` | prompt, harness |
+| Gather uses read-only tools; the only write outside the run dir is the sink | prompt stage 0 runner contract; Claude `--allowedTools`; Kiro `vstack-runner` agent from `vstack gen-agent` | prompt, harness |
 | The reader sees which sources were used and which were unavailable | `Sources:` header required by the contract; writer rule | contract |
 | The human reads a brief, not the draft | `brief.md` of exactly three lines required by the contract | contract |
 | A passed gate rule names what it checked | validate-writing `## Red flags`; stage 4 verification rule in the prompt | skill, prompt |

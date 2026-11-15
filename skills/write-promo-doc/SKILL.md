@@ -120,7 +120,7 @@ real feedback exists) a full Feedback section with each provider's own words.
 Use the **SBI method** for every evidence example: Situation (brief context and why it
 mattered), Behavior (what THIS person specifically did, the bulk of the example,
 distinguishing individual from team work), Impact (measurable outcome with real metrics).
-Principles are cited the way the org profile ([leadership-writing/org-profile.md](../leadership-writing/org-profile.md)) says: when `principles.cite_per_statement`
+Principles are cited the way the glossary ([leadership-writing/glossary.md](../leadership-writing/glossary.md)) says: when `principles.cite_per_statement`
 is `false` (the default), do not tag them per statement and close each capability-dimension
 section with a single consolidated line, `<principles.name> demonstrated: X, Y, Z`, covering
 every story told under that heading, after the last story (and its quote, if any). When it is

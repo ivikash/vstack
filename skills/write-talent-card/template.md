@@ -7,7 +7,7 @@ caller and left intact. Do NOT invent or restate the Background / rating tables;
 caller gives you the existing doc, keep its sections 1, 4, and 5 verbatim and fill in
 sections 2 and 3.
 
-The document title follows `levels.title_format` from the org profile (default `{LEVEL} - {NAME}`,
+The document title follows `levels.title_format` from the glossary (default `{LEVEL} - {NAME}`,
 for example `Senior Engineer - Jane Doe`).
 
 Section order (numbered headings, matching the house format):
@@ -20,7 +20,7 @@ numbers. The rating is shown here, in the table, exactly as the caller supplied 
 ## 2. Rating Rationale / Key Talking Points
 **Prose. EXACTLY FOUR paragraphs, in this fixed order.** No more, no fewer. Do not add
 an orienting preamble sentence before paragraph 1, and do not add a fifth paragraph.
-Each of the first two paragraphs is anchored to demonstrated principles from the org profile
+Each of the first two paragraphs is anchored to demonstrated principles from the glossary
 (`principles.name`, for example **`principles.example_1`**, **`principles.example_2`**) in
 bold; lead with the principle, then the concrete evidence: what the person did, the scope
 (teams, services, regions), and the measurable result, with specifics (dates, counts,

@@ -41,7 +41,7 @@ Build a story across the whole document. Do not restate a work summary as bullet
    to the next story. Never fabricate the quote; omit it if none was supplied.
 
    Close the whole section (after its last story and quote) with one consolidated
-   line, `<principles.name> demonstrated: X, Y, Z` (org profile), covering every story in
+   line, `<principles.name> demonstrated: X, Y, Z` (glossary), covering every story in
    that section, not one tag per story, unless `principles.cite_per_statement` is `true`.
 
    Optional: if the evidence includes real supplementary examples that support the

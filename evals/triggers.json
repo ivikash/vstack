@@ -21,7 +21,7 @@
         "write a work summary for this engineer with timeline, task, challenges, action, result and artifacts",
         "turn this body of work into a summary document for the performance review"
       ],
-      "negative": ["validate this document against the writing checklist", "gather evidence for the cell"]
+      "negative": ["validate this document against the writing checklist", "gather evidence for the workflow"]
     },
     "write-promo-doc": {
       "positive": [
@@ -49,7 +49,7 @@
         "rewrite this and self-validate it against the checklist until it passes, at least two passes",
         "tighten this draft and prove it passed the gate"
       ],
-      "negative": ["write the executive update", "fetch the evidence for this cell"]
+      "negative": ["write the executive update", "fetch the evidence for this workflow"]
     },
     "score-gate": {
       "positive": [
@@ -59,8 +59,8 @@
     },
     "gather-evidence": {
       "positive": [
-        "gather the evidence for this cell from its source roles through the tools map, cache first, write evidence.json with a hash",
-        "run the gather stage: resolve each source role, fetch on cache miss, never write prose"
+        "gather the evidence for this workflow from its connectors through the tools map, cache first, write evidence.json with a hash",
+        "run the gather stage: resolve each connector, fetch on cache miss, never write prose"
       ],
       "negative": ["write the executive update from this evidence", "validate the draft"]
     }

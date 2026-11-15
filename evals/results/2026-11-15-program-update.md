@@ -1,10 +1,10 @@
-# 2026-11-15 program-update fixture, three harnesses
+# 2026-11-15 program-update sample evidence, three harnesses
 
-Cell `example-instance/cells/program-update.json` run with `--dry-run --no-publish` on its fixture.
+Workflow `example/workflows/program-update.json` run with `--dry-run --no-publish` on its sample evidence.
 
 | Harness | Exit | Seconds | Gate passes | Status |
 |---|---|---|---|---|
-| claude | 0 | 128 | 2 | known_gaps (fixture carries a conflicting date on purpose) |
+| claude | 0 | 128 | 2 | known_gaps (sample evidence carries a conflicting date on purpose) |
 | codex | 0 | 141 | 3 | known_gaps |
 | kiro | 0 | 189 | 2 | known_gaps |
 

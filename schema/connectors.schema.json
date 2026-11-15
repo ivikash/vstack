@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ivikash/vstack/schema/connectors.schema.json",
+  "title": "Connectors (connector name to MCP tool)",
+  "description": "The only file that names real tools. Workflows ask for capabilities by connector name; this file binds each connector to an MCP server and tool, with notes on how to call it well. One per organisation or machine. It is the private half of the plumbing.",
+  "type": "object",
+  "required": [
+    "connectors"
+  ],
+  "properties": {
+    "connectors": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "server",
+          "tool"
+        ],
+        "properties": {
+          "server": {
+            "type": "string"
+          },
+          "tool": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string",
+            "description": "argument hints the prompt should pass on"
+          }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "roles": {
+        "docs.read": {
+          "server": "docs-mcp",
+          "tool": "read_document"
+        },
+        "chat.draft": {
+          "server": "chat-mcp",
+          "tool": "post_draft",
+          "notes": "lands in the compose box, user presses send"
+        }
+      }
+    }
+  ]
+}
