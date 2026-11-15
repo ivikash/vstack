@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# vstack repository invariants. No model calls, runs in seconds. Exit 1 if any group fails.
+#
+#   identity    every commit author uses the public (non-company) e-mail, and so does git config
+#   no-org      no company-specific term, internal host, ticket id, chat id, account id or e-mail domain
+#   schemas     every JSON file parses; the template instance passes `vstack check`
+#   frontmatter every SKILL.md has name + description
+#   loop        every writer skill carries the validation loop (gate, min 2, max 5, reads house-rules)
+#   profile     every org-profile key a skill references is defined in leadership-writing/org-profile.md
+#   instance    the instance pointed at by VSTACK_INSTANCE (if set) is NOT inside this repo and is
+#               NOT a remote of it, so private files cannot be committed here by mistake
+set -euo pipefail
+cd "$(dirname "$0")/.."
+fail=0
+say() { printf '%-12s %s\n' "$1" "$2"; }
+
+# identity -------------------------------------------------------------------------------------
+ALLOWED_EMAIL="${ALLOWED_EMAIL:-vikashagrawal1990@gmail.com}"
+if git rev-parse -q --verify HEAD >/dev/null 2>&1; then
+  bad=$(git log --format='%ae' | sort -u | grep -v "^${ALLOWED_EMAIL}$" || true)
+  if [ -n "$bad" ]; then say identity "FAIL: commits by $bad"; fail=1; else say identity "ok ($(git rev-list --count HEAD) commits, all $ALLOWED_EMAIL)"; fi
+fi
+cur=$(git config user.email || true)
+[ "$cur" = "$ALLOWED_EMAIL" ] || { say identity "FAIL: git config user.email is '$cur'"; fail=1; }
+
+# no-org ---------------------------------------------------------------------------------------
+# Union of the two source repos' denylists plus account-id, chat-id, doc-id and people-alias shapes.
+# Add a term here the moment it appears in a private file; never the other way round.
+DENY='amazon|quip|slackbot|midway|mwinit|phonetool|kingpin|chorus\.aws|pippin|taskei|krakenmare|cloudwatch|code\.amazon|w\.amazon|\.corp\.|@amazon\.com|isengard|brazil-build|gitfarm|git\.amazon|\bHV[123]\b|\bOV\b|Leadership Principle(s)? (demonstrated|language)|\bLP-anchored|\bSTO\b|\bL[4-8]\b(?!\s*(·|-|RUNNERS|harness|skills|kernel|instance|state|\d))|\bC0[0-9A-Z]{8,10}\b|\b[A-Z]{1,3}-?[0-9]{6,}\b|\b[0-9]{12}\b|\bP[0-9]{8,}\b|\bV[0-9]{8,}\b'
+hits=$(grep -rniIP "$DENY" --exclude-dir=.git --exclude-dir=scripts --exclude-dir=evals . \
+  | grep -v 'org-profile.md:.*for example `Leadership Principles`' \
+  | grep -vP 'docs/social/.*\.py:.*(<path|markerWidth)' || true)
+if [ -n "$hits" ]; then say no-org "FAIL:"; echo "$hits" | cut -c1-160; fail=1; else say no-org "ok (no company-specific terms or ids)"; fi
+
+# schemas --------------------------------------------------------------------------------------
+for f in $(git ls-files '*.json'); do
+  python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$f" || { say schemas "FAIL: $f"; fail=1; }
+done
+python3 bin/vstack check --graph instance-template/graph/example.graph.json --cells instance-template/cells/example >/dev/null \
+  || { say schemas "FAIL: template instance breaks the invariants"; fail=1; }
+[ $fail -eq 0 ] && say schemas "ok"
+
+# frontmatter ----------------------------------------------------------------------------------
+for f in skills/*/SKILL.md; do
+  head -1 "$f" | grep -q '^---$' && grep -q '^name:' "$f" && grep -q '^description:' "$f" || { say frontmatter "FAIL: $f"; fail=1; }
+done
+[ $fail -eq 0 ] && say frontmatter "ok ($(ls skills/*/SKILL.md | wc -l | tr -d ' ') skills)"
+
+# loop -----------------------------------------------------------------------------------------
+for s in write-talent-card write-work-summary write-promo-doc write-exec-update rewrite rewrite-and-validate; do
+  f="skills/$s/SKILL.md"
+  grep -q 'validate-writing' "$f" || { say loop "FAIL: $f never invokes validate-writing"; fail=1; }
+  grep -qiE 'minimum of two passes|at least two|minimum of TWO' "$f" || { say loop "FAIL: $f has no minimum-pass rule"; fail=1; }
+  grep -qiE 'maximum of five|maxRounds|cap(ped)? (the loop )?at five|five passes|at 5 total passes' "$f" || { say loop "FAIL: $f has no maximum-pass cap"; fail=1; }
+  grep -q 'house-rules' "$f" || { say loop "FAIL: $f never reads house-rules"; fail=1; }
+done
+[ $fail -eq 0 ] && say loop "ok (6 writer skills: gate, min 2, max 5, house-rules)"
+
+# profile --------------------------------------------------------------------------------------
+keys=$(grep -rhoE '`(principles|rating|levels|roles)\.[a-z_0-9]+`' skills --include=*.md | tr -d '`' | sort -u)
+for k in $keys; do
+  leaf=${k#*.}
+  grep -q "^- \*\*${leaf}\*\*" skills/leadership-writing/org-profile.md || { say profile "FAIL: $k not defined in org-profile.md"; fail=1; }
+done
+[ $fail -eq 0 ] && say profile "ok ($(echo "$keys" | wc -l | tr -d ' ') profile keys all defined)"
+
+# instance -------------------------------------------------------------------------------------
+if [ -n "${VSTACK_INSTANCE:-}" ]; then
+  inst=$(cd "$VSTACK_INSTANCE" && pwd -P); here=$(pwd -P)
+  case "$inst" in "$here"|"$here"/*) say instance "FAIL: instance $inst is inside this repo"; fail=1;; esac
+  if git remote -v | grep -q "$inst"; then say instance "FAIL: instance is a git remote of this repo"; fail=1; fi
+  if git -C "$inst" remote -v 2>/dev/null | grep -qiE 'github\.com|gitlab\.com|bitbucket'; then
+    say instance "FAIL: instance has a public git remote"; fail=1
+  fi
+  [ $fail -eq 0 ] && say instance "ok ($inst is outside this repo and has no public remote)"
+else
+  say instance "skipped (VSTACK_INSTANCE not set)"
+fi
+exit $fail

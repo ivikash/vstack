@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ivikash/manager-ops-kernel/schema/cell.schema.json",
+  "title": "Cell",
+  "description": "One unit of manager automation: trigger -> gather -> diff -> write -> gate -> land -> record. Harness-neutral. Company-specific values live in config and in the tools file, never in the cell body.",
+  "type": "object",
+  "required": ["id", "kind", "component", "sources", "sink", "ledger"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "kind": {"enum": ["writer", "consumer", "collector"], "description": "writer produces a document through a skill and a gate; consumer reads other cells' ledgers; collector only fills a cache"},
+    "component": {"type": "string", "description": "graph partition this cell belongs to; the private one (default 'hr') is a separate connected component"},
+    "workspace": {"type": "string", "description": "required for the private component: the folder and memory partition the cell runs in"},
+    "agent": {"type": "string", "description": "Bot or agent template that should run this cell on harnesses that have one"},
+    "trigger": {
+      "type": "object",
+      "properties": {
+        "cron": {"type": "string", "description": "five-field cron expression"},
+        "timezone": {"type": "string"},
+        "events": {"type": "array", "items": {"type": "string"}, "description": "event descriptions a heartbeat watches for, e.g. 'calendar item <Name> : <Me> | 1 on 1 minus 1 day'"}
+      }
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["role"],
+        "properties": {
+          "role": {"type": "string", "pattern": "^[a-z]+\\.[a-z_]+$", "description": "namespaced capability, e.g. docs.read, chat.search, tasks.list; resolved through tools.json"},
+          "ref": {"type": "string", "description": "locator for the role (doc id, channel, query); may use ${config.x}"},
+          "notes": {"type": "string"}
+        }
+      }
+    },
+    "cache": {"type": "object", "properties": {"key": {"type": "string"}, "ttl_hours": {"type": "number"}}},
+    "writer": {"type": "object", "required": ["skill"], "properties": {"skill": {"type": "string"}, "extra_inputs": {"type": "array", "items": {"type": "string"}}}},
+    "gate": {
+      "type": "object",
+      "required": ["skill", "doc_type", "min_passes", "max_passes"],
+      "properties": {
+        "skill": {"type": "string"},
+        "doc_type": {"type": "string"},
+        "min_passes": {"type": "integer", "minimum": 2},
+        "max_passes": {"type": "integer", "minimum": 2},
+        "coverage_bar": {"type": "integer", "minimum": 0, "maximum": 100}
+      }
+    },
+    "sink": {
+      "type": "object",
+      "required": ["role", "dry_run_path"],
+      "properties": {"role": {"type": "string"}, "ref": {"type": "string"}, "dry_run_path": {"type": "string"}}
+    },
+    "ledger": {"type": "object", "required": ["fields"], "properties": {"file": {"type": "string"}, "fields": {"type": "array", "items": {"type": "string"}, "minItems": 1}}},
+    "fixture": {"type": "string", "description": "evidence file used by --dry-run, relative to the cell file"},
+    "config": {"type": "object", "description": "instance values substituted as ${config.x}"}
+  }
+}

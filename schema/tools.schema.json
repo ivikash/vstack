@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ivikash/manager-ops-kernel/schema/tools.schema.json",
+  "title": "Tools (role to MCP tool mapping)",
+  "description": "The only file that names real tools. Cells address capabilities by role; this file resolves a role to an MCP server and tool. Keep one per organisation or per machine. It is the private half of the plumbing.",
+  "type": "object",
+  "required": ["roles"],
+  "properties": {
+    "roles": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["server", "tool"],
+        "properties": {
+          "server": {"type": "string"},
+          "tool": {"type": "string"},
+          "notes": {"type": "string", "description": "argument hints the prompt should pass on"}
+        }
+      }
+    }
+  },
+  "examples": [{"roles": {"docs.read": {"server": "docs-mcp", "tool": "read_document"}, "chat.draft": {"server": "chat-mcp", "tool": "post_draft", "notes": "lands in the compose box, user presses send"}}}]
+}
