@@ -1,106 +1,344 @@
 # vstack
 
-One repository for a manager's recurring writing work on any coding agent: the scheduler and
-plumbing (the **engine**), the writers and the critic (the **skills**), the adapters for four
-harnesses, and the evals that keep all of it honest. Everything that names a company lives in a
-second, private repository called the **instance**, which vstack reads at run time and never contains.
+**Run a manager's recurring writing work on any coding agent, with proof it was done right.**
 
-vstack merges two earlier repositories, one of them with its history: the engine (the CLI, schemas,
-invariants) and `Leadership-Writing-Skills` (house rules, writers, validator).
+A weekly leadership update, a daily program status, a talent card, a work summary, a promotion
+document: each is the same job. Gather evidence from the systems that hold it, write in a fixed
+voice, check the draft against a checklist, put it where a human presses send, record what
+happened. vstack turns that job into a file (a **cell**), runs it on the coding agent you already
+have (Claude Code, Codex, Kiro CLI or Kiro Crew), and refuses to call it done until the artifacts
+prove it.
 
-```
-                 instance (private, your company's words)        vstack (this repo, public)
-                 ─────────────────────────────────────────       ──────────────────────────
-  cron / event ─▶ cells/*.json  ──┐                               bin/vstack  render · run · check
-                 tools.json      ├──▶  vstack run <cell> ─────▶   seven stages, one prompt
-                 org-profile.md  │     --instance <path>          skills/   writers, critic, plumbing
-                 context/        │     --harness claude|codex|    harness/  how each agent is invoked
-                 fixtures/      ─┘              kiro|kirocrew     schema/   cell, graph, tools, ledger
-                                                   │              evals/    fixtures and structural checks
-                                                   ▼
-                 ~/.local/state/vstack/runs/<cell>/<run>/   evidence · diff · draft · gate · result
-                 ~/.local/state/vstack/ledger/runs.jsonl    one appended line per run
-                                                   │
-                                                   ▼
-                 a DRAFT in a compose box or a [Draft] document. A human presses send.
-```
+Everything that names your company lives in a second, private repository called the **instance**.
+vstack reads it at run time and never contains it, and a check fails if the line is crossed.
 
-## The seven stages
+- [What you get](#what-you-get)
+- [How a run works](#how-a-run-works)
+- [Install in ten minutes](#install-in-ten-minutes)
+- [Write your first cell](#write-your-first-cell)
+- [Run it, by hand and on a schedule](#run-it-by-hand-and-on-a-schedule)
+- [What a finished run looks like](#what-a-finished-run-looks-like)
+- [The skills](#the-skills)
+- [The rules, and what enforces them](#the-rules-and-what-enforces-them)
+- [Commands](#commands)
+- [Layout](#layout)
+- [Troubleshooting](#troubleshooting)
+- [Design notes](#design-notes)
 
-Every cell, at every scale, is the same loop. `vstack render` spells it out as one prompt with
-absolute paths filled in, `vstack run` executes it on the harness you name.
+## What you get
 
-```
-trigger -> gather (cache-first, hashed) -> diff -> write (skill) -> gate (critic loop) -> land (draft) -> brief (3 lines) -> record (ledger)
-```
+| Piece | What it does | Where |
+|---|---|---|
+| **engine** | one Python file, no dependencies. Renders a cell into a prompt, runs it on a harness, verifies the run directory, keeps a ledger, prints schedules | `bin/vstack` |
+| **skills** | the writers (executive update, talent card, work summary, promotion doc), the critic (`validate-writing`), the rewriters, and two plumbing skills. Plain markdown in the open [Agent Skills](https://agentskills.io/specification) format | `skills/` |
+| **harness adapters** | how each of the four agents is invoked non-interactively and where it reads skills from | `harness/README.md`, `harness_cmd` in the engine |
+| **instance template** | the private half as a folder you copy: tool map, org profile, graph, cells, fixtures | `instance-template/` |
+| **evals and checks** | a nine-group check script, a routing eval for the skills, synthetic fixtures with expected outcomes | `scripts/`, `evals/` |
 
-## Invariants `vstack check` enforces
-
-1. Every wake is a DAG. The only shared mutable state is the append-only ledger.
-2. Writers and gates never fetch. A writer node with an edge to a source fails.
-3. Every writer has exactly one gate before its sink, with at least two passes.
-4. Every sink records. A cell with no ledger fields fails.
-5. A private component (people, HR) records only dates, ids and counts.
-6. A writer reads at least two sources (`coverage.min_sources`, `coverage.require_roles` raise the bar).
-7. A run is done when its artifacts exist, not when the model says so: `vstack run` verifies the
-   done-means contract (evidence, diff, draft with a `Sources:` header, gate with enough passes, a
-   three-line brief, result) and marks a run `contract_unmet` otherwise. `vstack check-run <dir>`
-   does the same by hand.
-
-## Layout
+## How a run works
 
 ```
-bin/vstack             the CLI
-schema/                JSON Schemas: cell, graph, tools, ledger
-skills/                one canonical copy of every public skill, linked into each harness
-  leadership-writing/    house-rules.md (the voice), org-profile.md (neutral defaults)
-  write-exec-update/ write-talent-card/ write-work-summary/ write-promo-doc/
-  validate-writing/ rewrite/ rewrite-and-validate/ score-gate/
-  gather-evidence/
-harness/README.md      how claude, codex, kiro and kirocrew are invoked and where they read skills
-instance-template/     copy into a private repo: tools.json, org-profile.md, mcp-servers.json,
-                       graph.json, cells/, fixtures/, vstack.lock
-evals/                 synthetic fixtures, expected outcomes, and what check.sh verifies
-scripts/check.sh       identity, no-org, schemas, frontmatter (spec), loop, profile, triggers, rules, instance
-scripts/trigger-eval.py routing eval: each skill's description wins its own prompts (evals/triggers.json)
-docs/ARCHITECTURE.md   the two-repo split, layers, run flow, graph types, invariants
-docs/RULES.md          every rule paired with the check that enforces it
+   your private instance                 vstack (this repository)               your harness
+   ─────────────────────                 ────────────────────────               ────────────
+   cells/weekly-update.json ─┐
+   tools.json                ├─▶ vstack run <cell> --harness claude ─▶  one prompt, absolute paths
+   org-profile.md            │       │                                   │
+   fixtures/ (for dry runs) ─┘       │ pre-flight: invariants,            ▼
+                                     │ skill copies match the lock    claude -p / codex exec /
+                                     │                                kiro-cli chat / kirocrew cron
+                                     ▼                                   │
+                        ~/.local/state/vstack/runs/<cell>/<harness>-<id>/│
+                           evidence.json  diff.md  draft.md  gate.md  brief.md  result.json
+                                     │                                   │
+                                     │ contract check: are the files there and well-formed?
+                                     ▼
+                        ledger/runs.jsonl  (one line per run, append-only)
+                                     │
+                                     ▼
+                        a DRAFT in a compose box or a [Draft] document. A human presses send.
 ```
 
-## Quick start
+The prompt the harness runs has eight stages. Every cell, at every scale, is this loop:
+
+| Stage | What happens | Leaves behind |
+|---|---|---|
+| 1 gather | call the tools the cell's **roles** map to, cache-first. Read-only | `evidence.json` with a `sources` list and a content hash |
+| 2 diff | compare with the previous run's evidence | `diff.md` |
+| 3 write | the writer skill turns evidence into a draft in the house voice. The first line says which sources were used and which were unavailable | `draft.md` |
+| 4 gate | `validate-writing` scores the draft, the writer fixes every quoted failure, at least 2 and at most 5 passes | `gate.md`, first line `passes: N` |
+| 5 land | the draft goes to the sink: a compose box, a `[Draft]` document. Never sent | the landed path or id |
+| 5b brief | three lines a busy reader decides from without opening the draft | `brief.md` |
+| 6 record | one ledger line, one result file | `result.json`, a line in `runs.jsonl` |
+| contract | the engine reads the run directory back. Anything missing or malformed marks the run `contract_unmet`, whatever the model claimed | `meta.json` |
+
+Two optional extras: `--second-opinion <harness>` runs an independent critic on another agent and
+records its quoted findings (never edits, never blocks), and `vstack retro` reads the ledger back
+weekly and lists what keeps going wrong.
+
+## Install in ten minutes
+
+You need Python 3.9 or newer, git, and at least one of: Claude Code, Codex CLI, Kiro CLI, Kiro Crew.
+
+**1. Clone and make every harness read the same skills.**
 
 ```bash
 git clone https://github.com/ivikash/vstack ~/github/vstack
 V=~/github/vstack/bin/vstack
 
-# 1. make every harness read the same skills
 $V link-skills --canonical ~/github/vstack/skills \
    --targets ~/.claude/skills ~/.codex/skills ~/.agents/skills ~/.kiro/skills ~/.kiro/crew/skills \
-   --skills leadership-writing write-exec-update validate-writing score-gate gather-evidence
-
-# 2. create your instance from the template (a private repository, your work e-mail)
-cp -r ~/github/vstack/instance-template ~/work/my-instance && cd ~/work/my-instance && git init
-export VSTACK_INSTANCE=~/work/my-instance     # or pass --instance on every command
-
-# 3. prove the estate is sound (no model call)
-$V check
-
-# 4. dry run a cell on any harness: fixture in, files out, nothing published
-$V run ~/work/my-instance/cells/program-update.json --harness claude --dry-run
-#  --harness codex | kiro | kirocrew
-
-# 5. live: same command without --dry-run. The draft lands in a compose box; you press send.
-#    standing schedule: $V gen-cron --cells ~/work/my-instance/cells --harness claude
-#    independent critic on a high-stakes doc: add --second-opinion codex (findings recorded, never block)
-#    weekly: $V retro --days 7   (per-cell runs, contract misses, recurring Known Gaps, no model call)
+   --skills leadership-writing write-exec-update write-talent-card write-work-summary write-promo-doc \
+            validate-writing rewrite rewrite-and-validate score-gate gather-evidence
 ```
 
-## Checks before every commit
+Each harness directory now holds symlinks into this checkout. A `git pull` here updates all of
+them; an existing real copy is moved aside, not deleted (`~/.local/state/vstack/skill-backups`).
+Pass only the target directories for the harnesses you have.
 
-`scripts/check.sh` runs in seconds and needs no model. With `VSTACK_INSTANCE=<path>` it also
-proves the instance is outside this repository and has no public remote.
+**2. Create your instance from the template.** A private repository, committed with your work
+e-mail, hosted only on your company's git server.
+
+```bash
+cp -r ~/github/vstack/instance-template ~/work/my-instance
+cd ~/work/my-instance && git init && git config user.email you@your-company.example
+export VSTACK_INSTANCE=~/work/my-instance        # or pass --instance DIR on every command
+```
+
+Then edit, in this order:
+
+| File | Change |
+|---|---|
+| `tools.json` | point each **role** (`docs.read`, `chat.search`, `chat.draft`, ...) at the MCP server and tool your harness has. This is the only file that names real tools |
+| `mcp-servers.json` | the servers those tools come from. `vstack gen-mcp --servers mcp-servers.json --target claude` prints the block for each harness's config |
+| `org-profile.md` | your company's words: what principles are called, the rating scale, level names. Only the keys you change |
+| `cells/program-update.json` | rename, set the `config` values (document id, channel, project), keep the roles |
+| `fixtures/program-update.json` | synthetic evidence for dry runs. Real section names, invented values |
+| `graph.json` | your bots and cells as typed nodes, so the invariants are checked over the whole estate |
+
+**3. Prove the estate is sound.** No model call, under a second.
+
+```bash
+$V check                      # invariants over graph.json and cells/
+cd ~/github/vstack && scripts/check.sh    # the public repo's own checks, including that your instance is private
+```
+
+**4. Dry run.** Fixture in, files out, nothing published, on whichever harness you have.
+
+```bash
+$V run ~/work/my-instance/cells/program-update.json --harness claude --dry-run
+#                                                    --harness codex | kiro | kirocrew
+```
+
+The command prints `meta.json` when the harness returns. Look for `"status": "ok"` or
+`"known_gaps"` and `"contract": {"met": true}`. The run directory it names holds every artifact.
+
+## Write your first cell
+
+A cell is one JSON file. This is the template cell with comments on what each field is for:
+
+```jsonc
+{
+  "id": "program-update",                 // lowercase-hyphen; names the run dir and ledger
+  "kind": "writer",                       // writer | consumer | collector
+  "component": "program",                 // graph partition; "hr" is the private one by default
+  "trigger": {"cron": "29 8 * * 1-5", "timezone": "UTC", "events": []},
+  "sources": [                            // roles, never tool names; resolved through tools.json
+    {"role": "docs.read",   "ref": "${config.statusDocId}", "notes": "latest dated entries"},
+    {"role": "tasks.list",  "ref": "${config.taskProject}", "notes": "owner, due, status, last comment"},
+    {"role": "mail.search", "ref": "${config.meetingSummaryQuery}", "notes": "last ${config.lookbackDays} days"},
+    {"role": "chat.search", "ref": "${config.discussChannel}", "notes": "status and blockers"}
+  ],
+  "coverage": {"min_sources": 3},         // check fails a writer that reads fewer sources
+  "cache": {"key": "program/${config.program}", "ttl_hours": 20},
+  "writer": {"skill": "write-exec-update"},
+  "gate": {"skill": "validate-writing", "doc_type": "exec-update",
+           "min_passes": 2, "max_passes": 5, "coverage_bar": 85,
+           "second_opinion": "codex"},    // optional independent critic
+  "sink": {"role": "chat.draft", "ref": "${config.postChannel}", "dry_run_path": "update.md"},
+  "ledger": {"file": "program-update.jsonl",
+             "fields": ["program", "overall_status", "red_sections", "green_by_dates", "open_action_items", "posted_to"]},
+  "fixture": "../fixtures/program-update.json",
+  "config": {"program": "Project Lantern", "statusDocId": "doc-0000", "taskProject": "project-0000",
+             "meetingSummaryQuery": "\"Meeting summary\" Lantern", "discussChannel": "#lantern",
+             "postChannel": "#lantern-leadership", "lookbackDays": 14}
+}
+```
+
+Rules of thumb:
+
+- **Roles, not tools.** `chat.search` in the cell, `slack-mcp / search` in `tools.json`. Change
+  the tool once, every cell follows.
+- **`${config.x}`** is substituted anywhere in the cell, so ids and channels live in one block.
+- **Three sources or more.** One source is a copy. Add a corroboration role when your chat tool has
+  an assistant you can ask, and put it in `coverage.require_roles` so the check insists on it.
+- **The sink is always a draft.** `chat.draft`, `docs.write` to a `[Draft]`, `mail.draft`. A role
+  that sends is a bug.
+- **A private cell** (`component: "hr"`) must name a `workspace`, and its ledger fields may not
+  carry ratings, candidates or feedback text. `vstack check` refuses otherwise.
+
+Full field reference: `schema/cell.schema.json`. Validate with `$V check`.
+
+## Run it, by hand and on a schedule
+
+```bash
+# by hand, live: gathers from real sources, lands a draft, you press send
+$V run <cell> --harness claude
+
+# live gather and gate, but the draft stays a file (for a first look at real evidence)
+$V run <cell> --harness claude --no-publish
+
+# with an independent critic on another agent; findings land in meta.json
+$V run <cell> --harness claude --second-opinion codex
+
+# see the prompt a harness would get, without running anything
+$V render <cell> --harness kiro
+
+# standing schedule: one line per cell with a trigger
+$V gen-cron --cells ~/work/my-instance/cells --harness claude     # crontab lines
+$V gen-cron --cells ~/work/my-instance/cells --harness kirocrew   # kirocrew cron add commands
+
+# weekly: what happened, what keeps going wrong
+$V retro --days 7
+```
+
+On a schedule, the cron line calls `vstack run` directly. For Kiro Crew, the job's message tells
+the agent to render the cell with its shell and follow the printed prompt, so every wake gets a
+fresh run directory and the agent's own MCP tools do the gathering.
+
+## What a finished run looks like
+
+```
+~/.local/state/vstack/runs/program-update/claude-20261115-094200-c0b4fc/
+  prompt.md         the exact prompt the harness received
+  command.txt       the exact command
+  evidence.json     {"gathered_at", "sources": [{"role","status","items"}], "items": [...], "evidence_hash"}
+  diff.md           what changed since the previous run
+  draft.md          line 1 title, line 2 "Sources: used ...; unavailable ...", then the document
+  gate.md           "passes: 2" then the last pass report, every rule with what it checked
+  brief.md          three lines: what landed, the one fact to look at with its source, where and what to do
+  update.md         the landed copy (dry run and no-publish) or the landed id/URL
+  result.json       {"status": "ok" | "known_gaps" | "failed", "gate_passes": 2, "draft", "brief", "landed"}
+  gate-second.md    (with --second-opinion) "findings: N" then each finding with the offending text quoted
+  meta.json         run id, harness, timings, result, contract {met, unmet[]}, second_opinion
+  stdout.log        what the harness printed
+~/.local/state/vstack/ledger/runs.jsonl       one line per run, append-only
+~/.local/state/vstack/cache/<key>/last-evidence.json
+~/.local/state/vstack/retro/<date>.md         written by vstack retro
+```
+
+A brief from a real dry run, so you know the register:
+
+```
+PRISM daily exec update (dry run, 11/07 fixture data): RED.
+Ingestion is RED with no recovery date because the sources give two Hub cut-over targets, 11/05 and 11/19, and the owner owes one date by 11/10 (fixture, test data).
+Draft at .../prism-update.md. Reader action: nothing (dry run, not posted).
+```
+
+## The skills
+
+All under `skills/`, one directory each, linked into every harness. The writers never fetch and
+never publish: they turn evidence into a document and nothing else.
+
+| Skill | Use when | Reads |
+|---|---|---|
+| `write-exec-update` | a status update for executives: overall line, one block per workstream (RED/YELLOW/GREEN, Green-by when RED), milestones, risks, action items, Known Gaps | `format.md` |
+| `write-talent-card` | a per-person talent-review card: rating rationale and key deliverables sections | `template.md` |
+| `write-work-summary` | a structured work summary: timeline, task, challenges, action, result, artifacts | `template.md` |
+| `write-promo-doc` | a narrative promotion document against a level rubric, with a real Reasons Not To Promote section | `template.md`, `rubric-TEMPLATE.md` |
+| `validate-writing` | the gate. `gate` mode returns pass or fail with every failure quoted and a fix; `evaluate` mode returns a scored report. Never rewrites | `checklist.md` |
+| `rewrite` | tighten supplied prose to the house rules, every fact and link preserved, nothing added | |
+| `rewrite-and-validate` | the same, then loop through the gate until it passes, at least two passes | |
+| `score-gate` | run any draft through the gate in a fixed loop and return the final draft plus a one-line result | |
+| `gather-evidence` | the gather stage: cache-first, by role, one `evidence.json`, never prose | |
+| `leadership-writing` | not invoked. Holds `house-rules.md` (the voice: 17 rules, 4 of them mechanical blockers), `org-profile.md` (neutral defaults) and `rationalizations.md` (12 excuses with their rebuttals, 7 red flags). Every writer and the critic read all three first | |
+
+The voice in one paragraph: lead with the point and the fact behind it, active voice, no
+superlatives, no hedging, no em-dashes or semicolons, every claim tied to an artifact in the
+evidence, every missing fact labelled `(unverified)` or listed under Known Gaps, never invented.
+
+## The rules, and what enforces them
+
+A rule nothing enforces is a wish. [docs/RULES.md](docs/RULES.md) pairs every rule with its check.
+The checks, in the order they run:
+
+| `scripts/check.sh` group | Fails when |
+|---|---|
+| identity | a commit here is not by the personal e-mail, or `git config user.email` is wrong |
+| no-org | any public file carries a company term, internal host, ticket, chat, doc or account id |
+| schemas | a JSON file does not parse, or the template instance breaks an invariant |
+| frontmatter | a skill's `name` is not its directory name in lowercase-hyphen, or a description is empty or over 1024 characters |
+| loop | a writer skill lacks the gate loop (min 2, max 5, reads house-rules) |
+| profile | a skill references an org-profile key that is not defined |
+| triggers | a skill's description does not win its own prompts in `evals/triggers.json` (36 cases, no model) |
+| rules | `docs/RULES.md` names a check or subcommand that does not exist |
+| instance | with `VSTACK_INSTANCE` set: the instance is inside this checkout, is a remote of it, or has a public remote |
+
+And `vstack check` over an instance:
+
+1. The graph is a DAG. The only shared mutable state is the append-only ledger.
+2. Writers and gates never fetch: a W or G node with an edge to a source fails.
+3. Every writer has exactly one gate before its sink, `min_passes` at least 2.
+4. Every sink records: a D node with no `records` edge, or a cell with no ledger fields, fails.
+5. The privacy cut: in the private component only a sink or a ledger may have an edge outward,
+   and ledger fields may not carry rating, candidate, promo, salary or feedback text.
+6. Every cell has a `dry_run_path`, so it can run with no side effects.
+7. A writer reads at least two sources, more when `coverage` says so.
+
+And after every run, the **contract**: `evidence.json` with sources and hash, `diff.md`, `draft.md`
+with its `Sources:` line, `gate.md` with enough passes, a three-line `brief.md`, `result.json`.
+
+## Commands
+
+| Command | Does |
+|---|---|
+| `vstack render <cell> [--harness h]` | print the prompt, run nothing |
+| `vstack run <cell> --harness h [--dry-run] [--no-publish] [--second-opinion h2] [--agent a] [--model m]` | pre-flight, render, execute, contract check, ledger line |
+| `vstack check [--instance d]` | invariants over the graph and cells |
+| `vstack check-run <run-dir>` | contract check on an existing run directory |
+| `vstack verify-skills --dirs ... --skills ...` | every named skill present and identical in every harness dir |
+| `vstack link-skills --canonical d --targets ... --skills ...` | symlink the canonical skills into each harness dir |
+| `vstack gen-cron --cells d --harness h` | crontab lines, or `kirocrew cron add` commands |
+| `vstack gen-mcp --servers f --target h` | the MCP server block for one harness |
+| `vstack retro [--days n]` | per-cell runs, contract misses, gate passes, recurring Known Gaps |
+
+Every command accepts `--instance DIR` or reads `$VSTACK_INSTANCE` and fills `--tools`,
+`--org-profile`, `--graph` and `--cells` from it. State lives under `~/.local/state/vstack`.
+
+## Layout
+
+```
+bin/vstack               the CLI, one file, standard library only
+schema/                  cell, graph, tools, ledger (JSON Schema)
+skills/                  one canonical copy of every skill
+harness/README.md        the four harnesses: exact command, skills dir, what a run leaves behind
+instance-template/       README, tools.json, org-profile.md, mcp-servers.json, graph.json, cells/, fixtures/, vstack.lock
+evals/                   triggers.json, fixtures/, results/
+scripts/check.sh         the nine check groups
+scripts/trigger-eval.py  the routing eval
+docs/ARCHITECTURE.md     why two repos, the layers, the run, the graph, the scales
+docs/RULES.md            every rule and its enforcer
+```
+
+## Troubleshooting
+
+| Symptom | Cause and fix |
+|---|---|
+| `pre-flight failed (skills)` | a harness dir has a stale copy or is missing a skill. `vstack link-skills ...` again, then `vstack verify-skills` |
+| `pre-flight failed (invariants)` | the cell or graph breaks a rule. `vstack check` prints each one |
+| `"status": "contract_unmet"` with `"claimed_status": "ok"` | the model said done but a file is missing or malformed. `meta.json` lists which; `vstack check-run <dir>` repeats it |
+| `warning: instance pins vstack X, this checkout is Y` | you updated vstack. Dry run every cell once, then write the new short SHA into the instance's `vstack.lock` |
+| draft says `Sources: ... unavailable chat.search` | the role is unmapped in `tools.json`, or the tool returned nothing. Fix the map or the `ref`, never the draft |
+| Kiro CLI denies a tool | kiro-cli 3.x denies any tool not named in `--trust-tools`; the harness adapter passes `--trust-all-tools` and scopes through `--agent` instead |
+| a `kirocrew` run shows `"status": "scheduled"` | correct: the job runs asynchronously. Its run dir fills in when it finishes; `vstack check-run` on it then |
+| `check.sh no-org` fails on your own text | the word is on the denylist for a reason. Rephrase in the public repo; the term belongs in the instance |
+
+## Design notes
+
+Why two repositories, what each layer owns, the graph node types, the privacy cut and the same
+cell at four scales: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Which coding-agent skill
+packs these practices come from and how they were tested: [evals/results/](evals/results/).
 
 ## License
 
-MIT. The skills contain no organisation-specific names, tools or systems, and the denylist in
-`scripts/check.sh` keeps it that way.
+MIT. The skills contain no organisation-specific names, tools or systems, and `scripts/check.sh`
+keeps it that way.
