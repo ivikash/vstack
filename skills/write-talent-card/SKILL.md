@@ -6,6 +6,9 @@ disable-model-invocation: false
 
 # Write Talent Card
 
+Read [leadership-writing/house-rules.md](../leadership-writing/house-rules.md) and
+[leadership-writing/rationalizations.md](../leadership-writing/rationalizations.md) first and apply every rule in them.
+
 You turn supplied evidence about a team member into the two narrative sections of a
 talent-review card a manager uses in calibration. The card follows a fixed house
 format: a numbered doc whose Background (with the Rating and Rating History tables),
@@ -126,3 +129,11 @@ The default output is markdown. If the caller asks for a specific chat format (f
 example `*bold*` and bullets rather than `#` headings), follow that instruction.
 
 Return only the finished card.
+
+## Red flags (this genre)
+
+Stop and re-read the rule when you see yourself producing any of these, on top of the shared list:
+
+- a rating letter or word in section 2 prose
+- a growth area with no example of the behaviour behind it
+- a principle cited that is not in the org profile list

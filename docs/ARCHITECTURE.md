@@ -58,7 +58,19 @@ which absolute file to read. The engine never contains a tool name: it reads the
 7. **gate**: `validate-writing` scores the draft, the writer revises, at least two passes, at
    most five, stop at zero blockers.
 8. **land**: the draft reaches a compose box or a `[Draft]` document. A human sends.
-9. **record**: one ledger line, one `result.json`, the single reply line `VSTACK_RESULT`.
+9. **brief**: three lines the human decides from without opening the draft: what landed, the one
+   fact that needs attention with its source, where it is and what to do.
+10. **record**: one ledger line, one `result.json`, the single reply line `VSTACK_RESULT`.
+11. **contract**: the engine reads the run directory back. Missing or malformed artifacts turn
+    the status into `contract_unmet` whatever the model claimed.
+12. **second opinion** (optional, `gate.second_opinion` or `--second-opinion`): an independent
+    critic on another harness evaluates the draft against the evidence and writes
+    `gate-second.md`. A finding counts only with the offending text quoted. Findings are
+    recorded in `meta.json`, never edit, never block.
+
+`vstack retro --days 7` reads the ledger back: runs per cell, contract misses, gate passes,
+second-opinion findings and recurring Known Gaps, and asks for an enforcer per recurring line.
+[RULES.md](RULES.md) is where that enforcer is recorded.
 
 ## 4. The graph
 
@@ -87,6 +99,9 @@ Invariants:
 5. The privacy cut: in the private component (`hr` by default) only a D or L node may have an
    edge outward, and ledger fields may not carry rating, candidate, promo, salary or feedback text.
 6. Every cell has a `dry_run_path`, so it can run with no side effects.
+7. A writer cell reads at least two sources, more when `coverage` says so. One source is a copy,
+   not an update.
+8. A run is complete when its artifacts pass the done-means contract, never on the model's word.
 
 ## 5. The same cell at four scales
 

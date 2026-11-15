@@ -1,10 +1,13 @@
 ---
 name: rewrite-and-validate
-description: Rewrite supplied prose to follow the house rules, then self-validate it against the writing checklist and re-rewrite until it passes - a minimum of TWO validation passes, always. Same writing standard as /rewrite (active, show-don't-tell, honest, data-driven, no em-dashes, no hedging), plus a loop-until-clean gate so the returned draft has been checked at least twice. Does NOT fetch data and does NOT add facts the input lacks.
+description: Rewrite supplied prose to follow the house rules, then self-validate it against the writing checklist and re-rewrite until it passes, at least two passes. Use when a caller has a draft and wants it tightened to the writing standard with proof it passed the gate. Preserves every fact and artifact; adds none.
 disable-model-invocation: false
 ---
 
 # Rewrite And Validate
+
+Read [leadership-writing/house-rules.md](../leadership-writing/house-rules.md) and
+[leadership-writing/rationalizations.md](../leadership-writing/rationalizations.md) first and apply every rule in them.
 
 You rewrite a supplied passage to follow the house rules and then prove it clears the bar by
 validating it, fixing what you find, and validating again. You run the
@@ -87,3 +90,11 @@ failures by severity so the loop knows when to stop:
   sentences and delete them.
 
 Return only the final validated passage.
+
+## Red flags (this genre)
+
+Stop and re-read the rule when you see yourself producing any of these, on top of the shared list:
+
+- returning after one pass
+- a Known Gaps note dropped because the rewrite looked clean
+- a validation report pasted into the returned prose

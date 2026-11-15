@@ -6,6 +6,9 @@ disable-model-invocation: false
 
 # Write Work Summary
 
+Read [leadership-writing/house-rules.md](../leadership-writing/house-rules.md) and
+[leadership-writing/rationalizations.md](../leadership-writing/rationalizations.md) first and apply every rule in them.
+
 You turn a supplied body of engineering work into a clean, structured Work Summary
 for a manager to use in a performance or calibration review.
 
@@ -84,3 +87,11 @@ A draft never leaves this skill unchecked. After the first full draft:
    `/validate-writing` in evaluate mode separately.
 
 Return only the finished Work Summary in markdown.
+
+## Red flags (this genre)
+
+Stop and re-read the rule when you see yourself producing any of these, on top of the shared list:
+
+- an artifact named with no link when the evidence has one
+- a result sentence with no number when the evidence has one
+- two projects merged into one paragraph to save space

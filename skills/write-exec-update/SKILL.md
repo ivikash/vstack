@@ -18,6 +18,7 @@ meeting note). If evidence is missing, do not invent it; leave it out, label it 
 record it under Known Gaps.
 
 First read [leadership-writing/house-rules.md](../leadership-writing/house-rules.md) and apply every rule in it.
+Then read [leadership-writing/rationalizations.md](../leadership-writing/rationalizations.md): the excuses to refuse and the red flags to stop on.
 This skill adds only the rules specific to an executive status update below.
 
 ## Output discipline (read first)
@@ -79,3 +80,11 @@ A draft never leaves this skill unchecked. After the first full draft:
 4. Return only the final draft (plus the Known Gaps note when required): no pass counts, no
    validation report, no process sentences. A caller that wants the report runs
    `/validate-writing` in evaluate mode separately.
+
+## Red flags (this genre)
+
+Stop and re-read the rule when you see yourself producing any of these, on top of the shared list:
+
+- a section marked GREEN whose only evidence is that nobody reported a problem
+- a RED section with no `Green by:` line
+- a milestone date copied from a plan when a status source exists

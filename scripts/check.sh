@@ -7,6 +7,8 @@
 #   frontmatter every SKILL.md has name + description
 #   loop        every writer skill carries the validation loop (gate, min 2, max 5, reads house-rules)
 #   profile     every org-profile key a skill references is defined in leadership-writing/org-profile.md
+#   triggers    every skill description wins its own prompts and loses the others (evals/triggers.json)
+#   rules       every row in docs/RULES.md names an enforcer that exists
 #   instance    the instance pointed at by VSTACK_INSTANCE (if set) is NOT inside this repo and is
 #               NOT a remote of it, so private files cannot be committed here by mistake
 set -euo pipefail
@@ -71,6 +73,19 @@ for k in $keys; do
   grep -q "^- \*\*${leaf}\*\*" skills/leadership-writing/org-profile.md || { say profile "FAIL: $k not defined in org-profile.md"; fail=1; }
 done
 [ $fail -eq 0 ] && say profile "ok ($(echo "$keys" | wc -l | tr -d ' ') profile keys all defined)"
+
+# triggers -------------------------------------------------------------------------------------
+if out=$(python3 scripts/trigger-eval.py 2>&1); then say triggers "ok ($(echo "$out" | tail -1 | sed 's/trigger eval: //'))"; else say triggers "FAIL:"; echo "$out" | head -8; fail=1; fi
+
+# rules ----------------------------------------------------------------------------------------
+# every check.sh group and vstack subcommand named in docs/RULES.md exists in this repo
+for ref in $(grep -oE 'check\.sh [a-z-]+' docs/RULES.md | awk '{print $2}' | sort -u); do
+  grep -q "^# $ref " scripts/check.sh || { say rules "FAIL: docs/RULES.md names check.sh group '$ref' which does not exist"; fail=1; }
+done
+for sc in $(grep -oE '`vstack [a-z-]+' docs/RULES.md | awk '{print $2}' | sort -u); do
+  grep -q "add_parser(\"$sc\")" bin/vstack || { say rules "FAIL: docs/RULES.md names vstack subcommand '$sc' which does not exist"; fail=1; }
+done
+[ $fail -eq 0 ] && say rules "ok ($(grep -c '^| ' docs/RULES.md) rows, every enforcer exists)"
 
 # instance -------------------------------------------------------------------------------------
 if [ -n "${VSTACK_INSTANCE:-}" ]; then

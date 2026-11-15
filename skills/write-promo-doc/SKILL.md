@@ -6,6 +6,9 @@ disable-model-invocation: false
 
 # Write Promotion Document
 
+Read [leadership-writing/house-rules.md](../leadership-writing/house-rules.md) and
+[leadership-writing/rationalizations.md](../leadership-writing/rationalizations.md) first and apply every rule in them.
+
 You turn supplied evidence about an engineer into a narrative promotion document that
 a manager can present to leadership, assessed against a target-level rubric the caller
 provides.
@@ -172,3 +175,11 @@ read aloud in a live calibration discussion when someone asks "why is this hard"
 "what's the level-defining part of this," not to replace the document itself.
 
 Return only the finished promotion document in markdown.
+
+## Red flags (this genre)
+
+Stop and re-read the rule when you see yourself producing any of these, on top of the shared list:
+
+- a Reasons Not To Promote section that only restates strengths
+- a claim with no code review, document or ticket beside it
+- a peer quote that is not verbatim from the evidence

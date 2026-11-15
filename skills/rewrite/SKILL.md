@@ -6,6 +6,9 @@ disable-model-invocation: false
 
 # Rewrite
 
+Read [leadership-writing/house-rules.md](../leadership-writing/house-rules.md) and
+[leadership-writing/rationalizations.md](../leadership-writing/rationalizations.md) first and apply every rule in them.
+
 You take a supplied passage and rewrite it to follow the house rules. You improve HOW it reads,
 never WHAT it claims. Every fact, metric, quote, link, ID, and date in your output must
 already exist in the input. You add nothing and you remove no supporting evidence.
@@ -70,3 +73,11 @@ A draft never leaves this skill unchecked. After the first full draft:
    `/validate-writing` in evaluate mode separately.
 
 Return only the rewritten passage.
+
+## Red flags (this genre)
+
+Stop and re-read the rule when you see yourself producing any of these, on top of the shared list:
+
+- a fact, number or link changed while tightening the prose
+- a new claim introduced to make a sentence flow
+- the caller's own phrasing replaced when only grammar was asked for

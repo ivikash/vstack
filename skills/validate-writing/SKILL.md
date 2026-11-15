@@ -1,10 +1,13 @@
 ---
 name: validate-writing
-description: Review a finished people-review document (talent card, work summary, or promotion doc) against a writing checklist. Two modes - "gate" returns a pass/fail verdict with quotable fixes (for loop-until-pass drafting); "evaluate" returns a scored report, a criteria-coverage map, and a promotion-panel FAQ. Does NOT rewrite the draft.
+description: Review a finished leadership document (talent card, work summary, promotion doc, executive update, or any passage) against the writing checklist. Use when a draft must pass a gate before it lands, or when a caller wants a scored evaluation. Two modes: gate returns pass or fail with quoted fixes, evaluate returns a scored report. Never rewrites the draft.
 disable-model-invocation: false
 ---
 
 # Validate Writing
+
+Read [leadership-writing/house-rules.md](../leadership-writing/house-rules.md) and
+[leadership-writing/rationalizations.md](../leadership-writing/rationalizations.md) first and apply every rule in them.
 
 You are a strict, fair critic of leadership writing. Given a finished draft, you check
 it against the checklist and report. You do **not** rewrite the draft. You are not swayed
@@ -119,3 +122,11 @@ Otherwise return the same content as a readable report with the three sections a
 
 Severity reminder: a `blocker` makes the document unfit to share (fabrication, missing
 required section, em-dash, invented feedback). `major` weakens it; `minor` is polish.
+
+## Red flags (this genre)
+
+Stop and re-read the rule when you see yourself producing any of these, on top of the shared list:
+
+- a rule marked passed with nothing quoted
+- a failure without an exact offending substring
+- a verdict of pass while a Known Gaps section is missing where a source was unavailable

@@ -1,0 +1,68 @@
+{
+  "_note": "Routing eval. For every positive prompt the named skill must rank first on description-vocabulary overlap across all skills; a negative prompt must not rank that skill first. Deterministic, no model. Run: python3 scripts/trigger-eval.py",
+  "cases": {
+    "write-exec-update": {
+      "positive": [
+        "write the weekly leadership status update for the program from this evidence",
+        "turn these workstream statuses into an executive update with RED YELLOW GREEN and green-by dates",
+        "draft the org update for the VP with risks and action items"
+      ],
+      "negative": ["write a promotion document for this engineer", "review this draft against the checklist"]
+    },
+    "write-talent-card": {
+      "positive": [
+        "write the talent review card for this team member with the rating rationale and key deliverables",
+        "fill in the two narrative sections of the per-person review doc for calibration"
+      ],
+      "negative": ["write a status update for executives", "rewrite this passage to the house style"]
+    },
+    "write-work-summary": {
+      "positive": [
+        "write a work summary for this engineer with timeline, task, challenges, action, result and artifacts",
+        "turn this body of work into a summary document for the performance review"
+      ],
+      "negative": ["validate this document against the writing checklist", "gather evidence for the cell"]
+    },
+    "write-promo-doc": {
+      "positive": [
+        "write the narrative promotion document for this engineer against the level rubric",
+        "draft the promo doc including the reasons not to promote section"
+      ],
+      "negative": ["write the daily program update", "rewrite this paragraph"]
+    },
+    "validate-writing": {
+      "positive": [
+        "review this finished document against the writing checklist and tell me if it passes the gate",
+        "evaluate this talent card and give me a scored report"
+      ],
+      "negative": ["write a work summary from these projects", "gather the evidence from the sources"]
+    },
+    "rewrite": {
+      "positive": [
+        "rewrite this passage to follow the house rules without adding facts",
+        "tighten this status update to the writing standard, keep every number and link"
+      ],
+      "negative": ["write a talent card", "run the gate loop until it passes with at least two passes"]
+    },
+    "rewrite-and-validate": {
+      "positive": [
+        "rewrite this and self-validate it against the checklist until it passes, at least two passes",
+        "tighten this draft and prove it passed the gate"
+      ],
+      "negative": ["write the executive update", "fetch the evidence for this cell"]
+    },
+    "score-gate": {
+      "positive": [
+        "run this draft through validate-writing in a fixed loop, minimum two passes maximum five, return the final draft and a one-line result"
+      ],
+      "negative": ["write a promo doc", "write the work summary"]
+    },
+    "gather-evidence": {
+      "positive": [
+        "gather the evidence for this cell from its source roles through the tools map, cache first, write evidence.json with a hash",
+        "run the gather stage: resolve each source role, fetch on cache miss, never write prose"
+      ],
+      "negative": ["write the executive update from this evidence", "validate the draft"]
+    }
+  }
+}

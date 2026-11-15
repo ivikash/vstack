@@ -14,6 +14,8 @@ Subcommands
   link-skills   make every harness skill dir a symlink to one canonical dir
   gen-cron      emit crontab lines (or kirocrew cron commands) for every cell with a trigger
   gen-mcp       emit an MCP server block for one harness from one servers file
+  check-run     verify a run directory against the done-means contract (artifacts, not claims)
+  retro         read the ledger for the last N days and write a dated retro page (no model call)
 
 Most commands take --instance DIR (or $VSTACK_INSTANCE): the private directory holding
 tools*.json, org-profile*.md, graph*.json, cells/ and vstack.lock. With it, --tools,
@@ -116,6 +118,17 @@ def check(graph_path, cells_dir, private_component):
                 fails.append(f"{cid}: source without a role (sources are addressed by role, never by tool name)")
             if "." not in s.get("role", "."):
                 fails.append(f"{cid}: source role '{s.get('role')}' is not namespaced (e.g. docs.read)")
+        # coverage: a writer that reads one source writes from one source. Default minimum 2, the
+        # cell may raise it or require roles (e.g. a corroboration role) through "coverage".
+        if kind == "writer":
+            cov = c.get("coverage", {})
+            need = int(cov.get("min_sources", 2))
+            if len(c.get("sources", [])) < need:
+                fails.append(f"{cid}: {len(c.get('sources', []))} source(s), coverage.min_sources is {need}")
+            have = {s.get("role") for s in c.get("sources", [])}
+            for r in cov.get("require_roles", []):
+                if r not in have:
+                    fails.append(f"{cid}: coverage.require_roles names '{r}' but no source has that role")
         # invariant 4: every sink records
         led = c.get("ledger", {})
         if not led.get("fields"):
@@ -254,6 +267,21 @@ All paths below are absolute. Read files with your file-reading tool; never gues
 - Record or it did not happen: the final stage appends one ledger line and one result file.
 - Evidence only: no metric, name, date or link that is not in the gathered evidence.
 - Organisation vocabulary comes from the org profile below, not from memory.
+- Runner contract: stage 1 uses read-only tools (read, list, search, get). The only write outside
+  the run directory is stage 5, through the one sink role named there. Never post, send, react,
+  mark as read, or create anything anywhere else, in any stage, for any reason.
+- Rationalizations are listed in {skills_dir}/leadership-writing/rationalizations.md. If you
+  notice yourself reaching for one, do what its rebuttal says.
+
+## Done means
+This run is complete only when every file below exists in {run_dir}; `vstack check-run` reads
+them and marks the run `contract_unmet` otherwise. A claim in your reply is not evidence.
+- evidence.json with a `sources` list (role, status, item count) and `evidence_hash`
+- diff.md
+- draft.md whose first line after the title is `Sources: used ...; unavailable ...`
+- gate.md whose first line is `passes: N` with N >= {min_passes}
+- brief.md, three lines (see stage 5b)
+- result.json, and one appended ledger line
 
 ## 1. GATHER{gather_mode}
 {gather}
@@ -272,8 +300,10 @@ Read these files first, in this order, and apply every rule in them:
 Org profile (overrides the skill's defaults; use these words verbatim):
 {org_profile}
 
-Produce the document the skill describes from evidence.json{writer_inputs}. Save it to
-{run_dir}/draft.md.
+Produce the document the skill describes from evidence.json{writer_inputs}. Its first line after
+the title is the sources header, built from evidence.json: `Sources: used <roles that returned
+items>; unavailable <roles that were unmapped, skipped or empty>` (write `none` for an empty side).
+A thin run must be visible to the reader, never papered over. Save it to {run_dir}/draft.md.
 
 ## 4. GATE (validation loop)
 Read {skills_dir}/{gate_skill}/SKILL.md and {skills_dir}/{gate_skill}/checklist.md.
@@ -281,19 +311,91 @@ Apply the gate to draft.md with doc type `{doc_type}`. Fix every quoted failure,
 Rules: minimum {min_passes} passes, maximum {max_passes} passes, stop when a pass has zero blockers
 and zero majors{coverage}. A fix may never invent a fact; an unfixable blocker goes under a closing
 `**Known Gaps**` note in draft.md. Write the last pass report to {run_dir}/gate.md with the pass
-count on its first line as `passes: N`.
+count on its first line as `passes: N`. Verification before completion: every rule the report
+marks passed names what it checked (a quoted span or a count), and every failure quotes the
+offending text. "Verified" with nothing quoted is itself a failure.
 
 ## 5. LAND
 {land}
+
+## 5b. BRIEF
+Write {run_dir}/brief.md: exactly three lines a busy reader decides from without opening the
+draft. Line 1: what landed (document type, subject, one status word). Line 2: the one fact that
+most needs the reader's attention, with its source. Line 3: where the draft is (the landed path
+or id) and what the reader must do (send, approve, or nothing).
 
 ## 6. RECORD
 Append exactly one JSON line to {ledger_path} with these fields, taken from the final draft and
 this run: {ledger_fields}, plus run_id="{run_id}", cell="{id}", harness="{harness}",
 dry_run={dry_json}, no_publish={nopub_json}, landed_at (ISO time), gate_passes (from gate.md).
 Then write {run_dir}/result.json: {{"status": "ok" | "known_gaps" | "failed", "gate_passes": N,
-"draft": "{run_dir}/draft.md", "landed": <where the draft went>}}.
+"draft": "{run_dir}/draft.md", "brief": "{run_dir}/brief.md", "landed": <where the draft went>}}.
 Reply with the single line: VSTACK_RESULT <status> passes=<N>
 """
+
+SECOND_OPINION = """# Second opinion on a draft ({harness})
+
+You are an independent critic. You did not write this draft and you must not edit it.
+Read {skills_dir}/leadership-writing/house-rules.md, {skills_dir}/{gate_skill}/SKILL.md and
+{skills_dir}/{gate_skill}/checklist.md. Read {run_dir}/draft.md and {run_dir}/evidence.json.
+
+Run the gate in evaluate mode on draft.md with doc type `{doc_type}`, and additionally check
+every number, date, name and link in the draft against evidence.json.
+
+Rules for your report: a finding counts only when you quote the exact offending text and, for
+an evidence mismatch, the evidence value beside it. A concern without a quote is a note, not a
+finding. Do not repeat the primary gate's style; look for what it would miss: a claim the
+evidence does not support, a status stronger than its fact, a missing Known Gap.
+
+Write {run_dir}/gate-second.md: first line `findings: N`, then each finding as
+`[blocker|major|minor] rule -> "offending" -> evidence or fix`, then a `notes:` section.
+Reply with the single line: VSTACK_SECOND findings=<N>
+"""
+
+
+def verify_contract(run_dir, cell):
+    """The done-means contract: which required artifacts are missing or malformed in a run dir."""
+    run_dir = Path(run_dir)
+    missing = []
+    ev = run_dir / "evidence.json"
+    if not ev.exists():
+        missing.append("evidence.json")
+    else:
+        try:
+            e = load(ev)
+            if "sources" not in e or "evidence_hash" not in e:
+                missing.append("evidence.json lacks sources or evidence_hash")
+        except Exception:
+            missing.append("evidence.json is not valid JSON")
+    if not (run_dir / "diff.md").exists():
+        missing.append("diff.md")
+    draft = run_dir / "draft.md"
+    if not draft.exists():
+        missing.append("draft.md")
+    else:
+        head = [l for l in draft.read_text().splitlines()[:6] if l.strip()]
+        if not any(l.lower().startswith("sources:") for l in head):
+            missing.append("draft.md has no `Sources: used ...; unavailable ...` header line")
+    gate = run_dir / "gate.md"
+    min_passes = int(cell.get("gate", {}).get("min_passes", 2))
+    if not gate.exists():
+        missing.append("gate.md")
+    else:
+        m = re.match(r"\s*passes:\s*(\d+)", gate.read_text())
+        if not m:
+            missing.append("gate.md first line is not `passes: N`")
+        elif int(m.group(1)) < min_passes:
+            missing.append(f"gate.md reports {m.group(1)} passes, cell requires {min_passes}")
+    brief = run_dir / "brief.md"
+    if not brief.exists():
+        missing.append("brief.md")
+    else:
+        n = len([l for l in brief.read_text().splitlines() if l.strip()])
+        if n != 3:
+            missing.append(f"brief.md has {n} non-empty lines, expected 3")
+    if not (run_dir / "result.json").exists():
+        missing.append("result.json")
+    return missing
 
 
 def render(cell, tools, org_profile_text, harness, dry_run, run_dir, run_id, skills_dir, cache_root, ledger_root, fixture=None, no_publish=False):
@@ -471,11 +573,101 @@ def run(args):
         meta["result"] = {"status": "scheduled", "note": "kirocrew runs asynchronously; result.json appears when the job finishes"}
     else:
         meta["result"] = {"status": "failed", "note": "no result.json written"}
+    # done-means contract: the run dir, not the model's reply, decides
+    if args.harness != "kirocrew":
+        unmet = verify_contract(run_dir, cell)
+        meta["contract"] = {"met": not unmet, "unmet": unmet}
+        if unmet and meta["result"].get("status") in ("ok", "known_gaps"):
+            meta["result"]["claimed_status"] = meta["result"]["status"]
+            meta["result"]["status"] = "contract_unmet"
+    # second opinion: an independent critic on another harness, findings recorded, never edits
+    second = args.second_opinion or cell.get("gate", {}).get("second_opinion")
+    if second and args.harness != "kirocrew" and (run_dir / "draft.md").exists():
+        gate = cell.get("gate", {})
+        sprompt = SECOND_OPINION.format(harness=second, skills_dir=skills_dir, run_dir=run_dir,
+                                        gate_skill=gate.get("skill", "validate-writing"), doc_type=gate.get("doc_type", "passage"))
+        (run_dir / "prompt-second.md").write_text(sprompt)
+        scmd, sstdin = harness_cmd(second, run_dir / "prompt-second.md", run_dir, agent=None, model=None)
+        with open(run_dir / "stdout-second.log", "w") as out:
+            sproc = subprocess.run(scmd, input=sstdin, stdout=out, stderr=subprocess.STDOUT, text=True, timeout=args.timeout)
+        g2 = run_dir / "gate-second.md"
+        m2 = re.match(r"\s*findings:\s*(\d+)", g2.read_text()) if g2.exists() else None
+        meta["second_opinion"] = {"harness": second, "exit": sproc.returncode,
+                                  "findings": int(m2.group(1)) if m2 else None, "report": str(g2) if g2.exists() else None}
     (run_dir / "meta.json").write_text(json.dumps(meta, indent=2))
     with open(Path(ledger_root) / "runs.jsonl", "a") as f:
         f.write(json.dumps(meta) + "\n")
     print(json.dumps(meta, indent=2))
     return 0 if meta["result"].get("status") in ("ok", "known_gaps", "scheduled") else 2
+
+
+def check_run(args):
+    run_dir = Path(args.run_dir).expanduser()
+    meta = load(run_dir / "meta.json") if (run_dir / "meta.json").exists() else {}
+    cell = {"gate": {"min_passes": args.min_passes}}
+    unmet = verify_contract(run_dir, cell)
+    for u in unmet:
+        print("  unmet:", u)
+    print("contract:", "MET" if not unmet else f"{len(unmet)} item(s) unmet", f"(cell {meta.get('cell', '?')}, harness {meta.get('harness', '?')})")
+    return 1 if unmet else 0
+
+
+def retro(args):
+    """Read the ledger for the last N days and write a dated retro page: per cell, runs, failures,
+    contract misses, gate passes, second-opinion findings, and recurring Known Gaps. No model call.
+    This is the /correct discipline applied to the estate: a class that recurs gets an enforcer."""
+    ledger = Path(args.ledger_root).expanduser() / "runs.jsonl"
+    since = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=args.days)
+    rows = []
+    if ledger.exists():
+        for line in ledger.read_text().splitlines():
+            try:
+                m = json.loads(line)
+            except Exception:
+                continue
+            try:
+                started = dt.datetime.fromisoformat(m.get("started", "").replace("Z", "+00:00"))
+            except Exception:
+                continue
+            if started >= since:
+                rows.append(m)
+    by_cell = {}
+    for m in rows:
+        by_cell.setdefault(m.get("cell", "?"), []).append(m)
+    gaps = {}
+    for m in rows:
+        d = Path(m.get("run_dir", "")) / "draft.md"
+        if d.exists():
+            text = d.read_text()
+            if "**Known Gaps**" in text or "Known Gaps" in text:
+                tail = text.split("Known Gaps", 1)[1]
+                for l in tail.splitlines()[1:8]:
+                    l = l.strip(" -*")
+                    if len(l) > 12:
+                        gaps[l[:120]] = gaps.get(l[:120], 0) + 1
+    out = [f"# Retro {dt.date.today().isoformat()} (last {args.days} days, {len(rows)} runs)", ""]
+    out += ["| Cell | Runs | ok | known_gaps | failed | contract unmet | avg gate passes | second-opinion findings |", "|---|---|---|---|---|---|---|---|"]
+    for cell, ms in sorted(by_cell.items()):
+        st = [m.get("result", {}).get("status") for m in ms]
+        passes = [m.get("result", {}).get("gate_passes") for m in ms if isinstance(m.get("result", {}).get("gate_passes"), int)]
+        unmet = sum(1 for m in ms if m.get("contract") and not m["contract"].get("met"))
+        f2 = [m["second_opinion"]["findings"] for m in ms if m.get("second_opinion") and m["second_opinion"].get("findings") is not None]
+        out.append(f"| {cell} | {len(ms)} | {st.count('ok')} | {st.count('known_gaps')} | {sum(1 for s in st if s not in ('ok', 'known_gaps', 'scheduled'))} | {unmet} | "
+                   f"{(sum(passes) / len(passes)):.1f} | {sum(f2) if f2 else '-'} |" if passes else
+                   f"| {cell} | {len(ms)} | {st.count('ok')} | {st.count('known_gaps')} | {sum(1 for s in st if s not in ('ok', 'known_gaps', 'scheduled'))} | {unmet} | - | {sum(f2) if f2 else '-'} |")
+    out += ["", "## Recurring Known Gaps (seen twice or more)", ""]
+    rec = [(k, v) for k, v in gaps.items() if v >= 2]
+    out += [f"- {v}x: {k}" for k, v in sorted(rec, key=lambda kv: -kv[1])] or ["- none"]
+    out += ["", "## Proposed enforcers", "",
+            "A gap that recurs is a missing source, a missing rule or a missing check, in that order of preference.",
+            "For each line above decide: add a source role to the cell (coverage.require_roles), add a rule to the",
+            "writer skill, or add a check to `vstack check`. Record the decision beside the line and keep this page."]
+    dest = Path(args.out).expanduser() if args.out else Path(args.ledger_root).expanduser().parent / "retro" / f"{dt.date.today().isoformat()}.md"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text("\n".join(out) + "\n")
+    print("\n".join(out))
+    print(f"\nwritten: {dest}", file=sys.stderr)
+    return 0
 
 
 # ----------------------------------------------------------------------------- generators
@@ -545,7 +737,10 @@ def main():
     sp = sub.add_parser("run"); common(sp); sp.add_argument("cell"); sp.add_argument("--harness", choices=HARNESSES, required=True)
     sp.add_argument("--agent", help="agent template (kiro) or Bot name (kirocrew)")
     sp.add_argument("--model")
+    sp.add_argument("--second-opinion", choices=("claude", "codex", "kiro"), help="run an independent critic on this harness after the gate; findings are recorded, never block")
     sp.add_argument("--timeout", type=int, default=1500)
+    sp = sub.add_parser("check-run"); sp.add_argument("run_dir"); sp.add_argument("--min-passes", type=int, default=2)
+    sp = sub.add_parser("retro"); sp.add_argument("--days", type=int, default=7); sp.add_argument("--out"); sp.add_argument("--ledger-root", default=str(HOME / ".local/state/vstack/ledger"))
     sp = sub.add_parser("check"); sp.add_argument("--instance", help="instance directory (default: $VSTACK_INSTANCE); fills --graph and --cells"); sp.add_argument("--graph"); sp.add_argument("--cells"); sp.add_argument("--private-component", default=PRIVATE_COMPONENT_DEFAULT)
     sp = sub.add_parser("verify-skills"); sp.add_argument("--lock"); sp.add_argument("--dirs", nargs="+", required=True); sp.add_argument("--skills", nargs="+", required=True)
     sp = sub.add_parser("link-skills"); sp.add_argument("--canonical", required=True); sp.add_argument("--targets", nargs="+", required=True)
@@ -590,9 +785,13 @@ def main():
         return gen_cron(args)
     if args.cmd == "gen-mcp":
         return gen_mcp(args)
+    if args.cmd == "check-run":
+        sys.exit(check_run(args))
+    if args.cmd == "retro":
+        sys.exit(retro(args))
     if args.cmd in ("render", "run"):
         if args.cmd == "render":
-            args.agent = None; args.model = None; args.timeout = 0
+            args.agent = None; args.model = None; args.timeout = 0; args.second_opinion = None
         sys.exit(run(args))
 
 

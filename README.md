@@ -31,7 +31,7 @@ Every cell, at every scale, is the same loop. `vstack render` spells it out as o
 absolute paths filled in, `vstack run` executes it on the harness you name.
 
 ```
-trigger -> gather (cache-first, hashed) -> diff -> write (skill) -> gate (critic loop) -> land (draft) -> record (ledger)
+trigger -> gather (cache-first, hashed) -> diff -> write (skill) -> gate (critic loop) -> land (draft) -> brief (3 lines) -> record (ledger)
 ```
 
 ## Invariants `vstack check` enforces
@@ -41,6 +41,11 @@ trigger -> gather (cache-first, hashed) -> diff -> write (skill) -> gate (critic
 3. Every writer has exactly one gate before its sink, with at least two passes.
 4. Every sink records. A cell with no ledger fields fails.
 5. A private component (people, HR) records only dates, ids and counts.
+6. A writer reads at least two sources (`coverage.min_sources`, `coverage.require_roles` raise the bar).
+7. A run is done when its artifacts exist, not when the model says so: `vstack run` verifies the
+   done-means contract (evidence, diff, draft with a `Sources:` header, gate with enough passes, a
+   three-line brief, result) and marks a run `contract_unmet` otherwise. `vstack check-run <dir>`
+   does the same by hand.
 
 ## Layout
 
@@ -56,8 +61,10 @@ harness/README.md      how claude, codex, kiro and kirocrew are invoked and wher
 instance-template/     copy into a private repo: tools.json, org-profile.md, mcp-servers.json,
                        graph.json, cells/, fixtures/, vstack.lock
 evals/                 synthetic fixtures, expected outcomes, and what check.sh verifies
-scripts/check.sh       identity, no-org denylist, schemas, frontmatter, loop, profile, instance
+scripts/check.sh       identity, no-org, schemas, frontmatter (spec), loop, profile, triggers, rules, instance
+scripts/trigger-eval.py routing eval: each skill's description wins its own prompts (evals/triggers.json)
 docs/ARCHITECTURE.md   the two-repo split, layers, run flow, graph types, invariants
+docs/RULES.md          every rule paired with the check that enforces it
 ```
 
 ## Quick start
@@ -84,6 +91,8 @@ $V run ~/work/my-instance/cells/program-update.json --harness claude --dry-run
 
 # 5. live: same command without --dry-run. The draft lands in a compose box; you press send.
 #    standing schedule: $V gen-cron --cells ~/work/my-instance/cells --harness claude
+#    independent critic on a high-stakes doc: add --second-opinion codex (findings recorded, never block)
+#    weekly: $V retro --days 7   (per-cell runs, contract misses, recurring Known Gaps, no model call)
 ```
 
 ## Checks before every commit

@@ -1,6 +1,6 @@
 ---
 name: leadership-writing
-description: Shared house rules that the leadership-writing skills read (talent card, work summary, promo doc, executive update, rewrite, validate). Holds the single source of truth for HOW the writing reads. Not invoked directly - the write-* and rewrite skills read house-rules.md from here.
+description: Shared house rules, org-profile defaults and the rationalizations table that every leadership-writing skill reads (talent card, work summary, promo doc, executive update, rewrite, validate). Use when a writing or validating skill tells you to read house-rules.md, org-profile.md or rationalizations.md from here. Not invoked on its own.
 ---
 
 # Leadership Writing (shared foundation)
