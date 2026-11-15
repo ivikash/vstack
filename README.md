@@ -12,6 +12,7 @@ prove it.
 Everything that names your company lives in a second, private repository called the **instance**.
 vstack reads it at run time and never contains it, and a check fails if the line is crossed.
 
+- [Five words](#five-words)
 - [What you get](#what-you-get)
 - [How a run works](#how-a-run-works)
 - [Install in ten minutes](#install-in-ten-minutes)
@@ -25,6 +26,19 @@ vstack reads it at run time and never contains it, and a check fails if the line
 - [Troubleshooting](#troubleshooting)
 - [Design notes](#design-notes)
 
+## Five words
+
+| Word | Means |
+|---|---|
+| **cell** | one recurring job as one JSON file: trigger, sources, writer, gate, sink, ledger. `cells/weekly-update.json` is a cell. Everything vstack does, it does to a cell |
+| **instance** | the private folder (and repository) that holds your company's words: which tools, which documents, which channels, which people. vstack reads it, never contains it |
+| **role** | a capability name a cell asks for (`chat.search`, `docs.read`). The instance's `tools.json` maps each role to a real MCP server and tool, so cells never name tools |
+| **harness** | the coding agent that runs the prompt: Claude Code, Codex, Kiro CLI or Kiro Crew |
+| **run** | one execution of one cell: a directory of artifacts under `~/.local/state/vstack/runs/` and one ledger line |
+
+`example-instance/` is a complete instance for a fictional company. Copy it to start yours; the
+checks also use it as the proof that the invariants hold on a real layout.
+
 ## What you get
 
 | Piece | What it does | Where |
@@ -32,7 +46,7 @@ vstack reads it at run time and never contains it, and a check fails if the line
 | **engine** | one Python file, no dependencies. Renders a cell into a prompt, runs it on a harness, verifies the run directory, keeps a ledger, prints schedules | `bin/vstack` |
 | **skills** | the writers (executive update, talent card, work summary, promotion doc), the critic (`validate-writing`), the rewriters, and two plumbing skills. Plain markdown in the open [Agent Skills](https://agentskills.io/specification) format | `skills/` |
 | **harness adapters** | how each of the four agents is invoked non-interactively and where it reads skills from | `harness/README.md`, `harness_cmd` in the engine |
-| **instance template** | the private half as a folder you copy: tool map, org profile, graph, cells, fixtures | `instance-template/` |
+| **example instance** | a complete instance for a fictional company: tool map, org profile, graph, one cell, one fixture. Copy it to start yours | `example-instance/` |
 | **evals and checks** | a nine-group check script, a routing eval for the skills, synthetic fixtures with expected outcomes | `scripts/`, `evals/` |
 
 ## How a run works
@@ -95,11 +109,11 @@ Each harness directory now holds symlinks into this checkout. A `git pull` here 
 them; an existing real copy is moved aside, not deleted (`~/.local/state/vstack/skill-backups`).
 Pass only the target directories for the harnesses you have.
 
-**2. Create your instance from the template.** A private repository, committed with your work
+**2. Create your instance from the example.** A private repository, committed with your work
 e-mail, hosted only on your company's git server.
 
 ```bash
-cp -r ~/github/vstack/instance-template ~/work/my-instance
+cp -r ~/github/vstack/example-instance ~/work/my-instance
 cd ~/work/my-instance && git init && git config user.email you@your-company.example
 export VSTACK_INSTANCE=~/work/my-instance        # or pass --instance DIR on every command
 ```
@@ -134,7 +148,7 @@ The command prints `meta.json` when the harness returns. Look for `"status": "ok
 
 ## Write your first cell
 
-A cell is one JSON file. This is the template cell with comments on what each field is for:
+A cell is one JSON file. This is the example instance's cell with a comment on each field:
 
 ```jsonc
 {
@@ -265,7 +279,7 @@ The checks, in the order they run:
 |---|---|
 | identity | a commit here is not by the personal e-mail, or `git config user.email` is wrong |
 | no-org | any public file carries a company term, internal host, ticket, chat, doc or account id |
-| schemas | a JSON file does not parse, or the template instance breaks an invariant |
+| schemas | a JSON file does not parse, or the example instance breaks an invariant |
 | frontmatter | a skill's `name` is not its directory name in lowercase-hyphen, or a description is empty or over 1024 characters |
 | loop | a writer skill lacks the gate loop (min 2, max 5, reads house-rules) |
 | profile | a skill references an org-profile key that is not defined |
@@ -311,7 +325,7 @@ bin/vstack               the CLI, one file, standard library only
 schema/                  cell, graph, tools, ledger (JSON Schema)
 skills/                  one canonical copy of every skill
 harness/README.md        the four harnesses: exact command, skills dir, what a run leaves behind
-instance-template/       README, tools.json, org-profile.md, mcp-servers.json, graph.json, cells/, fixtures/, vstack.lock
+example-instance/       a complete instance for a fictional company: README, tools.json, org-profile.md, mcp-servers.json, graph.json, cells/, fixtures/, vstack.lock
 evals/                   triggers.json, fixtures/, results/
 scripts/check.sh         the nine check groups
 scripts/trigger-eval.py  the routing eval

@@ -1,9 +1,10 @@
-# An instance
+# The example instance
 
-vstack is the public half. Everything that names your company lives in a second repository,
-the **instance**, which vstack reads at run time and never contains. This folder is the template
-for one: copy it into a private repository, replace the example values, and point `VSTACK_INSTANCE`
-at it.
+An **instance** is the private folder that holds everything naming your company: which tools, which
+documents, which channels, which people. vstack reads it at run time and never contains it. This
+folder is a complete instance for a fictional company (Project Lantern, tools named `docs-mcp`,
+`chat-mcp`). Copy it into a private repository, replace the example values with yours, and point
+`VSTACK_INSTANCE` at it. `scripts/check.sh` also runs the invariants against this folder.
 
 ```
 <instance>/
