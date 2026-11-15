@@ -212,6 +212,43 @@ def skill_hash(skill_dir):
     return h.hexdigest()
 
 
+def check_frontmatter(skill_md):
+    """Parse a SKILL.md frontmatter the way a strict YAML reader does, with the standard library
+    only. Returns (fields, errors). Rejects what GitHub's renderer and PyYAML reject: an unquoted
+    value that contains ': ' or ' #', or that starts with a reserved indicator."""
+    text = Path(skill_md).read_text(encoding="utf-8")
+    lines = text.split("\n")
+    errors, fields = [], {}
+    if not lines or lines[0].strip() != "---":
+        return fields, ["no frontmatter (first line must be ---)"]
+    try:
+        end = lines.index("---", 1)
+    except ValueError:
+        return fields, ["frontmatter never closed with ---"]
+    for i, line in enumerate(lines[1:end], start=2):
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        if line.startswith((" ", "\t")):
+            errors.append(f"line {i}: indented continuation lines are not supported, keep each field on one line")
+            continue
+        key, sep, value = line.partition(":")
+        if not sep or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]*", key):
+            errors.append(f"line {i}: expected 'key: value'")
+            continue
+        value = value.strip()
+        if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
+            fields[key] = value[1:-1]
+            continue
+        if value and value[0] in "[]{}&*!|>%@`":
+            errors.append(f"line {i}: {key} starts with a YAML indicator {value[0]!r}, quote the value")
+        if ": " in value or value.endswith(":"):
+            errors.append(f"line {i}: {key} contains ': ' inside an unquoted value (mapping values are not allowed here), rewrite without the colon or quote the whole value")
+        if " #" in value:
+            errors.append(f"line {i}: {key} contains ' #', which starts a YAML comment, quote the value")
+        fields[key] = value
+    return fields, errors
+
+
 def verify_skills(lock_path, dirs, names):
     """Every named skill must exist in every dir and hash identically across dirs. If a lock file
     is given, the canonical copy's SKILL.md hash must match the lock's computedHash."""
@@ -231,6 +268,12 @@ def verify_skills(lock_path, dirs, names):
         if len(set(hashes.values())) > 1:
             fails.append(f"{name}: copies differ across {', '.join(hashes)}")
         canon = Path(dirs[0]).expanduser() / name / "SKILL.md"
+        if canon.exists():
+            fields, errs = check_frontmatter(canon)
+            for e in errs:
+                fails.append(f"{name}: SKILL.md frontmatter {e}")
+            if fields.get("name") != name:
+                fails.append(f"{name}: SKILL.md frontmatter name is {fields.get('name')!r}, must equal the directory name")
         if name in lock_by_path and canon.exists():
             if sha(canon) != lock_by_path[name]:
                 report.append(f"{name}: SKILL.md differs from lock (local edits or newer upstream)")
@@ -808,6 +851,7 @@ def main():
         if not args.tools:
             die("gen-agent needs --connectors or --instance")
         return gen_agent(args)
+    if args.cmd == "check":
         fails, cells = check(args.workflows, args.private_component)
         print(f"workflows: {len(cells)}")
         for f in fails:

@@ -10,7 +10,7 @@ class at the highest level that works, architecture first, docs last.)
 | Public commits use the personal e-mail, private commits the work e-mail | `scripts/check.sh identity` (public), the instance's own check (private) | check |
 | No company term, host, ticket, chat, doc or account id in any public file | `scripts/check.sh no-org` denylist | check |
 | The instance lives outside the public checkout and has no public remote | `scripts/check.sh instance` with `VSTACK_INSTANCE` | check |
-| Skill frontmatter follows the Agent Skills spec (name = directory, lowercase-hyphen, max 64; description non-empty, max 1024) | `scripts/check.sh frontmatter` | check |
+| Skill frontmatter follows the Agent Skills spec (name = directory, lowercase-hyphen, max 64; description non-empty, max 1024) and parses as YAML (no unquoted `: ` inside a value) | `scripts/check.sh frontmatter`, `vstack verify-skills` | check, engine |
 | Every skill description carries a trigger phrase and wins its own prompts | `scripts/trigger-eval.py` (36 cases) via `check.sh triggers` | check |
 | Every writer runs the gate: minimum 2 passes, maximum 5, reads house-rules | `scripts/check.sh loop` | check |
 | Every glossary key a skill references exists | `scripts/check.sh glossary` | check |

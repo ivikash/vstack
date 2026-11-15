@@ -38,13 +38,16 @@ if [ -n "$hits" ]; then say no-org "FAIL:"; echo "$hits" | cut -c1-160; fail=1; 
 for f in $(git ls-files '*.json'); do
   python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$f" || { say schemas "FAIL: $f"; fail=1; }
 done
-python3 bin/vstack check --instance example >/dev/null \
-  || { say schemas "FAIL: example instance breaks the invariants"; fail=1; }
-[ $fail -eq 0 ] && say schemas "ok"
+out=$(python3 bin/vstack check --instance example 2>/dev/null)
+echo "$out" | grep -q '^invariants: PASS$' \
+  || { say schemas "FAIL: example instance breaks the invariants (or vstack check printed no verdict)"; echo "$out" | sed 's/^/    /'; fail=1; }
+[ $fail -eq 0 ] && say schemas "ok ($(echo "$out" | head -1))"
 
 # frontmatter (Agent Skills spec, agentskills.io/specification) --------------------------------
 # name: required, max 64 chars, lowercase letters, digits and hyphens, equals the directory name.
 # description: required, non-empty, max 1024 chars.
+# the block must parse as YAML: an unquoted value may not contain ': ' (GitHub shows
+# "mapping values are not allowed in this context" and drops the whole frontmatter).
 for f in skills/*/SKILL.md; do
   d=$(basename "$(dirname "$f")")
   head -1 "$f" | grep -q '^---$' || { say frontmatter "FAIL: $f no frontmatter"; fail=1; }
@@ -54,7 +57,9 @@ for f in skills/*/SKILL.md; do
   desc=$(grep -m1 '^description:' "$f" | sed 's/^description: *//')
   [ -n "$desc" ] && [ ${#desc} -le 1024 ] || { say frontmatter "FAIL: $f description empty or over 1024 chars"; fail=1; }
 done
-[ $fail -eq 0 ] && say frontmatter "ok ($(ls skills/*/SKILL.md | wc -l | tr -d ' ') skills, spec-conformant names and descriptions)"
+out=$(python3 bin/vstack verify-skills --dirs skills --skills $(ls skills) 2>&1) \
+  || { echo "$out" | grep '^  FAIL' | while read -r e; do say frontmatter "$e"; done; fail=1; }
+[ $fail -eq 0 ] && say frontmatter "ok ($(ls skills/*/SKILL.md | wc -l | tr -d ' ') skills, spec-conformant names and descriptions, frontmatter parses)"
 
 # loop -----------------------------------------------------------------------------------------
 for s in write-talent-card write-work-summary write-promo-doc write-exec-update rewrite rewrite-and-validate; do

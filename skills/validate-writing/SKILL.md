@@ -1,6 +1,6 @@
 ---
 name: validate-writing
-description: Review a finished leadership document (talent card, work summary, promotion doc, executive update, or any passage) against the writing checklist. Use when a draft must pass a gate before it lands, or when a caller wants a scored evaluation. Two modes: gate returns pass or fail with quoted fixes, evaluate returns a scored report. Never rewrites the draft.
+description: Review a finished leadership document (talent card, work summary, promotion doc, executive update, or any passage) against the writing checklist. Use when a draft must pass a gate before it lands, or when a caller wants a scored evaluation. Two modes. Gate returns pass or fail with quoted fixes, evaluate returns a scored report. Never rewrites the draft.
 disable-model-invocation: false
 ---
 

@@ -9,7 +9,7 @@ specific to its genre, in its own `## Red flags` section.
 | When you think | Do this instead |
 |---|---|
 | "The evidence is thin, I will infer the status from context." | Write the status the evidence supports and put the inference under Known Gaps marked (unverified). An inferred GREEN is the single most expensive error this document can carry. |
-| "The source was unavailable, I will use what I remember from last time." | Say so in the Sources header (`unavailable: <role>`) and in Known Gaps. A reader who knows a source was down trusts the rest. |
+| "The source was unavailable, I will use what I remember from last time." | Say so in the Sources header (`unavailable: <connector>`) and in Known Gaps. A reader who knows a source was down trusts the rest. |
 | "This number is close enough." | A number is quoted exactly or not at all. Round only when the evidence rounds, and say which. |
 | "The reader knows what I mean." | The reader spends thirty seconds and has none of your context. Name the thing, the number and the source. |
 | "I already ran the gate once, a second pass will find nothing." | The minimum is two passes because the first fix introduces the second defect. Run it. |

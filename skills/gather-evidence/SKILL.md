@@ -1,6 +1,6 @@
 ---
 name: gather-evidence
-description: Cache-first evidence gathering for a workflow. Use when a cell's gather stage runs, before any writer skill: resolves each source role through the tools map, reuses a fresh cache, fetches only on a miss or an explicit refresh, writes one evidence.json with a content hash and a sources list, and never interprets or writes prose.
+description: Cache-first evidence gathering for a workflow. Use when a workflow's gather stage runs, before any writer skill. Resolves each source connector through connectors.json, reuses a fresh cache, fetches only on a miss or an explicit refresh, writes one evidence.json with a content hash and a sources list, and never interprets or writes prose.
 ---
 
 # Gather evidence
