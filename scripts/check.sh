@@ -40,11 +40,19 @@ python3 bin/vstack check --graph instance-template/graph/example.graph.json --ce
   || { say schemas "FAIL: template instance breaks the invariants"; fail=1; }
 [ $fail -eq 0 ] && say schemas "ok"
 
-# frontmatter ----------------------------------------------------------------------------------
+# frontmatter (Agent Skills spec, agentskills.io/specification) --------------------------------
+# name: required, max 64 chars, lowercase letters, digits and hyphens, equals the directory name.
+# description: required, non-empty, max 1024 chars.
 for f in skills/*/SKILL.md; do
-  head -1 "$f" | grep -q '^---$' && grep -q '^name:' "$f" && grep -q '^description:' "$f" || { say frontmatter "FAIL: $f"; fail=1; }
+  d=$(basename "$(dirname "$f")")
+  head -1 "$f" | grep -q '^---$' || { say frontmatter "FAIL: $f no frontmatter"; fail=1; }
+  n=$(grep -m1 '^name:' "$f" | sed 's/^name: *//; s/ *$//')
+  [ "$n" = "$d" ] || { say frontmatter "FAIL: $f name '$n' must equal directory '$d'"; fail=1; }
+  echo "$n" | grep -qE '^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?$' || { say frontmatter "FAIL: $f name '$n' is not lowercase-hyphen, max 64"; fail=1; }
+  desc=$(grep -m1 '^description:' "$f" | sed 's/^description: *//')
+  [ -n "$desc" ] && [ ${#desc} -le 1024 ] || { say frontmatter "FAIL: $f description empty or over 1024 chars"; fail=1; }
 done
-[ $fail -eq 0 ] && say frontmatter "ok ($(ls skills/*/SKILL.md | wc -l | tr -d ' ') skills)"
+[ $fail -eq 0 ] && say frontmatter "ok ($(ls skills/*/SKILL.md | wc -l | tr -d ' ') skills, spec-conformant names and descriptions)"
 
 # loop -----------------------------------------------------------------------------------------
 for s in write-talent-card write-work-summary write-promo-doc write-exec-update rewrite rewrite-and-validate; do

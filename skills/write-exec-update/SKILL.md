@@ -1,5 +1,5 @@
 ---
-name: Write Exec Update
+name: write-exec-update
 description: Write a leadership status update (program, project, or org update for executives) from a supplied evidence object. Produces an overall line, one status block per tracked section or workstream (RED/YELLOW/GREEN with a projected Green-by date when RED), near-term milestones, top risks, due action items, and a Known Gaps section. Use when a caller has gathered status evidence and wants the standard executive update. Does NOT fetch data; the caller provides the evidence.
 disable-model-invocation: false
 ---
