@@ -1,7 +1,7 @@
 # vstack architecture
 
 Two repositories, one contract between them. This page says what lives where and why, and how a
-run flows through. The kernel internals are in [kernel-architecture.md](kernel-architecture.md),
+run flows through. The engine internals are in [engine-architecture.md](engine-architecture.md),
 the writing discipline in [writing-architecture.md](writing-architecture.md).
 
 ## 1. Two repositories, by design
@@ -15,7 +15,7 @@ the writing discipline in [writing-architecture.md](writing-architecture.md).
 | Changes when | the loop, the voice or a harness changes | a program, a team or a schedule changes |
 
 One repository cannot hold both halves without leaking: a public repo with company files in it
-is a leak, a private repo with the kernel in it stops the kernel being shared. Two repositories
+is a leak, a private repo with the engine in it stops the engine being shared. Two repositories
 with a checked boundary is the smallest arrangement that gives both. The boundary is enforced
 three ways: `scripts/check.sh no-org` (denylist over every public file), `scripts/check.sh
 instance` (the instance is outside the checkout and has no public remote), and the author
@@ -26,14 +26,14 @@ e-mail check on both sides.
 ```
  L4  harness        claude · codex · kiro · kirocrew        (harness/README.md)
  L3  skills         writers · critic · plumbing             (skills/, instance/skills/)
- L2  kernel         render · run · check · link · gen-*     (bin/vstack, schema/)
+ L2  engine         render · run · check · link · gen-*     (bin/vstack, schema/)
  L1  instance       tools · org profile · graph · cells      (private repo)
  L0  state          runs/ · ledger/runs.jsonl · cache/      (~/.local/state/vstack)
 ```
 
 A layer talks only to its neighbours. The harness never reads the instance directly: it reads a
 rendered prompt whose paths point into both. A skill never reads a tool map: the prompt tells it
-which absolute file to read. The kernel never contains a tool name: it reads them from L1.
+which absolute file to read. The engine never contains a tool name: it reads them from L1.
 
 ## 3. A run, end to end
 
@@ -53,7 +53,7 @@ which absolute file to read. The kernel never contains a tool name: it reads the
 7. **gate**: `validate-writing` scores the draft, the writer revises, at least two passes, at
    most five, stop at zero blockers.
 8. **land**: the draft reaches a compose box or a `[Draft]` document. A human sends.
-9. **record**: one ledger line, one `result.json`, the single reply line `KERNEL_RESULT`.
+9. **record**: one ledger line, one `result.json`, the single reply line `VSTACK_RESULT`.
 
 ## 4. Why skills are files and not agents
 

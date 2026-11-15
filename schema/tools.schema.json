@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/ivikash/manager-ops-kernel/schema/tools.schema.json",
+  "$id": "https://github.com/ivikash/vstack/schema/tools.schema.json",
   "title": "Tools (role to MCP tool mapping)",
   "description": "The only file that names real tools. Cells address capabilities by role; this file resolves a role to an MCP server and tool. Keep one per organisation or per machine. It is the private half of the plumbing.",
   "type": "object",

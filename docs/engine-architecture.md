@@ -8,7 +8,7 @@ which person is yours.
 
 ```
 L4  RUNNERS           claude -p | codex exec | kiro-cli chat --no-interactive | kirocrew cron (Bot)     public
-L3  ORCHESTRATION     graph.json, cells/*.json, kernel check, kernel gen-cron                           public schema, private instances
+L3  ORCHESTRATION     graph.json, cells/*.json, engine check, engine gen-cron                           public schema, private instances
 L2  STATE             evidence cache + manifest (content hashes), ledger/*.jsonl (append-only)         public schema, private data
 L1  SKILLS            leadership-writing, write-*, validate-writing, gather-evidence, score-gate       public
                       org-profile.<org>.md, rubrics, confidentiality rules                             private
@@ -54,7 +54,7 @@ Two consequences:
 ## Portability
 
 Three things are the same on every harness: SKILL.md files (the open Agent Skills format), MCP
-tools, and plain files. Everything harness-specific is in `bin/kernel`'s `harness_cmd`, about ten
+tools, and plain files. Everything harness-specific is in `bin/vstack`'s `harness_cmd`, about ten
 lines per harness. A new harness is a new branch there and a row in the README table.
 
 ## What a private repository holds
@@ -64,8 +64,8 @@ tools.<org>.json          roles -> real MCP servers and tools
 org-profile.<org>.md      principles, rating labels, level names, role names
 rubrics/*.md              level guidelines passed to writers at run time
 cells/<org>/*.json        cell instances with real ids and channels in config
-graph.<org>.json          the instance graph kernel check validates
-mcp-servers.json          one list that kernel gen-mcp turns into each harness's config
+graph.<org>.json          the instance graph engine check validates
+mcp-servers.json          one list that engine gen-mcp turns into each harness's config
 ```
 
 Commits there use the organisation e-mail; commits here and in the skills repository use a

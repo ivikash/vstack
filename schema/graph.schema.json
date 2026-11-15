@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/ivikash/manager-ops-kernel/schema/graph.schema.json",
+  "$id": "https://github.com/ivikash/vstack/schema/graph.schema.json",
   "title": "Automation graph",
-  "description": "Typed nodes and edges over which the kernel checks its invariants. Node types: S source (system of record, read-only), C cache (content-addressed evidence), W writer (pure skill), G gate (pure critic), D draft sink (waits for a human click), L ledger (append-only), B bot (memory partition hosting cells). Edge types: reads, writes, gates, lands, records, delegates.",
+  "description": "Typed nodes and edges over which vstack checks its invariants. Node types: S source (system of record, read-only), C cache (content-addressed evidence), W writer (pure skill), G gate (pure critic), D draft sink (waits for a human click), L ledger (append-only), B bot (memory partition hosting cells). Edge types: reads, writes, gates, lands, records, delegates.",
   "type": "object",
   "required": ["nodes", "edges"],
   "properties": {

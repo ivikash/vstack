@@ -1,11 +1,11 @@
 # vstack
 
 One repository for a manager's recurring writing work on any coding agent: the scheduler and
-plumbing (the **kernel**), the writers and the critic (the **skills**), the adapters for four
+plumbing (the **engine**), the writers and the critic (the **skills**), the adapters for four
 harnesses, and the evals that keep all of it honest. Everything that names a company lives in a
 second, private repository called the **instance**, which vstack reads at run time and never contains.
 
-vstack merges two earlier repositories with their history: `manager-ops-kernel` (the CLI, schemas,
+vstack merges two earlier repositories, one of them with its history: the engine (the CLI, schemas,
 invariants) and `Leadership-Writing-Skills` (house rules, writers, validator).
 
 ```
@@ -45,7 +45,7 @@ trigger -> gather (cache-first, hashed) -> diff -> write (skill) -> gate (critic
 ## Layout
 
 ```
-bin/vstack             the CLI (bin/kernel is a compatibility symlink)
+bin/vstack             the CLI
 schema/                JSON Schemas: cell, graph, tools, ledger
 skills/                one canonical copy of every public skill, linked into each harness
   leadership-writing/    house-rules.md (the voice), org-profile.md (neutral defaults)
@@ -56,7 +56,7 @@ harness/               how claude, codex, kiro and kirocrew are invoked and wher
 instance-template/     copy this into a private repo: tools, org profile, graph, cells, fixtures
 evals/                 synthetic fixtures and the structural checks
 scripts/check.sh       identity, no-org denylist, schemas, frontmatter, loop, profile, instance
-docs/                  architecture of the kernel and of the writing skills
+docs/                  architecture of the engine and of the writing skills
 ```
 
 ## Quick start

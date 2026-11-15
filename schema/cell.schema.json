@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/ivikash/manager-ops-kernel/schema/cell.schema.json",
+  "$id": "https://github.com/ivikash/vstack/schema/cell.schema.json",
   "title": "Cell",
   "description": "One unit of manager automation: trigger -> gather -> diff -> write -> gate -> land -> record. Harness-neutral. Company-specific values live in config and in the tools file, never in the cell body.",
   "type": "object",

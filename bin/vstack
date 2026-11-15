@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""kernel: run manager-automation cells on any agent harness.
+"""vstack: run manager-automation cells on any agent harness.
 
 A *cell* is one JSON file describing one unit of automation as the same seven stages:
-trigger -> gather -> diff -> write -> gate -> land -> record. The kernel renders a cell into a
+trigger -> gather -> diff -> write -> gate -> land -> record. vstack renders a cell into a
 single prompt and hands it to the harness you name. Skills (SKILL.md) do the writing and
-checking; MCP tools do the fetching and publishing; the kernel owns only the plumbing.
+checking; MCP tools do the fetching and publishing; vstack owns only the plumbing.
 
 Subcommands
   render        print the prompt a cell would run (no model call)
@@ -72,7 +72,7 @@ def now():
 
 
 def die(msg, code=1):
-    print(f"kernel: {msg}", file=sys.stderr)
+    print(f"vstack: {msg}", file=sys.stderr)
     sys.exit(code)
 
 
@@ -288,7 +288,7 @@ this run: {ledger_fields}, plus run_id="{run_id}", cell="{id}", harness="{harnes
 dry_run={dry_json}, no_publish={nopub_json}, landed_at (ISO time), gate_passes (from gate.md).
 Then write {run_dir}/result.json: {{"status": "ok" | "known_gaps" | "failed", "gate_passes": N,
 "draft": "{run_dir}/draft.md", "landed": <where the draft went>}}.
-Reply with the single line: KERNEL_RESULT <status> passes=<N>
+Reply with the single line: VSTACK_RESULT <status> passes=<N>
 """
 
 
@@ -450,7 +450,7 @@ def gen_cron(args):
         trig = c.get("trigger", {})
         if not trig.get("cron"):
             continue
-        base = f"{args.kernel_bin} run {p.resolve()} --harness {args.harness} --tools {args.tools}"
+        base = f"{args.vstack_bin} run {p.resolve()} --harness {args.harness} --tools {args.tools}"
         if args.org_profile:
             base += f" --org-profile {args.org_profile}"
         if args.harness == "kirocrew":
@@ -510,7 +510,7 @@ def main():
     sp = sub.add_parser("link-skills"); sp.add_argument("--canonical", required=True); sp.add_argument("--targets", nargs="+", required=True)
     sp.add_argument("--skills", nargs="+", required=True); sp.add_argument("--backup", default=str(HOME / ".local/state/vstack/skill-backups"))
     sp = sub.add_parser("gen-cron"); sp.add_argument("--cells", required=True); sp.add_argument("--harness", choices=HARNESSES, required=True)
-    sp.add_argument("--tools", required=True); sp.add_argument("--org-profile"); sp.add_argument("--kernel-bin", default=str(HERE / "bin/kernel")); sp.add_argument("--log-dir", default=str(HOME / ".local/state/vstack/logs"))
+    sp.add_argument("--tools", required=True); sp.add_argument("--org-profile"); sp.add_argument("--vstack-bin", default=str(HERE / "bin/vstack")); sp.add_argument("--log-dir", default=str(HOME / ".local/state/vstack/logs"))
     sp = sub.add_parser("gen-mcp"); sp.add_argument("--servers", required=True); sp.add_argument("--target", required=True)
     args = ap.parse_args()
 
