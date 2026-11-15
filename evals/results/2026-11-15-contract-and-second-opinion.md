@@ -1,6 +1,6 @@
 # 2026-11-15 contract, brief, sources header and second opinion, four harnesses
 
-Same cell as the morning run, now rendered with the done-means contract, the `Sources:` header,
+The same cell, rendered with the done-means contract, the `Sources:` header,
 `brief.md` and the runner contract in the prompt. `--dry-run --no-publish`, fixture evidence.
 
 | Harness | Exit | Seconds | Gate passes | Status | Contract | Second opinion |

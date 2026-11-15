@@ -13,7 +13,7 @@ This page explains **why** vstack is shaped the way it is. The README says how t
 - [7. The same cell at four scales](#7-the-same-cell-at-four-scales)
 - [8. Skills, not agents](#8-skills-not-agents)
 - [9. What a harness must provide](#9-what-a-harness-must-provide)
-- [10. Where the practices come from](#10-where-the-practices-come-from)
+- [10. Prior art](#10-prior-art)
 - [11. Deliberate limits](#11-deliberate-limits)
 
 ## 1. The problem in one paragraph
@@ -228,12 +228,12 @@ whole port. The four wired today take under fifteen lines each in `harness_cmd`:
 Nothing in vstack depends on a harness's plugin or marketplace format, which is why one cell runs on
 all four unchanged.
 
-## 10. Where the practices come from
+## 10. Prior art
 
-The shape matches what the public coding-agent skill packs converged on in 2026, and each borrowed
-piece was tested here before it was kept:
+Several open skill collections for coding agents arrive at the same mechanisms independently. vstack
+uses them where they fit a recurring writing job and names the source so a reader can compare:
 
-| Practice | Seen in | In vstack |
+| Practice | Also in | In vstack |
 |---|---|---|
 | a bounded critic loop with a hard round cap | gstack review rounds, Pocock software-factory brakes | gate `min_passes` 2, `max_passes` 5 |
 | done means artifacts, not claims | gstack skill contracts, agent-skills verification gates, Superpowers verification-before-completion | the contract check after every run |
@@ -246,8 +246,8 @@ piece was tested here before it was kept:
 | a retro that reads the ledger and asks for an enforcer | gstack retro, pstack reflect | `vstack retro` |
 | read-only gather, one write at the sink | claude-quickstarts autonomous-coding security model | prompt stage 0 and the Claude tool allowlist |
 
-What none of those packs needed, and vstack adds: the privacy cut and the instance contract, because
-none of them was written for one person inside a company.
+Two things are specific to vstack: the privacy cut and the instance contract. They matter for one
+person running automation inside a company, which is not the situation those collections address.
 
 ## 11. Deliberate limits
 

@@ -335,10 +335,9 @@ docs/RULES.md            every rule and its enforcer
 ## Design notes
 
 Why two repositories, what each layer owns, the graph node types, the privacy cut and the same
-cell at four scales: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Which coding-agent skill
-packs these practices come from and how they were tested: [evals/results/](evals/results/).
+cell at four scales: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Recorded test runs:
+[evals/results/](evals/results/).
 
 ## License
 
-MIT. The skills contain no organisation-specific names, tools or systems, and `scripts/check.sh`
-keeps it that way.
+MIT.

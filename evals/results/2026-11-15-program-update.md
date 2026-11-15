@@ -1,6 +1,6 @@
 # 2026-11-15 program-update fixture, three harnesses
 
-Cell `instance-template/cells/program-update.json` equivalent (the private instance copy) run with `--dry-run --no-publish` on the fixture.
+Cell `instance-template/cells/program-update.json` run with `--dry-run --no-publish` on its fixture.
 
 | Harness | Exit | Seconds | Gate passes | Status |
 |---|---|---|---|---|
