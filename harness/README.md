@@ -10,11 +10,11 @@ Four harnesses are wired today. Adding one is a ten-line branch in `run_on_harne
 | `claude` | `claude -p --output-format text --permission-mode acceptEdits --allowedTools Read Write Edit Glob Grep "Bash(mkdir:*)" "Bash(cp:*)" "Bash(cat:*)"`, prompt on stdin | `~/.claude/skills/<name>` | The reference harness. Prompt names every skill file by absolute path, so no plugin install is needed |
 | `codex` | `codex exec --skip-git-repo-check -C <run dir> -s workspace-write`, prompt on stdin | `~/.codex/skills/<name>` and `~/.agents/skills/<name>` | Same prompt. Codex reads SKILL.md through its skills dir |
 | `kiro` | `kiro-cli chat --no-interactive --trust-all-tools [--agent <name>] "<prompt>"` | `~/.kiro/skills/<name>` | Kiro CLI 3.x denies any tool not named in `--trust-tools`, and the internal tool names differ by engine, so the run trusts all tools and the cell's `land` stage is the only write |
-| `kirocrew` | `kirocrew cron add <id> "<prompt>" --at "in 1 minute" --approval-mode auto [--agent <bot>]` | `~/.kiro/crew/skills/<name>` | Asynchronous. The job writes `result.json` when it finishes. `vstack gen-cron --harness kirocrew` emits the standing schedule |
+| `kirocrew` | `kirocrew cron add <id> "<prompt>" --at "in 1 minute" --approval-mode auto [--agent <bot>]` | `~/.kiro/crew/skills/<name>` | Asynchronous: the Kiro Crew agent is the harness and runs the stages with its own MCP tools. `result.json` appears when the job finishes. `vstack gen-cron --harness kirocrew` emits standing jobs whose message tells the agent to `vstack render` the cell with its shell and follow the printed prompt, so each wake gets a fresh run directory |
 
 ## One canonical copy of every skill
 
-`vstack link --canonical <this repo>/skills --targets ~/.claude/skills ~/.codex/skills ~/.agents/skills ~/.kiro/skills ~/.kiro/crew/skills --skills <names>`
+`vstack link-skills --canonical <this repo>/skills --targets ~/.claude/skills ~/.codex/skills ~/.agents/skills ~/.kiro/skills ~/.kiro/crew/skills --skills <names>`
 turns every harness skill directory into a symlink to this repository. A `git pull` here updates
 all five. `vstack verify-skills` compares what each harness sees against `skills-lock.json` and
 fails a run before any model call if a copy drifted.

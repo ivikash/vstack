@@ -14,7 +14,7 @@
   "gate": {"skill": "validate-writing", "doc_type": "exec-update", "min_passes": 2, "max_passes": 5, "coverage_bar": 85},
   "sink": {"role": "chat.draft", "ref": "${config.postChannel}", "dry_run_path": "update.md"},
   "ledger": {"file": "program-update.jsonl", "fields": ["program", "overall_status", "red_sections", "green_by_dates", "open_action_items", "posted_to"]},
-  "fixture": "../../fixtures/program-update/evidence.json",
+  "fixture": "../fixtures/program-update.json",
   "config": {
     "program": "Project Lantern",
     "statusDocId": "doc-0000",

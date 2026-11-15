@@ -52,11 +52,12 @@ skills/                one canonical copy of every public skill, linked into eac
   write-exec-update/ write-talent-card/ write-work-summary/ write-promo-doc/
   validate-writing/ rewrite/ rewrite-and-validate/ score-gate/
   gather-evidence/
-harness/               how claude, codex, kiro and kirocrew are invoked and where they read skills
-instance-template/     copy this into a private repo: tools, org profile, graph, cells, fixtures
-evals/                 synthetic fixtures and the structural checks
+harness/README.md      how claude, codex, kiro and kirocrew are invoked and where they read skills
+instance-template/     copy into a private repo: tools.json, org-profile.md, mcp-servers.json,
+                       graph.json, cells/, fixtures/, vstack.lock
+evals/                 synthetic fixtures, expected outcomes, and what check.sh verifies
 scripts/check.sh       identity, no-org denylist, schemas, frontmatter, loop, profile, instance
-docs/                  architecture of the engine and of the writing skills
+docs/ARCHITECTURE.md   the two-repo split, layers, run flow, graph types, invariants
 ```
 
 ## Quick start
@@ -72,13 +73,17 @@ $V link-skills --canonical ~/github/vstack/skills \
 
 # 2. create your instance from the template (a private repository, your work e-mail)
 cp -r ~/github/vstack/instance-template ~/work/my-instance && cd ~/work/my-instance && git init
+export VSTACK_INSTANCE=~/work/my-instance     # or pass --instance on every command
 
 # 3. prove the estate is sound (no model call)
-$V check --graph ~/work/my-instance/graph/example.graph.json --cells ~/work/my-instance/cells
+$V check
 
 # 4. dry run a cell on any harness: fixture in, files out, nothing published
-$V run ~/work/my-instance/cells/example/program-update.json --harness claude \
-   --tools ~/work/my-instance/tools/tools.example.json --dry-run
+$V run ~/work/my-instance/cells/program-update.json --harness claude --dry-run
+#  --harness codex | kiro | kirocrew
+
+# 5. live: same command without --dry-run. The draft lands in a compose box; you press send.
+#    standing schedule: $V gen-cron --cells ~/work/my-instance/cells --harness claude
 ```
 
 ## Checks before every commit

@@ -1,0 +1,10 @@
+{
+  "_note": "One list of the MCP servers every harness needs for the roles in tools.json. `vstack gen-mcp --servers mcp-servers.json --target codex|claude|kiro|kirocrew` renders each harness's config block. Example names; replace with the servers your organisation runs.",
+  "servers": {
+    "docs-mcp":  {"command": "docs-mcp",  "args": []},
+    "tasks-mcp": {"command": "tasks-mcp", "args": []},
+    "mail-mcp":  {"command": "mail-mcp",  "args": [], "env": {"MAIL_PROFILE": "work"}},
+    "chat-mcp":  {"command": "chat-mcp",  "args": []},
+    "code-mcp":  {"command": "code-mcp",  "args": []}
+  }
+}

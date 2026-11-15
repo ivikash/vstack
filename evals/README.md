@@ -6,15 +6,14 @@ Two layers keep the skills honest.
 
 `scripts/check.sh` verifies the repository invariants: every commit uses the public author
 e-mail, no company-specific term or internal id appears anywhere, every `SKILL.md` has
-frontmatter, every writer skill carries the built-in validation loop (gate, minimum two passes,
+spec-conformant frontmatter (agentskills.io), every writer skill carries the built-in validation loop (gate, minimum two passes,
 maximum five, reads `house-rules.md`), and every `principles.*` / `rating.*` / `levels.*` /
 `roles.*` key a skill references is defined in `leadership-writing/org-profile.md`.
 
 ## 2. Behavioural (run by hand or by an automation, needs a model)
 
 `fixtures/` holds synthetic evidence packs. People, projects, metrics and links in them are
-invented for testing and belong to no real organisation. For each fixture, `expected/` states
-what a passing output must and must not contain. Run a writer skill on the fixture, then run
+invented for testing and belong to no real organisation. The table below states what a passing output must and must not contain. Run a writer skill on the fixture, then run
 `/validate-writing` in evaluate mode on the result, and compare:
 
 | Fixture | Skill | Must | Must not |
@@ -23,4 +22,4 @@ what a passing output must and must not contain. Run a writer skill on the fixtu
 | `fixtures/exec-update-evidence.json` | `write-exec-update` | one block per section in the supplied order, a Green-by date on every RED block, a Known Gaps section that names the conflicting date in the fixture | a milestone presented as done when the fixture says target |
 
 A behavioural run passes when `validate-writing` reports zero blockers and the Must / Must not
-columns hold. Record results in `expected/<fixture>.results.md` with the date, harness and model.
+columns hold. Record results in `results/<date>-<fixture>-<harness>.md` with the date, harness and model; the first entry is in that folder.

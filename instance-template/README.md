@@ -13,10 +13,14 @@ at it.
   graph.json          your bots and cells as a typed graph; `vstack check` enforces the invariants
   cells/*.json        one file per unit of automation (trigger, sources, writer, gate, sink, ledger)
   fixtures/*.json     synthetic evidence for dry runs. Real section names, invented values
-  context/<program>/  the standing inputs a program's cells read (section order, rules, enablement chains)
-  skills/             writers that name your systems (a program-specific update, a doc rollover)
   vstack.lock         the vstack commit this instance was tested against
+  context/<program>/  (optional) standing inputs a program's cells read (section order, rules)
+  skills/             (optional) writers that name your systems; link them the same way as vstack's
 ```
+
+Every `vstack` command takes `--instance <dir>` or reads `$VSTACK_INSTANCE`, and fills
+`--tools`, `--org-profile` and `--graph` from these files. One file per pattern: a second
+`tools*.json` makes the command ask for an explicit flag.
 
 ## The privacy cut, as rules you can check
 
@@ -35,8 +39,8 @@ at it.
 `vstack.lock` holds one line, the vstack commit the instance's cells were last dry-run against:
 
 ```
-vstack 7f3c2a1
+vstack 876ff6a
 ```
 
-`vstack run` warns when the checkout it runs from is not that commit. Move the pin after a dry
-run of every cell on one harness.
+`vstack run`, `check` and `gen-cron` print a warning when the checkout they run from is not that
+commit. Move the pin after a dry run of every cell on one harness.

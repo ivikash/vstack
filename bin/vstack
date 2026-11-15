@@ -15,6 +15,10 @@ Subcommands
   gen-cron      emit crontab lines (or kirocrew cron commands) for every cell with a trigger
   gen-mcp       emit an MCP server block for one harness from one servers file
 
+Most commands take --instance DIR (or $VSTACK_INSTANCE): the private directory holding
+tools*.json, org-profile*.md, graph*.json, cells/ and vstack.lock. With it, --tools,
+--org-profile and --graph are filled in and the lock is compared with this checkout.
+
 Everything is plain files. No daemon, no database.
 """
 import argparse, datetime as dt, hashlib, json, os, re, shlex, shutil, subprocess, sys, uuid
@@ -379,7 +383,38 @@ def harness_cmd(harness, prompt_file, run_dir, agent=None, model=None):
     die(f"unknown harness {harness}")
 
 
+def apply_instance(args):
+    """--instance DIR (or $VSTACK_INSTANCE) fills --tools, --org-profile and --graph from the
+    instance layout (tools*.json, org-profile*.md, graph*.json, one of each) unless given
+    explicitly, and compares vstack.lock with this checkout."""
+    inst = getattr(args, "instance", None) or os.environ.get("VSTACK_INSTANCE")
+    if not inst:
+        return
+    d = Path(inst).expanduser()
+    if not d.is_dir():
+        die(f"instance directory not found: {d}")
+
+    def one(pattern, attr):
+        if getattr(args, attr, None):
+            return
+        hits = sorted(d.glob(pattern))
+        if len(hits) == 1:
+            setattr(args, attr, str(hits[0]))
+        elif len(hits) > 1:
+            die(f"instance {d} has {len(hits)} files matching {pattern}; pass --{attr.replace('_', '-')} explicitly")
+    one("tools*.json", "tools")
+    one("org-profile*.md", "org_profile")
+    one("graph*.json", "graph")
+    lock = d / "vstack.lock"
+    if lock.exists():
+        pinned = lock.read_text().split()[-1] if lock.read_text().split() else ""
+        head = subprocess.run(["git", "-C", str(HERE), "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip()
+        if pinned and head and not (head.startswith(pinned) or pinned.startswith(head)):
+            print(f"vstack: warning: instance pins vstack {pinned}, this checkout is {head} (re-run a dry run, then move the pin)", file=sys.stderr)
+
+
 def run(args):
+    apply_instance(args)
     cell_path = Path(args.cell)
     cell = load(cell_path)
     tools = load(args.tools) if args.tools else {"roles": {}}
@@ -411,12 +446,13 @@ def run(args):
     fixture = args.fixture or (cell.get("fixture") if args.dry_run else None)
     if fixture:
         fixture = str((cell_path.parent / fixture).resolve()) if not Path(fixture).is_absolute() else fixture
-    prompt = render(cell, tools, org_profile_text, args.harness, args.dry_run, run_dir, run_id, skills_dir, cache_root, ledger_root, fixture, no_publish=args.no_publish)
+    shown = args.harness if args.cmd == "run" else (args.harness or "print")
+    prompt = render(cell, tools, org_profile_text, shown, args.dry_run, run_dir, run_id, skills_dir, cache_root, ledger_root, fixture, no_publish=args.no_publish)
     prompt_file = run_dir / "prompt.md"
     prompt_file.write_text(prompt)
     meta = {"run_id": run_id, "cell": cell["id"], "harness": args.harness, "dry_run": args.dry_run, "no_publish": args.no_publish,
             "started": now(), "prompt": str(prompt_file), "run_dir": str(run_dir)}
-    if args.harness == "print":
+    if args.cmd == "render" or args.harness == "print":
         print(prompt)
         return 0
     cmd, stdin = harness_cmd(args.harness, prompt_file, run_dir, agent=args.agent, model=args.model)
@@ -454,7 +490,11 @@ def gen_cron(args):
         if args.org_profile:
             base += f" --org-profile {args.org_profile}"
         if args.harness == "kirocrew":
-            out.append(f"kirocrew cron add {shlex.quote(c['id'])} {shlex.quote(base.replace(f'--harness {args.harness}', '--harness print') + ' | kirocrew chat -m -')} "
+            # The Kiro Crew agent is the harness: the job's message tells it to render the cell with
+            # its shell (fresh run dir and ids every time) and then execute the printed prompt itself.
+            render_cmd = base.replace(" run ", " render ", 1)
+            msg = f"Run this command with your shell tool and then follow the prompt it prints, stage by stage, exactly: {render_cmd}"
+            out.append(f"kirocrew cron add {shlex.quote(c['id'])} {shlex.quote(msg)} "
                        f"--cron {shlex.quote(trig['cron'])} --timezone {shlex.quote(trig.get('timezone', 'UTC'))} --approval-mode auto"
                        + (f" --agent {shlex.quote(c['agent'])}" if c.get("agent") else ""))
         else:
@@ -486,6 +526,7 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     def common(sp):
+        sp.add_argument("--instance", help="instance directory; fills --tools, --org-profile and --graph from it and checks vstack.lock (default: $VSTACK_INSTANCE)")
         sp.add_argument("--tools", help="tools.json mapping roles to MCP tools")
         sp.add_argument("--org-profile", help="org profile markdown passed to the writer")
         sp.add_argument("--skills-dir", default=str(HOME / ".agents/skills"))
@@ -500,21 +541,29 @@ def main():
         sp.add_argument("--dry-run", action="store_true", help="fixture in, file out, no publishing")
         sp.add_argument("--no-publish", action="store_true", help="live gather and gate, but the draft lands as a file; nothing is posted, drafted or sent")
 
-    sp = sub.add_parser("render"); common(sp); sp.add_argument("cell"); sp.add_argument("--harness", default="print")
+    sp = sub.add_parser("render"); common(sp); sp.add_argument("cell"); sp.add_argument("--harness", choices=HARNESSES, default="print", help="name shown in the prompt header; render never executes")
     sp = sub.add_parser("run"); common(sp); sp.add_argument("cell"); sp.add_argument("--harness", choices=HARNESSES, required=True)
     sp.add_argument("--agent", help="agent template (kiro) or Bot name (kirocrew)")
     sp.add_argument("--model")
     sp.add_argument("--timeout", type=int, default=1500)
-    sp = sub.add_parser("check"); sp.add_argument("--graph"); sp.add_argument("--cells", required=True); sp.add_argument("--private-component", default=PRIVATE_COMPONENT_DEFAULT)
+    sp = sub.add_parser("check"); sp.add_argument("--instance", help="instance directory (default: $VSTACK_INSTANCE); fills --graph and --cells"); sp.add_argument("--graph"); sp.add_argument("--cells"); sp.add_argument("--private-component", default=PRIVATE_COMPONENT_DEFAULT)
     sp = sub.add_parser("verify-skills"); sp.add_argument("--lock"); sp.add_argument("--dirs", nargs="+", required=True); sp.add_argument("--skills", nargs="+", required=True)
     sp = sub.add_parser("link-skills"); sp.add_argument("--canonical", required=True); sp.add_argument("--targets", nargs="+", required=True)
     sp.add_argument("--skills", nargs="+", required=True); sp.add_argument("--backup", default=str(HOME / ".local/state/vstack/skill-backups"))
     sp = sub.add_parser("gen-cron"); sp.add_argument("--cells", required=True); sp.add_argument("--harness", choices=HARNESSES, required=True)
-    sp.add_argument("--tools", required=True); sp.add_argument("--org-profile"); sp.add_argument("--vstack-bin", default=str(HERE / "bin/vstack")); sp.add_argument("--log-dir", default=str(HOME / ".local/state/vstack/logs"))
+    sp.add_argument("--instance", help="instance directory; fills --tools and --org-profile (default: $VSTACK_INSTANCE)")
+    sp.add_argument("--tools"); sp.add_argument("--org-profile"); sp.add_argument("--vstack-bin", default=str(HERE / "bin/vstack")); sp.add_argument("--log-dir", default=str(HOME / ".local/state/vstack/logs"))
     sp = sub.add_parser("gen-mcp"); sp.add_argument("--servers", required=True); sp.add_argument("--target", required=True)
     args = ap.parse_args()
 
     if args.cmd == "check":
+        args.tools = None; args.org_profile = None
+        apply_instance(args)
+        inst = args.instance or os.environ.get("VSTACK_INSTANCE")
+        if not args.cells and inst:
+            args.cells = str(Path(inst).expanduser() / "cells")
+        if not args.cells:
+            die("check needs --cells or --instance")
         fails, cells = check(args.graph, args.cells, args.private_component)
         print(f"cells: {len(cells)}  graph: {'yes' if args.graph else 'no'}")
         for f in fails:
@@ -534,12 +583,16 @@ def main():
             print(" ", line)
         return
     if args.cmd == "gen-cron":
+        args.graph = None
+        apply_instance(args)
+        if not args.tools:
+            die("gen-cron needs --tools or --instance")
         return gen_cron(args)
     if args.cmd == "gen-mcp":
         return gen_mcp(args)
     if args.cmd in ("render", "run"):
         if args.cmd == "render":
-            args.harness = "print"; args.agent = None; args.model = None; args.timeout = 0
+            args.agent = None; args.model = None; args.timeout = 0
         sys.exit(run(args))
 
 

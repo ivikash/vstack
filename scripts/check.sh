@@ -36,7 +36,7 @@ if [ -n "$hits" ]; then say no-org "FAIL:"; echo "$hits" | cut -c1-160; fail=1; 
 for f in $(git ls-files '*.json'); do
   python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$f" || { say schemas "FAIL: $f"; fail=1; }
 done
-python3 bin/vstack check --graph instance-template/graph/example.graph.json --cells instance-template/cells/example >/dev/null \
+python3 bin/vstack check --instance instance-template >/dev/null \
   || { say schemas "FAIL: template instance breaks the invariants"; fail=1; }
 [ $fail -eq 0 ] && say schemas "ok"
 
