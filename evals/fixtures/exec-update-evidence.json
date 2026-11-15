@@ -1,0 +1,12 @@
+{
+  "_note": "Synthetic. Program, sections, people, dates and numbers are invented for testing.",
+  "program": "Project Lantern",
+  "currentDate": "2026-11-07",
+  "sections": ["Ingestion", "Query", "Console"],
+  "evidence": {
+    "Ingestion": {"status": "GREEN", "milestones": [{"name": "Region 3 live", "date": "2026-10-28", "state": "done"}], "owner": "A. Rivera"},
+    "Query": {"status": "RED", "milestones": [{"name": "Cost cap launch", "date": "2026-10-15", "state": "target"}, {"name": "Cost cap launch", "date": "2026-11-20", "state": "target"}], "owner": "M. Chen", "reason": "two different target dates appear in the sources"},
+    "Console": {"status": "YELLOW", "milestones": [{"name": "Dashboard GA", "date": "2026-12-05", "state": "target"}], "owner": "S. Okafor", "risk": "one builder, no backup"}
+  },
+  "action_items": [{"owner": "M. Chen", "due": "2026-11-10", "text": "confirm the single Cost cap launch date"}]
+}

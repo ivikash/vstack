@@ -1,0 +1,23 @@
+{
+  "_note": "Synthetic. Every person, project, number and link is invented for testing.",
+  "person": {"name": "Jordan Lee", "handle": "jlee", "level_label": "Senior Engineer", "months_in_level": 14},
+  "rating": {"current": "Strong", "history": [["2025 H1", "Solid"], ["2025 H2", "Strong"]]},
+  "org_profile_override": {
+    "principles": {"name": "Operating Principles", "list": ["Own the Outcome", "Simplify", "Learn Fast", "Raise the Bar"], "cite_per_statement": false},
+    "rating": {"history_label": "Rating History", "scale": "Exceptional > Strong > Solid > Developing > Low", "top": "Exceptional"},
+    "levels": {"mid": "Engineer II", "senior": "Senior Engineer", "title_format": "{LEVEL} - {NAME}"}
+  },
+  "deliverables": [
+    {"name": "Order Replay Service", "role": "Lead", "period": "2026 Q1 to Q2",
+     "impact": "cut replay time for a failed batch from 41 min to 6 min (p50) across 3 regions",
+     "links": ["https://example.test/review/1001", "https://example.test/design/replay"]},
+    {"name": "Alarm consolidation", "role": "Owner", "period": "2026 Q2",
+     "impact": "retired 58 of 140 alarms, pages per week fell from 9 to 3",
+     "links": ["https://example.test/review/1042"]},
+    {"name": "Schema migration tooling", "role": "Contributor", "period": "2026 Q3",
+     "impact": null, "links": ["https://example.test/review/1077"]}
+  ],
+  "oncall": {"shifts": 4, "incidents_led": 2, "postmortems_authored": 1},
+  "growth_signals": ["design reviews sent without an alternatives section twice (Q1, Q3)"],
+  "peer_feedback": "[TO BE COLLECTED]"
+}
