@@ -1,4 +1,9 @@
-# vstack
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo/vstack-logo-dark.svg">
+    <img src="assets/logo/vstack-logo.svg" alt="vstack" width="560">
+  </picture>
+</p>
 
 **Run a manager's recurring writing work on any coding agent, with proof it was done right.**
 
