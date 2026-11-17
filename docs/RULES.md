@@ -28,6 +28,7 @@ class at the highest level that works, architecture first, docs last.)
 | A passed gate rule names what it checked | validate-writing `## Red flags`; stage 4 verification rule in the prompt | skill, prompt |
 | High-stakes drafts get an independent critic | `gate.second_opinion` or `--second-opinion <harness>`; findings recorded in meta.json, never block | engine |
 | The same mistake is not made twice | `vstack retro` lists recurring Known Gaps and asks for an enforcer per line; this table | process |
+| A correction to a document's shape is enforced, not remembered | `draft_contract.must_match` / `must_not_match` on the workflow, checked by `verify_contract` on every run (`contract_unmet` on a miss) and printed into the prompt's Done-means block; `vstack check` refuses an invalid pattern. The instance's `context/<workflow>/mistakes.md` holds the dated correction each rule encodes | engine, contract |
 | Excuses have rebuttals | `skills/leadership-writing/rationalizations.md`, read by every writer and the validator | skill |
 
 Rows marked `skill` or `prompt` are the weakest kind: nothing fails when a model ignores them. Each

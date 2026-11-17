@@ -137,6 +137,14 @@ def check(workflows_dir, private_component):
         led = c.get("ledger", {})
         if not led.get("fields"):
             fails.append(f"{cid}: ledger.fields is empty (invariant 4: every landing records an outcome)")
+        # draft_contract: every pattern must be a valid regex, so a typo cannot silently disable a rule
+        dc = c.get("draft_contract", {})
+        for key in ("must_match", "must_not_match"):
+            for rule in dc.get(key, []):
+                try:
+                    re.compile(rule["pattern"])
+                except (re.error, KeyError, TypeError) as e:
+                    fails.append(f"{cid}: draft_contract.{key} rule is not a valid regex ({e}): {rule}")
         # invariant 5: privacy cut
         if c.get("component") == private_component:
             ws = c.get("workspace", "")
@@ -337,7 +345,7 @@ them and marks the run `contract_unmet` otherwise. A claim in your reply is not 
 - gate.md whose first line is `passes: N` with N >= {min_passes}
 - brief.md, three lines (see stage 5b)
 - result.json, and one appended ledger line
-
+{draft_contract_lines}
 ## 1. GATHER{gather_mode}
 {gather}
 
@@ -369,6 +377,11 @@ and zero majors{coverage}. A fix may never invent a fact; an unfixable blocker g
 count on its first line as `passes: N`. Verification before completion: every rule the report
 marks passed names what it checked (a quoted span or a count), and every failure quotes the
 offending text. "Verified" with nothing quoted is itself a failure.
+
+## 4b. CONTRACT CHECK (before anything leaves the run directory)
+Run with your shell: `{vstack_bin} check-run {run_dir} --workflow {workflow_file}`
+It must print `contract: MET`. If it lists unmet items, fix draft.md (never the rule) and re-run
+until it is met. A draft that fails this check is never landed.
 
 ## 5. LAND
 {land}
@@ -450,10 +463,28 @@ def verify_contract(run_dir, cell):
             missing.append(f"brief.md has {n} non-empty lines, expected 3")
     if not (run_dir / "result.json").exists():
         missing.append("result.json")
+    if draft.exists():
+        missing += check_draft_contract(draft.read_text(), cell.get("draft_contract", {}))
     return missing
 
 
-def render(cell, tools, org_profile_text, harness, dry_run, run_dir, run_id, skills_dir, cache_root, ledger_root, fixture=None, no_publish=False):
+def check_draft_contract(text, contract):
+    """Shape rules the workflow pins on draft.md: `must_match` regexes that each have to hit at
+    least once, `must_not_match` regexes that may not hit at all. Each rule is {pattern, why}.
+    This is how a template contract becomes enforced instead of remembered: a draft whose table
+    header or wording drifts from the agreed shape marks the run contract_unmet before it lands."""
+    unmet = []
+    for rule in contract.get("must_match", []):
+        if not re.search(rule["pattern"], text, re.M):
+            unmet.append(f"draft.md does not match /{rule['pattern']}/: {rule.get('why', '')}".rstrip(": "))
+    for rule in contract.get("must_not_match", []):
+        m = re.search(rule["pattern"], text, re.M)
+        if m:
+            unmet.append(f"draft.md matches forbidden /{rule['pattern']}/ at `{m.group(0)[:60]}`: {rule.get('why', '')}".rstrip(": "))
+    return unmet
+
+
+def render(cell, tools, org_profile_text, harness, dry_run, run_dir, run_id, skills_dir, cache_root, ledger_root, fixture=None, no_publish=False, workflow_file=None):
     env = {"config": cell.get("config", {}), "run_id": run_id, "harness": harness, "run_dir": str(run_dir)}
     cell = expand_deep(cell, env)
     roles = tools.get("connectors", tools.get("roles", {}))
@@ -492,9 +523,18 @@ def render(cell, tools, org_profile_text, harness, dry_run, run_dir, run_id, ski
     writer_inputs = ""
     if cell.get("writer", {}).get("extra_inputs"):
         writer_inputs = " and " + ", ".join(cell["writer"]["extra_inputs"])
+    dc = cell.get("draft_contract", {})
+    dc_lines = ""
+    if dc.get("must_match") or dc.get("must_not_match"):
+        dc_lines = "- draft.md shape rules (checked by regex, a miss marks the run contract_unmet):\n"
+        for r in dc.get("must_match", []):
+            dc_lines += f"  - MUST contain /{r['pattern']}/ ({r.get('why', '')})\n"
+        for r in dc.get("must_not_match", []):
+            dc_lines += f"  - MUST NOT contain /{r['pattern']}/ ({r.get('why', '')})\n"
     return PROMPT.format(
         id=cell["id"], kind=cell["kind"], harness=harness, dry=" [DRY RUN]" if dry_run else (" [NO-PUBLISH]" if no_publish else ""),
-        run_dir=run_dir, gather_mode=gather_mode, gather=gather,
+        run_dir=run_dir, gather_mode=gather_mode, gather=gather, draft_contract_lines=dc_lines,
+        vstack_bin=str(Path(__file__).resolve()), workflow_file=workflow_file or "<workflow.json>",
         cache_path=f"{cache_root}/{slug(cell.get('cache', {}).get('key', cell['id']))}",
         skills_dir=skills_dir, writer_skill=cell.get("writer", {}).get("skill", "(none)"),
         org_profile=org_profile_text.strip() or "(defaults from the leadership-writing skill's glossary.md)",
@@ -609,7 +649,7 @@ def run(args):
     if args.dry_run and not fixture:
         die(f"dry run needs sample evidence: put {cell_path.stem}.sample.json beside the workflow or pass --sample")
     shown = args.harness if args.cmd == "run" else (args.harness or "print")
-    prompt = render(cell, tools, org_profile_text, shown, args.dry_run, run_dir, run_id, skills_dir, cache_root, ledger_root, fixture, no_publish=args.no_publish)
+    prompt = render(cell, tools, org_profile_text, shown, args.dry_run, run_dir, run_id, skills_dir, cache_root, ledger_root, fixture, no_publish=args.no_publish, workflow_file=str(cell_path.resolve()))
     prompt_file = run_dir / "prompt.md"
     prompt_file.write_text(prompt)
     meta = {"run_id": run_id, "workflow": cell["id"], "harness": args.harness, "dry_run": args.dry_run, "no_publish": args.no_publish,
@@ -664,11 +704,25 @@ def run(args):
 def check_run(args):
     run_dir = Path(args.run_dir).expanduser()
     meta = load(run_dir / "meta.json") if (run_dir / "meta.json").exists() else {}
-    cell = {"gate": {"min_passes": args.min_passes}}
+    # Resolve the workflow so its gate.min_passes and draft_contract apply: --workflow wins, then
+    # <instance>/workflows/<run_dir parent name>.json (runs live under runs/<workflow>/<harness>-<id>).
+    cell = None
+    wf = getattr(args, "workflow", None)
+    if not wf and getattr(args, "instance", None):
+        cand = Path(args.instance).expanduser() / "workflows" / f"{run_dir.parent.name}.json"
+        if cand.exists():
+            wf = str(cand)
+    if wf:
+        cell = load(Path(wf).expanduser())
+        cell = expand_deep(cell, {"config": cell.get("config", {})})
+    if cell is None:
+        cell = {"gate": {"min_passes": args.min_passes}}
+        print("note: no workflow resolved (pass --workflow or --instance), checking the generic contract only")
     unmet = verify_contract(run_dir, cell)
     for u in unmet:
         print("  unmet:", u)
-    print("contract:", "MET" if not unmet else f"{len(unmet)} item(s) unmet", f"(workflow {meta.get('workflow', meta.get('cell', '?'))}, harness {meta.get('harness', '?')})")
+    wname = cell.get("id") or meta.get("workflow", meta.get("cell", "?"))
+    print("contract:", "MET" if not unmet else f"{len(unmet)} item(s) unmet", f"(workflow {wname}, harness {meta.get('harness', run_dir.name.split('-')[0])})")
     return 1 if unmet else 0
 
 
@@ -818,7 +872,7 @@ def main():
     sp.add_argument("--model")
     sp.add_argument("--second-opinion", choices=("claude", "codex", "kiro"), help="run an independent critic on this harness after the gate; findings are recorded, never block")
     sp.add_argument("--timeout", type=int, default=1500)
-    sp = sub.add_parser("check-run"); sp.add_argument("run_dir"); sp.add_argument("--min-passes", type=int, default=2)
+    sp = sub.add_parser("check-run"); sp.add_argument("run_dir"); sp.add_argument("--min-passes", type=int, default=2); sp.add_argument("--workflow", help="workflow JSON whose gate and draft_contract apply"); sp.add_argument("--instance", default=os.environ.get("VSTACK_INSTANCE"), help="instance directory (default: $VSTACK_INSTANCE); resolves workflows/<run parent name>.json")
     sp = sub.add_parser("retro"); sp.add_argument("--days", type=int, default=7); sp.add_argument("--out"); sp.add_argument("--ledger-root", default=str(HOME / ".local/state/vstack/ledger"))
     sp = sub.add_parser("check"); sp.add_argument("--instance", help="instance directory (default: $VSTACK_INSTANCE); fills --workflows"); sp.add_argument("--workflows", "--cells", dest="workflows"); sp.add_argument("--private-component", default=PRIVATE_COMPONENT_DEFAULT)
     sp = sub.add_parser("map"); sp.add_argument("--instance", help="instance directory (default: $VSTACK_INSTANCE)"); sp.add_argument("--workflows", "--cells", dest="workflows"); sp.add_argument("--json", action="store_true")

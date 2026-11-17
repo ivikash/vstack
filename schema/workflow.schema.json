@@ -215,6 +215,34 @@
         }
       }
     },
+    "draft_contract": {
+      "type": "object",
+      "description": "optional shape rules for draft.md, enforced by verify_contract after every run and printed into the prompt's Done-means block. A template contract that lives only in a context file is remembered; one listed here is enforced: a miss marks the run contract_unmet. Use it for the parts of a document a reader has corrected once already (table headers, column names, banned wording).",
+      "properties": {
+        "must_match": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["pattern"],
+            "properties": {
+              "pattern": {"type": "string", "description": "Python regex, multiline; must hit at least once in draft.md"},
+              "why": {"type": "string", "description": "the correction this rule encodes, with its date"}
+            }
+          }
+        },
+        "must_not_match": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["pattern"],
+            "properties": {
+              "pattern": {"type": "string", "description": "Python regex, multiline; must not hit anywhere in draft.md"},
+              "why": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
     "bot": {
       "type": "string",
       "description": "the Kiro Crew bot (memory partition) that should host this workflow; bound on the Schedule page, printed by gen-cron"
