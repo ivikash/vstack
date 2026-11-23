@@ -268,18 +268,40 @@ def fallback_stories(lines):
     and each story opens with a bold title on a line of its own. Find the shallowest heading level
     with a bracketed title, treat each bracketed heading as a criterion section, and split its body
     at whole-line bold titles. The title line takes the Headline slot, so headline-first fails
-    saying so and the per-story rules measure the block (finding R1)."""
+    saying so and the per-story rules measure the block (finding R1).
+
+    A non-bracketed heading at the bracketed level (a rubric sentence written as a sibling
+    `#### <rubric>` directly under `#### [<Criterion>]`) is body text of the enclosing criterion,
+    not a section of its own, so the stories under it still belong to that criterion (round 1c)."""
     bracketed = re.compile(r"^\[(.+)\]\s*$")
     bold_title = re.compile(r"^\*\*[^*]+\*\*\s*$")
     levels = sorted({len(m.group(1)) for l in lines for m in [HEADING.match(l)] if m and bracketed.match(m.group(2))})
     if not levels:
         return []
-    out = []
-    for title, body in split_sections(lines, levels[0]):
-        m = bracketed.match(title or "")
-        if not m:
+    level = levels[0]
+    sections, crit, body = [], None, []
+    for l in lines:
+        m = HEADING.match(l)
+        if m and len(m.group(1)) <= level:
+            b = bracketed.match(m.group(2))
+            if b:
+                if crit is not None:
+                    sections.append((crit, body))
+                crit, body = b.group(1).strip(), []
+                continue
+            if len(m.group(1)) == level and crit is not None:
+                body.append(l)      # sibling rubric heading, stays inside the criterion
+                continue
+            if crit is not None:    # a shallower heading closes the criterion
+                sections.append((crit, body))
+            crit, body = None, []
             continue
-        crit = m.group(1).strip()
+        if crit is not None:
+            body.append(l)
+    if crit is not None:
+        sections.append((crit, body))
+    out = []
+    for crit, body in sections:
         cur, sbody = None, []
         for l in body:
             if bold_title.match(l):

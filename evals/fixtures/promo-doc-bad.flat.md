@@ -1,6 +1,6 @@
 # Dana Whitfield - Promotion Document
 
-Fictional. The red fixture `promo-doc-bad.md` flattened to the shape of a document written before the template: no `## Evidence`, criterion sections `#### [<Criterion>]`, each story opening with a bold project title. `scripts/promo-lint.py` must print `shape: fallback` and measure every story (finding R1).
+Fictional. The red fixture `promo-doc-bad.md` flattened to the shape of a document written before the template: no `## Evidence`, criterion sections `#### [<Criterion>]`, a second level-4 heading holding the rubric sentence directly under each bracketed criterion, each story opening with a bold project title. `scripts/promo-lint.py` must print `shape: fallback` and measure every story (finding R1, sibling heading added in round 1c).
 
 - Employee Name: Dana Whitfield
 - Manager Name: Noor Haddad
@@ -22,6 +22,8 @@ Dana joined Harbor Telemetry in 2024 and started on the Lighthouse Parser, which
 
 #### [Ambiguity]
 
+#### Makes decisions when the way forward is unclear
+
 **Lighthouse Parser**
 
 Dana designed and built the Lighthouse Parser end-to-end after a customer asked for a new log format. Dana wrote the parser in CR-4821 and the console changes in CR-4836, aligning with the console team along the way. Dana led the launch across all regions, and before that evaluated a vendor library, rejected it because of its licence, measured the regex path at 9 times the latency budget, and wrote a streaming parser instead, which is the kind of judgement the next level expects.
@@ -31,6 +33,8 @@ The parser launched in [date] and is used by [N customers] today. Adoption is 0.
 > "Dana turned a one-line complaint into a definition two teams signed.", Rhea Castellan, Principal Engineer
 
 #### [Problem Complexity]
+
+#### Solves problems whose cause is not obvious
 
 **Breakwater Credentials**
 
@@ -43,6 +47,8 @@ Dana proposed and drove the shared credential cache, architected the jittered re
 Failures dropped significantly and the Identity team was happy.
 
 #### [Ambiguity]
+
+#### Makes decisions when the way forward is unclear
 
 **Seawall Schema**
 
@@ -60,6 +66,8 @@ Dana traced all three forms back to the pattern library and wrote an algorithm t
 
 #### [Execution]
 
+#### Delivers on commitments across teams
+
 **Quayside Tagging**
 
 **Headline** Tagging shipped for all 4 resource types.
@@ -75,6 +83,8 @@ All 4 types supported tagging on 06/28/2026.
 > "Dana did the boring work nobody else would.", Noor Haddad, Engineering Manager
 
 #### [Impact]
+
+#### Produces results customers can measure
 
 **Lighthouse Parser**
 
