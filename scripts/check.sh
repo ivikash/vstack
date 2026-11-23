@@ -105,7 +105,13 @@ if ! out=$(python3 scripts/promo-lint.py evals/fixtures/promo-doc-good.md 2>&1);
   say promo-lint "FAIL: evals/fixtures/promo-doc-good.md"; echo "$out" | sed 's/^/    /'; fail=1
 fi
 rm -f /tmp/promo-lint-bad.$$
-[ $fail -eq 0 ] && say promo-lint "ok (red fixture fails with $nbad lines, green fixture 0 failures)"
+# the flattened red fixture (pre-template shape) must be measured per story through the fallback
+flat=$(python3 scripts/promo-lint.py evals/fixtures/promo-doc-bad.flat.md 2>&1 || true)
+echo "$flat" | head -1 | grep -q '^shape: fallback$' \
+  || { say promo-lint "FAIL: evals/fixtures/promo-doc-bad.flat.md did not print 'shape: fallback' first"; fail=1; }
+echo "$flat" | grep -q '^story-length ' \
+  || { say promo-lint "FAIL: the fallback did not measure the long story in promo-doc-bad.flat.md"; fail=1; }
+[ $fail -eq 0 ] && say promo-lint "ok (red fixture fails with $nbad lines, green fixture 0 failures, flattened red fixture linted through the fallback)"
 
 # instance -------------------------------------------------------------------------------------
 if [ -n "${VSTACK_INSTANCE:-}" ]; then

@@ -27,6 +27,13 @@ first, then this file, never the other way round.
     ## Feedback Summary
     Sources: used ...; unavailable ...      last line of the document
 
+Fallback (finding R1): a draft without `## Evidence` is still measured per story. The lint finds
+the shallowest heading level whose titles are bracketed (`#### [<Criterion>]`), treats each such
+heading as a criterion section, and splits its body at whole-line bold titles. It prints
+`shape: fallback` as its first line, then the same per-story rules over those blocks. The bold
+title takes the Headline slot, so `headline-first` names it. A document in the template shape
+never enters the fallback, so its output is unchanged.
+
 The readiness table (owner decision D25) is a stage document beside the draft, `<stem>.readiness.md`
 for a fixture or `gap-analysis.md` in a run directory, ending `Readiness: Ready | Ready with gaps |
 Not ready`. A missing table or a `Not ready` verdict fails `readiness-first`.
@@ -159,6 +166,7 @@ def lint_readiness(path):
 def lint(text):
     lines = text.splitlines()
     length_fails, fails, warnings, counts = [], [], [], []
+    shape = "template"
 
     def fail(rule, section, what):
         fails.append(f"{rule} {section}: {what}")
@@ -206,55 +214,15 @@ def lint(text):
             stories = split_sections(body, 3)
             if not stories:
                 fail("story-shape", "Evidence", "no `### <Project>: <Criterion>` story heading")
-            by_criterion, tellings = {}, {}
+            parsed = []
             for head, sbody in stories:
                 if ":" not in head:
                     fail("story-shape", excerpt(head, 40), "heading is not `### <Project>: <Criterion>`")
                     project, crit = head.strip(), "(none)"
                 else:
                     project, crit = (x.strip() for x in head.rsplit(":", 1))
-                sec = f"{crit} > {project}"
-                n = words(sbody)
-                counts.append(f"words {sec}: {n} (cap {CAP_STORY})")
-                by_criterion.setdefault(crit, []).append(n)
-                tellings.setdefault(project.lower(), []).append((crit, n))
-                if n >= CAP_STORY:
-                    length_fails.append((n - CAP_STORY, f"story-length {sec}: {n} words, cap {CAP_STORY}"))
-                first = next((l for l in sbody if l.strip()), "")
-                if not first.startswith("**Headline**"):
-                    fail("headline-first", sec, f"first line under the heading is `{excerpt(first)}`, not **Headline**")
-                headline = first[len("**Headline**"):].strip() if first.startswith("**Headline**") else ""
-                if headline and not re.search(r"\d", headline):
-                    fail("headline-number", sec, f"`{excerpt(headline)}` has no number")
-                if headline and re.search(r"\d", headline) and not COMPARATOR.search(headline):
-                    fail("headline-baseline", sec, f"`{excerpt(headline)}` has a number with no baseline or comparator (from X to Y, N vs M, ahead of <date>)")
-                paras = paragraphs(sbody)
-                if len(paras) < STORY_PARAGRAPHS:
-                    fail("story-paragraphs", sec, f"{len(paras)} prose paragraphs between the Headline and the quote, need {STORY_PARAGRAPHS} (situation, task, action, result, no labels)")
-                if len(paras) >= 2 and not re.search(r"Ownership: [^.]+\.?\s*$", paras[1]):
-                    fail("ownership-line", sec, f"task paragraph (second) does not end with `Ownership: originated ..., executed ..., operated ...`: `{excerpt(paras[1])}`")
-                for p in paras[:STORY_PARAGRAPHS]:
-                    m = LEADIN.match(p)
-                    if m and m.group(1).strip() in ("Situation", "Task", "Action", "Result"):
-                        fail("no-star-labels", sec, f"`**{m.group(1).strip()}**` is a label the reader sees, STAR is the writer's skeleton only (D28)")
-                quotes = [l for l in sbody if l.startswith(">")]
-                if len(quotes) != 1:
-                    fail("quote-per-story", sec, f"{len(quotes)} quote lines, need exactly 1")
-                elif not QUOTE_LINE.match(quotes[0]):
-                    fail("quote-form", sec, f"`{excerpt(quotes[0])}` is not `> \"...\", <Name>, <role>` or `> (TO BE COLLECTED: quote from <role>)`")
-                links = len(LINK.findall("\n".join(sbody)))
-                counts.append(f"links {sec}: {links}")
-                if links == 0:
-                    fail("story-links", sec, "0 links, every named artifact is a hyperlink on its identifier")
-            for crit, ns in by_criterion.items():
-                total = sum(ns)
-                counts.append(f"words section {crit}: {total} over {len(ns)} stories (warn above {MAX_STORIES} stories or {CAP_SECTION} words)")
-                if len(ns) > MAX_STORIES or total > CAP_SECTION:
-                    warnings.append(f"warning section-length {crit}: {len(ns)} stories, {total} words (target at most {MAX_STORIES} stories and {CAP_SECTION} words), move the weakest story to one sentence or an appendix")
-            for project, ts in tellings.items():
-                full = [c for c, n in ts if n > FULL_TELLING]
-                if len(full) > 1:
-                    fail("one-story-once", project, f"told in full ({FULL_TELLING}+ words) under {len(full)} headings: {', '.join(full)}")
+                parsed.append((project, crit, sbody))
+            lint_stories(parsed, fail, length_fails, warnings, counts)
 
         if title == "Best reasons not to promote":
             reasons = split_sections(body, 3)
@@ -269,8 +237,95 @@ def lint(text):
                 if gap and not DATE.search(gap):
                     fail("rntp-dated-example", sec, f"**Gap** has no dated example of who pointed it out: `{excerpt(gap)}`")
 
+    if not any(re.match(r"^## Evidence\s*$", l) for l in lines):
+        fallback = fallback_stories(lines)
+        if fallback:
+            shape = "fallback"
+            lint_stories(fallback, fail, length_fails, warnings, counts)
+
     length_fails.sort(key=lambda x: -x[0])
-    return [f for _, f in length_fails] + fails, warnings, counts
+    return [f for _, f in length_fails] + fails, warnings, counts, shape
+
+
+def fallback_stories(lines):
+    """A draft that predates the template has no `## Evidence` and no `### <Project>: <Criterion>`
+    headings. Its stories still sit under criterion headings of one level, written `#### [<Criterion>]`,
+    and each story opens with a bold title on a line of its own. Find the shallowest heading level
+    with a bracketed title, treat each bracketed heading as a criterion section, and split its body
+    at whole-line bold titles. The title line takes the Headline slot, so headline-first fails
+    saying so and the per-story rules measure the block (finding R1)."""
+    bracketed = re.compile(r"^\[(.+)\]\s*$")
+    bold_title = re.compile(r"^\*\*[^*]+\*\*\s*$")
+    levels = sorted({len(m.group(1)) for l in lines for m in [HEADING.match(l)] if m and bracketed.match(m.group(2))})
+    if not levels:
+        return []
+    out = []
+    for title, body in split_sections(lines, levels[0]):
+        m = bracketed.match(title or "")
+        if not m:
+            continue
+        crit = m.group(1).strip()
+        cur, sbody = None, []
+        for l in body:
+            if bold_title.match(l):
+                if cur is not None:
+                    out.append((cur, crit, sbody))
+                cur, sbody = l.strip().strip("*").strip(), [l]
+                continue
+            if cur is not None:
+                sbody.append(l)
+        if cur is not None:
+            out.append((cur, crit, sbody))
+    return out
+
+
+def lint_stories(stories, fail, length_fails, warnings, counts):
+    """Per-story rules over (project, criterion, body) triples, from the template shape or the
+    fallback splitter. The body's first non-empty line is the Headline slot."""
+    by_criterion, tellings = {}, {}
+    for project, crit, sbody in stories:
+        sec = f"{crit} > {project}"
+        n = words(sbody)
+        counts.append(f"words {sec}: {n} (cap {CAP_STORY})")
+        by_criterion.setdefault(crit, []).append(n)
+        tellings.setdefault(project.lower(), []).append((crit, n))
+        if n >= CAP_STORY:
+            length_fails.append((n - CAP_STORY, f"story-length {sec}: {n} words, cap {CAP_STORY}"))
+        first = next((l for l in sbody if l.strip()), "")
+        if not first.startswith("**Headline**"):
+            fail("headline-first", sec, f"first line under the heading is `{excerpt(first)}`, not **Headline**")
+        headline = first[len("**Headline**"):].strip() if first.startswith("**Headline**") else ""
+        if headline and not re.search(r"\d", headline):
+            fail("headline-number", sec, f"`{excerpt(headline)}` has no number")
+        if headline and re.search(r"\d", headline) and not COMPARATOR.search(headline):
+            fail("headline-baseline", sec, f"`{excerpt(headline)}` has a number with no baseline or comparator (from X to Y, N vs M, ahead of <date>)")
+        paras = paragraphs(sbody)
+        if len(paras) < STORY_PARAGRAPHS:
+            fail("story-paragraphs", sec, f"{len(paras)} prose paragraphs between the Headline and the quote, need {STORY_PARAGRAPHS} (situation, task, action, result, no labels)")
+        if len(paras) >= 2 and not re.search(r"Ownership: [^.]+\.?\s*$", paras[1]):
+            fail("ownership-line", sec, f"task paragraph (second) does not end with `Ownership: originated ..., executed ..., operated ...`: `{excerpt(paras[1])}`")
+        for p in paras[:STORY_PARAGRAPHS]:
+            m = LEADIN.match(p)
+            if m and m.group(1).strip() in ("Situation", "Task", "Action", "Result"):
+                fail("no-star-labels", sec, f"`**{m.group(1).strip()}**` is a label the reader sees, STAR is the writer's skeleton only (D28)")
+        quotes = [l for l in sbody if l.startswith(">")]
+        if len(quotes) != 1:
+            fail("quote-per-story", sec, f"{len(quotes)} quote lines, need exactly 1")
+        elif not QUOTE_LINE.match(quotes[0]):
+            fail("quote-form", sec, f"`{excerpt(quotes[0])}` is not `> \"...\", <Name>, <role>` or `> (TO BE COLLECTED: quote from <role>)`")
+        links = len(LINK.findall("\n".join(sbody)))
+        counts.append(f"links {sec}: {links}")
+        if links == 0:
+            fail("story-links", sec, "0 links, every named artifact is a hyperlink on its identifier")
+    for crit, ns in by_criterion.items():
+        total = sum(ns)
+        counts.append(f"words section {crit}: {total} over {len(ns)} stories (warn above {MAX_STORIES} stories or {CAP_SECTION} words)")
+        if len(ns) > MAX_STORIES or total > CAP_SECTION:
+            warnings.append(f"warning section-length {crit}: {len(ns)} stories, {total} words (target at most {MAX_STORIES} stories and {CAP_SECTION} words), move the weakest story to one sentence or an appendix")
+    for project, ts in tellings.items():
+        full = [c for c, n in ts if n > FULL_TELLING]
+        if len(full) > 1:
+            fail("one-story-once", project, f"told in full ({FULL_TELLING}+ words) under {len(full)} headings: {', '.join(full)}")
 
 
 def main(argv):
@@ -283,9 +338,11 @@ def main(argv):
     rc = 0
     for path in paths:
         with open(path, encoding="utf-8") as fh:
-            out, warnings, counts = lint(fh.read())
+            out, warnings, counts, shape = lint(fh.read())
         out += lint_readiness(readiness_path(path))
         prefix = f"{path}: " if len(paths) > 1 else ""
+        if shape != "template":
+            print(f"{prefix}shape: {shape}")
         if show_counts:
             for line in counts:
                 print(prefix + line)
