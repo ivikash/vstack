@@ -22,7 +22,7 @@ Dana's case rests on three wins, ordered by impact, then ambiguity, then recency
 
 **Tidewater Schema cut the schema sources from 3 to 1 and now generates the schema for 180 pipelines** (Problem Complexity). Dana found the same data held in three shapes and replaced all three with one derivation, the most recent of the three wins, finished in September 2026.
 
-Beyond these, Dana completed the Quayside Tagging campaign for the team's 4 resource types on time, closed 12 of the team's 19 noisy alarms in one quarter, and wrote the onboarding guide that 3 new builders used in 2026. Each is told once below.
+Beyond these, Dana completed the Quayside Tagging campaign for the team's 4 resource types on time, closed 12 of the team's 19 noisy alarms in one quarter, and wrote the onboarding guide that 3 new builders used in 2026. Each has its own story in Evidence.
 
 ## Evidence
 
@@ -98,7 +98,7 @@ Dana volunteered to own the cleanup and the manager agreed in the team's quarter
 
 Dana classified all 19 alarms by whether a customer could tell the difference, and ruled out muting them wholesale because 2 of the 19 had paged on real incidents in the 90-day history. Dana agreed the delete list with Owen Faraday, the on-call lead, before the first change, then deleted 7, retuned 5 with data from the 90 days, and rewrote the on-call guide so each remaining alarm names its first check, in [review 5130](https://example.com/reviews/5130). A strong Engineer II would have retuned the alarms assigned to them, not decided which 7 the team could live without.
 
-Pages fell from 45 a week to 18 a week by 03/31/2026, a 60 percent drop. No incident has gone unnoticed since. (TO BE CONFIRMED)
+Pages fell from 45 a week to 18 a week by 03/31/2026, a 60 percent drop. No incident has gone unnoticed in the 7 months since. (TO BE CONFIRMED)
 
 > "Our on-call stopped dreading the phone. Dana did the boring work nobody else would.", Noor Haddad, Engineering Manager
 
@@ -122,7 +122,7 @@ Core values demonstrated: Ownership and Delivery.
 
 ## Best reasons not to promote
 
-### Proposing the next leverage play before being asked
+### Proposing the next improvement before being asked
 
 **Pattern** Dana executes fully once a problem is named, as Breakwater Credentials and Quayside Tagging show.
 
@@ -165,4 +165,4 @@ Relationship: reviewed the schema derivation note and two other designs by Dana 
 
 Relationship: on-call lead during the 10/20/2025 regional event and peer on Breakwater Credentials. Best reasons to promote: Dana disproved the retry fix with a number before anyone argued and changed another team's client to fix ours. Best reasons not to promote: Dana waits for someone to point at the next leverage play. The repeated manifest tests were automated well, but only after I named them on 05/06/2026.
 
-Sources: used sample evidence; unavailable none
+Sources used: sample evidence. Sources unavailable: none

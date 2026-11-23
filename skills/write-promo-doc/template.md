@@ -22,7 +22,10 @@ Change a string here first, then the lint, never the other way round.
 | Principles line | after the quote, `<principles.name> demonstrated: X, Y` (glossary), once per criterion |
 | Reason not to promote | `### <plain words>` then five paragraphs with the lead-ins `**Pattern**`, `**Gap**`, `**Also seen by**`, `**Does not block**`, `**Next**`, in that order |
 | Markers | `(TO BE COLLECTED)` or `(TO BE COLLECTED: <what>)` when the data does not exist yet, `(TO BE CONFIRMED)` at the end of a sentence whose number or source is unconfirmed. No other form: no square brackets, no `TODO`, no `(unverified)` in this genre |
-| Sources line | `Sources: used ...; unavailable ...` as the LAST line of the document (the only line that may hold a semicolon) |
+| Sources line | `Sources used: ... Sources unavailable: ...` as the LAST line of the document, no semicolon, so the house no-semicolons rule holds on every line (D36) |
+| Heading words | no heading or reason title contains leverage, play, strategic, proactive, cultivat-, drive alignment, synerg-, holistic or paradigm (lint plain-headings, D40) |
+| Review ids | a code review id (`CR-<n>`, `PR #<n>`, a `/pull/<n>` or `/reviews/<n>` link) sits in at most one story's action paragraph. Why now and the Appendix are exempt (lint one-cr-once, D37) |
+| Unfetchable links | a link to a document host the writer cannot fetch sits in a sentence ending `(TO BE CONFIRMED)` or carrying `(SUPPORTED)` after the ownership audit verified it (lint marker-direction, D38) |
 
 Caps, quotes excluded: a story under 500 words (hard failure), Why now under 550 words (hard
 failure). Per criterion: at most 2 full stories and at most 600 words together. More is a lint
@@ -109,7 +112,7 @@ in the instance, never in this skill.
    not to promote, in their own words. Never summarise, soften or merge. Providers change over
    time, so no rule here names a fixed list of people.
 
-9. Last line: `Sources: used ...; unavailable ...`.
+9. Last line: `Sources used: ... Sources unavailable: ...`. No semicolon anywhere in the document.
 
 Placeholders `{NAME}`, `{MANAGER}`, `{CURRENT_TITLE}`, `{PROPOSED_TITLE}`, `{TIME_IN_LEVEL}` are
 filled from the supplied evidence. A worked, fictional example that passes the lint is

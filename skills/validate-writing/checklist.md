@@ -66,8 +66,8 @@ Severity key: **blocker** = unfit to share, **major** = weakens the doc, **minor
     that order.
   - promo-doc: Header block, `## Scope of Role`, `## Why now?`, `## Evidence` with one
     `### <Project>: <Criterion>` story per project, `## Best reasons not to promote`,
-    `## Feedback Summary`, optional `## Appendix` and `## Feedback`, `Sources:` as the last
-    line. Exact strings in write-promo-doc/template.md.
+    `## Feedback Summary`, optional `## Appendix` and `## Feedback`, `Sources used: ... Sources
+    unavailable: ...` as the last line. Exact strings in write-promo-doc/template.md.
 - **balance** (blocker for talent-card and promo-doc): Includes genuine growth areas
   (talent card) or a candid, specific "reasons not to promote" (promo doc). A section that
   is empty, hand-wavy, or purely positive fails this rule.

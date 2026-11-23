@@ -1,6 +1,6 @@
 # Dana Whitfield - Promotion Document
 
-Fictional candidate, team, projects, numbers, links and reviewers. This file is the red sample: it carries every class of mistake a reviewer marked on a real document, re-created with invented content. `scripts/promo-lint.py` must fail on it and `evals/results/` records which rule catches which class.
+Fictional candidate, team, projects, numbers, links and reviewers. This file is the red sample: it carries every class of mistake a reviewer marked on a real document, re-created with invented content. `scripts/promo-lint.py` must fail on it and `evals/results/` records which rule catches which class. Round 3b added a process sentence in Why now, an unmarked initiative claim in a reason against a marked story sentence, one review id in two action paragraphs, an unfetchable document link without its marker, and two bare (TO BE CONFIRMED) markers.
 
 - Employee Name: Dana Whitfield
 - Manager Name: Noor Haddad
@@ -16,7 +16,7 @@ Harbor Telemetry owns the ingest path for 1,400 internal customers; the team run
 
 Dana joined Harbor Telemetry in 2024 and started on the Lighthouse Parser, which was the first project. Then came the Breakwater Credentials work during the regional event, and after that the Seawall Schema project, and most recently the Quayside Tagging campaign. Each project built on the one before it and Dana grew with each one. Dana demonstrated exceptional ownership across the Lighthouse Parser, Breakwater Credentials, Seawall Schema and Quayside Tagging, and the team relies on Dana for the hardest problems.
 
-**Lighthouse Parser shipped early and customers love it.** Dana also worked on the Pier Alarm Cleanup and wrote an onboarding guide.
+**Lighthouse Parser shipped early and customers love it.** Dana also worked on the Pier Alarm Cleanup and wrote an onboarding guide. The earlier draft listed the wins in the order impact, then recency, and each project is told once below.
 
 ## Evidence
 
@@ -60,9 +60,9 @@ A platform campaign required tagging by 06/30/2026 — Harbor Telemetry's 4 type
 
 Dana fixed the race and shipped tagging for the 4 types.
 
-Dana took over the campaign.
+Dana took over the campaign, as the [campaign tracker](https://docs.google.com/document/d/fictional-quayside-tracker) records.
 
-All 4 types supported tagging on 06/28/2026.
+All 4 types supported tagging on 06/28/2026. Dana had picked up Quayside Tagging before anyone asked. (TO BE CONFIRMED)
 
 > "Dana did the boring work nobody else would.", Noor Haddad, Engineering Manager
 
@@ -74,9 +74,9 @@ After the launch of the Lighthouse Parser, which Dana designed and built end-to-
 
 Dana owned adoption tracking.
 
-Dana built a dashboard.
+Dana built a dashboard on the derivation from [review 5010](https://example.com/reviews/5010).
 
-40 million events a day for 310 customers by 10/31/2026.
+40 million events a day for 310 customers by 10/31/2026. The dashboard is the one the team uses. (TO BE CONFIRMED)
 
 > (TO BE COLLECTED: quote from the product manager)
 
@@ -86,7 +86,7 @@ Core values demonstrated: Ownership and Delivery.
 
 ### Cultivating proactive strategic initiative and opportunity identification [Ownership]
 
-Across Lighthouse, Breakwater, Seawall and Quayside, Dana executed well once directed. But the leverage play on the team's repetitive manifest tests had to be pointed out before Dana automated it. Dana does not propose initiatives.
+Across Lighthouse, Breakwater, Seawall and Quayside, Dana executed well once directed. But the leverage play on the team's repetitive manifest tests had to be pointed out before Dana automated it. Dana does not propose initiatives. The one exception is Quayside Tagging, which Dana picked up on her own initiative without a ticket.
 
 ### Becoming the operational excellence champion for the team
 
@@ -98,4 +98,4 @@ Dana should become the team's operational excellence champion and own the Sev2 r
 
 Relationship: reviewer on two designs. Best reasons to promote: Dana owns problems that cross teams. Best reasons not to promote: Dana's documents are long, the derivation note ran to 11 pages and I had to ask for a 3-page version before the review could proceed.
 
-Sources: used sample evidence; unavailable none
+Sources used: sample evidence. Sources unavailable: none

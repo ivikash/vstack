@@ -34,10 +34,13 @@ input and stop. A document written against a guessed ladder is worse than no doc
 ## Output discipline (read first)
 
 - Return ONLY the finished promotion document. The FIRST line of your output is the document
-  header, the LAST line is `Sources: used ...; unavailable ...`. No preamble, no "Here is", no
-  notes about your tools, evidence or process anywhere in the output.
+  header, the LAST line is `Sources used: ... Sources unavailable: ...` (no semicolon). No preamble,
+  no "Here is", no notes about your tools, evidence or process anywhere in the output.
 - Before returning, scan your output and DELETE any sentence that talks about writing the
-  document rather than being the document. A leaked process sentence is a release blocker.
+  document rather than being the document. A leaked process sentence is a release blocker: the
+  lint rule `no-process-leak` fails the body on "earlier draft", "evidence pull", "reviewer of
+  the", "readiness row", "in the order <x>, then", "told once below" and "working copy". The run
+  brief, the frontmatter and the Sources line are exempt, nothing else is.
 
 ## Step 1: readiness assessment (before any prose)
 

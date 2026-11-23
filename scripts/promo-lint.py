@@ -25,11 +25,26 @@ first, then this file, never the other way round.
     ### <plain words>
     **Pattern** ... **Gap** ... **Also seen by** ... **Does not block** ... **Next** ...
     ## Feedback Summary
-    Sources: used ...; unavailable ...      last line of the document
+    Sources used: ... Sources unavailable: ...      last line of the document, no semicolon
 
 Skips: `no-semicolons` and `no-em-dash` do not fire under `## Feedback`, whose provider text is
-verbatim by rule (finding R2). `bare-identifier` skips a leading YAML frontmatter block between two
-`---` lines (finding R3). Every other rule still reads those lines.
+verbatim by rule (finding R2). `bare-identifier` and `no-process-leak` skip a leading YAML
+frontmatter block between two `---` lines (finding R3), and `no-process-leak` skips the Sources
+line. Every other rule still reads those lines.
+
+Round 3b rules (the review's "What the gate missed" list, decisions D31 to D40):
+    no-process-leak     a body sentence that talks about the writing, not the candidate
+    journey-countable   an action paragraph with no journey verb and no other person named
+    rntp-contradiction  a reason states as fact what a story marks (TO BE CONFIRMED/COLLECTED),
+                        approximation by project name plus an initiative phrase
+    one-cr-once         one code review id in at most one story's action paragraph
+    marker-direction    an unfetchable document link sits in a (TO BE CONFIRMED) sentence, and a
+                        (TO BE CONFIRMED) with no artifact in its sentence is a warning
+    plain-headings      a heading with a word from the jargon denylist
+Hosts the writer cannot fetch are `UNVERIFIED_HOSTS` plus the comma-separated env var
+PROMO_LINT_UNVERIFIED_HOSTS. Links the caller has verified by hand are exempt through the env var
+PROMO_LINT_LINK_EXEMPT (comma-separated URL substrings) or an adjacent `(SUPPORTED)` tag. The
+instance workflow sets both for `vstack check-run`, so no internal host name lives in this file.
 
 Fallback (finding R1): a draft without `## Evidence` is still measured per story. The lint finds
 the shallowest heading level whose titles are bracketed (`#### [<Criterion>]`), treats each such
@@ -80,6 +95,35 @@ COMPARATOR = re.compile(r"\b(from \S+( \S+){0,3} to \S+|down from|up from|vs\.?|
 MARKER_COLLECTED = re.compile(r"\(TO BE COLLECTED(: [^()]+)?\)")
 MARKER_CONFIRMED = re.compile(r"\(TO BE CONFIRMED\)")
 MARKER_ANY = re.compile(r"(?i)[\[(]?\s*(to be collected|to be confirmed|tbd|tbc|todo|unverified|to capture)\b[^)\]\n]*[\])]?")
+
+# round 3b (D31 to D40)
+SOURCES_LINE = re.compile(r"^Sources( used)?:", re.I)
+PROCESS_LEAK = re.compile(r"earlier draft|evidence pull|reviewer of the|readiness row|in the order [a-z]+, then|told once below|working copy", re.I)
+JOURNEY_VERB = re.compile(r"ruled out|instead of|rather than|tried|rejected|aligned|asked|brought .* to|\(TO BE COLLECTED: what (she|he|they) tried", re.I)
+JOURNEY_NOUN = re.compile(r"\b(builder|reviewer|team|customer|owner|manager|partner)s?\b", re.I)
+INITIATIVE = re.compile(r"without a ticket|on her own|on his own|unprompted|initiative", re.I)
+REVIEW_ID = re.compile(r"\bCR-(\d+)\b|\bPR #(\d+)|/pull/(\d+)\b|/reviews?/(\d+)\b", re.I)
+JARGON = re.compile(r"\b(leverage|play|strategic|proactive|cultivat\w*|drive alignment|synerg\w*|holistic|paradigm)\b", re.I)
+UNVERIFIED_HOSTS = ["docs.google.com"]
+SUPPORTED_TAG = re.compile(r"\(SUPPORTED\)")
+SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+(?=[A-Z\"\u201c])")
+
+
+def unverified_hosts():
+    import os
+    extra = [h.strip() for h in os.environ.get("PROMO_LINT_UNVERIFIED_HOSTS", "").split(",") if h.strip()]
+    return UNVERIFIED_HOSTS + extra
+
+
+def exempt_links():
+    import os
+    return [s.strip() for s in os.environ.get("PROMO_LINT_LINK_EXEMPT", "").split(",") if s.strip()]
+
+
+def sentences(paragraph):
+    """Sentences of a prose paragraph. A `(TO BE CONFIRMED)` after the full stop stays with the
+    sentence it closes, because the split only happens before a capital letter or a quote mark."""
+    return [s.strip() for s in SENTENCE_SPLIT.split(paragraph) if s.strip()]
 
 
 def words(lines):
@@ -171,6 +215,7 @@ def lint(text):
     lines = text.splitlines()
     length_fails, fails, warnings, counts = [], [], [], []
     shape = "template"
+    marked_projects, reasons = {}, []
 
     def fail(rule, section, what):
         fails.append(f"{rule} {section}: {what}")
@@ -185,15 +230,22 @@ def lint(text):
         frontmatter_end = next((i for i, l in enumerate(lines[1:], 2) if l.strip() == "---"), 0)
     section = None
     for i, l in enumerate(lines, 1):
-        m = HEADING.match(l)
-        if m and len(m.group(1)) == 2:
-            section = m.group(2)
+        hm = HEADING.match(l)
+        if hm and len(hm.group(1)) == 2:
+            section = hm.group(2)
         in_feedback = section == "Feedback"       # provider text is verbatim by rule (R2), house rules skip it
         in_frontmatter = i <= frontmatter_end     # a leading YAML block is metadata, not prose (R3)
-        if ";" in l and not l.startswith("Sources:") and not in_feedback:
+        is_sources = bool(SOURCES_LINE.match(l))
+        if ";" in l and not in_feedback:
             fail("no-semicolons", f"line {i}", f"`{excerpt(l)}`")
         if "\u2014" in l and not in_feedback:
             fail("no-em-dash", f"line {i}", f"`{excerpt(l)}`")
+        if hm and JARGON.search(hm.group(2)):
+            fail("plain-headings", f"line {i}", f"`{excerpt(hm.group(2))}` contains `{JARGON.search(hm.group(2)).group(0)}`, a word from the jargon denylist (house rule plain-headings)")
+        if not in_frontmatter and not is_sources and not in_feedback:
+            pm = PROCESS_LEAK.search(l)
+            if pm:
+                fail("no-process-leak", f"line {i}", f"`{pm.group(0)}` talks about the writing, not the candidate: `{excerpt(l)}`")
         collected += len(MARKER_COLLECTED.findall(l))
         confirmed += len(MARKER_CONFIRMED.findall(l))
         for m in MARKER_ANY.finditer(l):
@@ -237,7 +289,7 @@ def lint(text):
                 else:
                     project, crit = (x.strip() for x in head.rsplit(":", 1))
                 parsed.append((project, crit, sbody))
-            lint_stories(parsed, fail, length_fails, warnings, counts)
+            marked_projects = lint_stories(parsed, fail, length_fails, warnings, counts)
 
         if title == "Best reasons not to promote":
             reasons = split_sections(body, 3)
@@ -256,7 +308,9 @@ def lint(text):
         fallback = fallback_stories(lines)
         if fallback:
             shape = "fallback"
-            lint_stories(fallback, fail, length_fails, warnings, counts)
+            marked_projects = lint_stories(fallback, fail, length_fails, warnings, counts)
+    if marked_projects and reasons:
+        lint_rntp_contradiction(reasons, marked_projects, fail)
 
     length_fails.sort(key=lambda x: -x[0])
     return [f for _, f in length_fails] + fails, warnings, counts, shape
@@ -316,10 +370,19 @@ def fallback_stories(lines):
     return out
 
 
+def review_ids(text):
+    """Code review identifiers in a paragraph, normalised to the digits: CR-<n>, PR #<n>, a
+    /pull/<n> or /reviews/<n> link target (one-cr-once, D37)."""
+    return {next(g for g in m.groups() if g) for m in REVIEW_ID.finditer(text)}
+
+
 def lint_stories(stories, fail, length_fails, warnings, counts):
     """Per-story rules over (project, criterion, body) triples, from the template shape or the
-    fallback splitter. The body's first non-empty line is the Headline slot."""
-    by_criterion, tellings = {}, {}
+    fallback splitter. The body's first non-empty line is the Headline slot. Returns the projects
+    named inside a marked sentence of any story, for the document-wide rntp-contradiction scan."""
+    by_criterion, tellings, review_sites, marked_projects = {}, {}, {}, {}
+    projects = [p for p, _, _ in stories]
+    hosts, exempt = unverified_hosts(), exempt_links()
     for project, crit, sbody in stories:
         sec = f"{crit} > {project}"
         n = words(sbody)
@@ -354,6 +417,30 @@ def lint_stories(stories, fail, length_fails, warnings, counts):
         counts.append(f"links {sec}: {links}")
         if links == 0:
             fail("story-links", sec, "0 links, every named artifact is a hyperlink on its identifier")
+        # journey-countable (D32): the action paragraph names a journey or another person
+        if len(paras) >= 3:
+            action = paras[2]
+            if not JOURNEY_VERB.search(action) and not JOURNEY_NOUN.search(action):
+                fail("journey-countable", sec, f"action paragraph has no journey verb (ruled out, instead of, tried, rejected, aligned, asked) and names no other person: `{excerpt(action)}`")
+            for rid in review_ids(action):
+                review_sites.setdefault(rid, []).append(sec)
+        # marker-direction (D38): per sentence of the story's prose
+        for p in paras:
+            for s in sentences(p):
+                for url in re.findall(r"\]\((https?://[^)]+)\)", s):
+                    if any(h in url for h in hosts) and not any(x in url for x in exempt) and not SUPPORTED_TAG.search(s) and not MARKER_CONFIRMED.search(s):
+                        fail("marker-direction", sec, f"link to `{excerpt(url, 40)}` cannot be fetched by the writer, its sentence must end (TO BE CONFIRMED) or carry (SUPPORTED): `{excerpt(s)}`")
+                if MARKER_CONFIRMED.search(s):
+                    bare = MARKER_CONFIRMED.sub("", s)
+                    if not LINK.search(bare) and not re.search(r"\d", bare):
+                        warnings.append(f"warning marker-direction {sec}: `{excerpt(s)}` has (TO BE CONFIRMED) but names no artifact, link or number, did you mean (TO BE COLLECTED: <artifact>)")
+                if MARKER_CONFIRMED.search(s) or MARKER_COLLECTED.search(s):
+                    for project in projects:
+                        if project.lower() in s.lower():
+                            marked_projects.setdefault(project, []).append(sec)
+    for rid, secs in review_sites.items():
+        if len(secs) > 1:
+            fail("one-cr-once", rid, f"review id in the action paragraph of {len(secs)} stories: {', '.join(secs)}, keep it where the claim lives and cross-reference the rest")
     for crit, ns in by_criterion.items():
         total = sum(ns)
         counts.append(f"words section {crit}: {total} over {len(ns)} stories (warn above {MAX_STORIES} stories or {CAP_SECTION} words)")
@@ -363,6 +450,23 @@ def lint_stories(stories, fail, length_fails, warnings, counts):
         full = [c for c, n in ts if n > FULL_TELLING]
         if len(full) > 1:
             fail("one-story-once", project, f"told in full ({FULL_TELLING}+ words) under {len(full)} headings: {', '.join(full)}")
+    return marked_projects
+
+
+def lint_rntp_contradiction(reasons, marked_projects, fail):
+    """Lint approximation of the document-wide rntp-contradiction rule (D33): a project that a story
+    names inside a marked sentence may not appear, unmarked, in a reason sentence that claims
+    initiative (without a ticket, on her own, on his own, unprompted, initiative). The full rule is
+    judgement and lives in checklist section H."""
+    for head, rbody in reasons:
+        sec = f"reason > {excerpt(head, 40)}"
+        for p in (l.strip() for l in rbody if l.strip() and not HEADING.match(l)):
+            for s in sentences(p):
+                if not INITIATIVE.search(s) or MARKER_CONFIRMED.search(s) or MARKER_COLLECTED.search(s):
+                    continue
+                for project, secs in marked_projects.items():
+                    if project.lower() in s.lower():
+                        fail("rntp-contradiction", sec, f"`{excerpt(s)}` states as fact what story {secs[0]} marks, add the marker or narrow the claim")
 
 
 def main(argv):

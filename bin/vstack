@@ -446,8 +446,10 @@ def verify_contract(run_dir, cell):
         # a promo doc opens with its document header and closes with the Sources line (template.md),
         # every other genre carries it in the first six lines
         window = nonempty[:6] + nonempty[-6:] if writer == "write-promo-doc" else nonempty[:6]
-        if not any(l.lower().startswith("sources:") for l in window):
-            missing.append("draft.md has no `Sources: used ...; unavailable ...` header line" + (" (first or last six lines for a promo doc)" if writer == "write-promo-doc" else ""))
+        # a promo doc writes `Sources used: ... Sources unavailable: ...` (no semicolon, D36),
+        # every other genre `Sources: used ...; unavailable ...`
+        if not any(re.match(r"sources( used)?:", l.lower()) for l in window):
+            missing.append("draft.md has no `Sources: used ...; unavailable ...` header line" + (" (or `Sources used: ... Sources unavailable: ...` in the first or last six lines for a promo doc)" if writer == "write-promo-doc" else ""))
     gate = run_dir / "gate.md"
     min_passes = int(cell.get("gate", {}).get("min_passes", 2))
     if not gate.exists():
