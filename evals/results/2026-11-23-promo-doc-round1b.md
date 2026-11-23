@@ -176,3 +176,7 @@ this session, so the instance group did not run.
   untouched, that decision stays with the owner.
 - The judgement rules above are a hand application, the gate skill was not run in a harness in
   this round.
+
+## After round 1b, rerun at `c23b669` by a fresh reviewer
+
+Fixture counts unchanged: red fixture 32 failures and 1 warning, green fixture 0, flat fixture `shape: fallback` with 33 failures and 1 warning. On the instance's real out-of-shape red sample the lint dropped from 41 to 29 lines (R2 and R3 landed) but printed no `shape: fallback` line and 0 per-story lines, where the flat fixture prints 29. Cause: that document puts a second heading of the same level, the rubric sentence, directly under each bracketed criterion heading, so `split_sections` gives every bracketed heading an empty body and `fallback_stories` returns no story. The flat fixture has no such sibling heading, so `check.sh promo-lint` stays green while the shape R1 described is still unmeasured. With the sibling headings demoted to prose the same document yields 6 `story-length` lines (512 to 657 words) and 3 `section-length` warnings. R1 stays open until `fallback_stories` treats a non-bracketed heading at the bracketed level as body text and the flat fixture carries the sibling heading. Instance record: the candidate folder's round 1c bar check.
