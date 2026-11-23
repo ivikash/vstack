@@ -77,7 +77,7 @@ Severity key: **blocker** = unfit to share, **major** = weakens the doc, **minor
 All the generic writing-voice rules live in [leadership-writing/house-rules.md](../leadership-writing/house-rules.md):
 claim-has-artifact (as honest-and-data-driven), quantify-impact, no-superlatives, write-for-reader,
 logical-progression, show-dont-tell, active-voice, zombie-test, no-hedging (with its banlist),
-define-acronyms, link-artifacts, and story-not-bullets. Read that file and enforce every rule in it
+define-acronyms, link-artifacts, plain-headings, and story-not-bullets. Read that file and enforce every rule in it
 as a checker (fail a real violation). This section adds only the people-review-specific quality
 rules that are NOT generic voice:
 

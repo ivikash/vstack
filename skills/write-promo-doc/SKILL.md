@@ -57,7 +57,7 @@ Not met, Gap. End it with one verdict line:
 
 Read [leadership-writing/house-rules.md](../leadership-writing/house-rules.md) and apply EVERY rule in it:
 no-em-dash, no-semicolons, correct-grammar, define-acronyms, active-voice, zombie-test, show-dont-tell,
-quantify-impact, write-for-reader, logical-progression, no-superlatives, no-hedging (with its
+quantify-impact, plain-headings, write-for-reader, logical-progression, no-superlatives, no-hedging (with its
 banlist), story-not-bullets, honest-and-data-driven, and no-assumptions. That file is the single
 source of truth for the voice. Write in the voice of an experienced engineering manager.
 
