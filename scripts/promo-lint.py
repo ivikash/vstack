@@ -16,7 +16,9 @@ first, then this file, never the other way round.
     ## Evidence
     ### <Project>: <Criterion>              one story, criterion from the rubric
     **Headline** <outcome, number, baseline>   bold lead-in, first line under the H3
-    **Situation** ... **Task** ... **Action** ... **Result** ...   bold lead-ins, in this order
+    <four prose paragraphs>                 situation, task, action, result in that order, no labels
+                                            (D28: STAR is the writer's skeleton, never words the
+                                            reader sees). The task paragraph ends `Ownership: ...`
     > "...", <Name>, <role>                 one blockquote line, or
     > (TO BE COLLECTED: quote from <role>)
     ## Best reasons not to promote
@@ -29,9 +31,9 @@ The readiness table (owner decision D25) is a stage document beside the draft, `
 for a fixture or `gap-analysis.md` in a run directory, ending `Readiness: Ready | Ready with gaps |
 Not ready`. A missing table or a `Not ready` verdict fails `readiness-first`.
 
-Only countable rules live here. Judgement rules (wrong criterion, journey, altitude, ownership
-verdict, contradiction, provider gaps, jargon) are in skills/validate-writing/checklist.md
-section H with their quoted-failure forms.
+Only countable rules live here. Judgement rules (wrong criterion, STAR order of the four
+paragraphs, journey, altitude, ownership verdict, contradiction, provider gaps, jargon) are in
+skills/validate-writing/checklist.md section H with their quoted-failure forms.
 """
 import re
 import sys
@@ -50,7 +52,7 @@ REQUIRED = [
     (r"^## Best reasons not to promote\s*$", "## Best reasons not to promote"),
     (r"^## Feedback Summary\s*$", "## Feedback Summary"),
 ]
-STAR = ["Headline", "Situation", "Task", "Action", "Result"]
+STORY_PARAGRAPHS = 4     # situation, task, action, result, unlabelled (D28)
 RNTP = ["Pattern", "Gap", "Also seen by", "Does not block", "Next"]
 
 HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*$")
@@ -100,6 +102,28 @@ def split_sections(lines, level):
 
 def leadins(body, wanted):
     return [LEADIN.match(l).group(1).strip() for l in body if LEADIN.match(l) and LEADIN.match(l).group(1).strip() in wanted]
+
+
+def paragraphs(body):
+    """Prose paragraphs of a story body between the Headline line and the quote: blank-line
+    separated blocks, headings and blockquote lines excluded."""
+    out, cur, seen_headline = [], [], False
+    for l in body:
+        if not seen_headline:
+            if l.strip():
+                seen_headline = True
+            continue
+        if l.startswith(">"):
+            break
+        if not l.strip() or HEADING.match(l):
+            if cur:
+                out.append(" ".join(cur))
+                cur = []
+            continue
+        cur.append(l.strip())
+    if cur:
+        out.append(" ".join(cur))
+    return out
 
 
 READINESS = re.compile(r"^Readiness: (Ready|Ready with gaps|Not ready)\s*$", re.M)
@@ -204,9 +228,15 @@ def lint(text):
                     fail("headline-number", sec, f"`{excerpt(headline)}` has no number")
                 if headline and re.search(r"\d", headline) and not COMPARATOR.search(headline):
                     fail("headline-baseline", sec, f"`{excerpt(headline)}` has a number with no baseline or comparator (from X to Y, N vs M, ahead of <date>)")
-                found = leadins(sbody, STAR)
-                if found != STAR:
-                    fail("star-leadins", sec, f"lead-ins found {found}, need {STAR} in order")
+                paras = paragraphs(sbody)
+                if len(paras) < STORY_PARAGRAPHS:
+                    fail("story-paragraphs", sec, f"{len(paras)} prose paragraphs between the Headline and the quote, need {STORY_PARAGRAPHS} (situation, task, action, result, no labels)")
+                if len(paras) >= 2 and not re.search(r"Ownership: [^.]+\.?\s*$", paras[1]):
+                    fail("ownership-line", sec, f"task paragraph (second) does not end with `Ownership: originated ..., executed ..., operated ...`: `{excerpt(paras[1])}`")
+                for p in paras[:STORY_PARAGRAPHS]:
+                    m = LEADIN.match(p)
+                    if m and m.group(1).strip() in ("Situation", "Task", "Action", "Result"):
+                        fail("no-star-labels", sec, f"`**{m.group(1).strip()}**` is a label the reader sees, STAR is the writer's skeleton only (D28)")
                 quotes = [l for l in sbody if l.startswith(">")]
                 if len(quotes) != 1:
                     fail("quote-per-story", sec, f"{len(quotes)} quote lines, need exactly 1")

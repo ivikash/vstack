@@ -164,11 +164,13 @@ For a leadership status update, in addition to the shared house rules, enforce:
 ## H. Promo-doc rules (`promo-doc` only)
 
 Judgement rules the gate applies to a promotion document, on top of sections A to F. The
-countable twins live in `scripts/promo-lint.py` (word caps, lead-ins present, a number in the
-Headline, one quote line per story, exact marker spelling, links per story, bare identifiers) and
-run before the gate. Each rule below names the quoted-failure form the gate prints, in the shape
-`[severity] rule -> offending -> fix`. Vocabulary: the Headline is the bold first line of a story
-(glossary), the criterion is a dimension of the caller's rubric.
+countable twins live in `scripts/promo-lint.py` (word caps, four paragraphs per story and no STAR
+label printed, a number in the Headline, one quote line per story, exact marker spelling, links
+per story, bare identifiers) and run before the gate. Each rule below names the quoted-failure
+form the gate prints, in the shape `[severity] rule -> offending -> fix`. Vocabulary: the Headline
+is the bold first line of a story (glossary), the criterion is a dimension of the caller's rubric.
+A story's four prose paragraphs carry no labels (owner decision D28), so "situation", "task",
+"action" and "result" below name the first, second, third and fourth paragraph after the Headline.
 
 - **readiness-first** (blocker): the run holds a readiness table (one row per rubric criterion,
   columns Criterion, Evidence, Met / Partly / Not met, Gap) ending `Readiness: Ready | Ready with
@@ -178,28 +180,36 @@ run before the gate. Each rule below names the quoted-failure form the gate prin
 - **star-situation** (blocker): a story's first two sentences after the Headline name the customer
   or stakeholder, the ask, and what was broken or undefined. Fail when the first sentence's
   grammatical subject is the candidate. Prints: `star-situation -> "<first sentence>" -> open with
-  who needed what and what was undefined, move the candidate's action to Action`.
+  who needed what and what was undefined, move the candidate's action to the action paragraph`.
+- **star-order** (blocker): the four paragraphs between the Headline and the quote read as
+  situation (who needed what, what was broken or undefined), task (what the candidate owned, who
+  asked, ending `Ownership: ...`), action (the journey, ending with the altitude sentence) and
+  result (dated, with numbers), in that order and with no printed label. Fail when a paragraph
+  carries another part's content, when two parts share one paragraph, or when fewer than four
+  paragraphs exist. Prints: `star-order -> paragraph <n> "<first sentence of the paragraph that is
+  out of place>" reads as <part>, expected <part> -> move it to position <m> (or: split it, or:
+  add the missing <part> paragraph)`.
 - **headline-carries-outcome** (major): the Headline states the outcome, not the project name or
   the activity. Prints: `headline-carries-outcome -> "<Headline>" -> state what changed for whom,
   with the number and its baseline`.
 - **headline-baseline** (major): the Headline's number carries a baseline it beat or a comparator
   (from X to Y, N vs M, ahead of a date). Prints: `headline-baseline -> "<Headline>" -> add what the
   number is compared against`.
-- **journey-in-action** (major): Situation and Action tell the journey in candidate-led action
-  verbs: what was tried or ruled out, why no off-the-shelf path worked, who the candidate reached
-  out to or aligned. Fail an Action that lists deliverables with no ruled-out option and no other
-  person. Prints: `journey-in-action -> "<Action paragraph excerpt>" -> name one option ruled out
-  and why, and who the candidate aligned`.
-- **altitude-test** (major): each story's Action ends with one sentence saying why a strong
-  engineer one level below could not have done it. Prints: `altitude-test -> story "<heading>" has
-  no altitude sentence -> add "A strong <current level> would have ..., not ..."`.
-- **criterion-fit** (blocker): the criterion in a story's heading matches the marker its Situation
-  carries (Ambiguity: what was undefined and from whose view. Problem Complexity: why the cause
-  was not obvious or who else owned the code). Prints: `criterion-fit -> "<heading>" carries the
-  marker of <other criterion> ("<sentence>") -> move the story under <other criterion> or rewrite
-  the Situation`.
+- **journey-in-action** (major): the situation and action paragraphs tell the journey in
+  candidate-led action verbs: what was tried or ruled out, why no off-the-shelf path worked, who
+  the candidate reached out to or aligned. Fail an action paragraph that lists deliverables with
+  no ruled-out option and no other person. Prints: `journey-in-action -> "<action paragraph
+  excerpt>" -> name one option ruled out and why, and who the candidate aligned`.
+- **altitude-test** (major): each story's action paragraph ends with one sentence saying why a
+  strong engineer one level below could not have done it. Prints: `altitude-test -> story
+  "<heading>" has no altitude sentence -> add "A strong <current level> would have ..., not ..."`.
+- **criterion-fit** (blocker): the criterion in a story's heading matches the marker its situation
+  paragraph carries (Ambiguity: what was undefined and from whose view. Problem Complexity: why
+  the cause was not obvious or who else owned the code). Prints: `criterion-fit -> "<heading>"
+  carries the marker of <other criterion> ("<sentence>") -> move the story under <other criterion>
+  or rewrite the situation paragraph`.
 - **ownership-verdict** (blocker): every ownership verb in a story (led, owned, drove, architected,
-  designed, end-to-end) is backed by the story's `Ownership:` line and by an attribution line in
+  designed, end-to-end) is backed by the story's `Ownership:` sentence and by an attribution line in
   the ownership audit with a verdict SUPPORTED, PARTIALLY SUPPORTED or UNSUPPORTED. Prints:
   `ownership-verdict -> "<verb>" in "<sentence>" has no Ownership: line (or: audit says
   UNSUPPORTED) -> qualify the verb or add the attribution`.

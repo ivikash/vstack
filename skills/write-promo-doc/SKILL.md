@@ -103,8 +103,9 @@ discrepancy to the caller and mark the sentence `(TO BE CONFIRMED)` until they r
 
 Before writing a project as the candidate's, check acknowledgements, credit lists and attendee
 sections in the supplied artifacts for co-authors, a `roles.senior_technical_owner` who set
-direction, or reviewers whose role could be misread as ownership. Every story's Task part closes
-with one `Ownership:` line naming what the candidate originated, executed and operated. An
+direction, or reviewers whose role could be misread as ownership. Every story's task paragraph
+(the second) ends with one `Ownership:` sentence naming what the candidate originated, executed
+and operated. An
 ownership verb in a story (led, owned, drove, architected, designed, end-to-end) must be backed by
 that line and by the ownership audit's verdict (SUPPORTED, PARTIALLY SUPPORTED, UNSUPPORTED).
 With shared ownership, write the qualified version: "executed the implementation and rollout
@@ -124,21 +125,28 @@ Follow [template.md](template.md). Its "Shapes the lint keys on" block holds the
 
 - **Why now?** is for a VP. Three bold wins in the order `why_now.order` gives, each carrying its
   story's Headline number, under 550 words, no unglossed internal codename.
-- **Evidence** is for the panel. One `### <Project>: <Criterion>` story per project, in **STAR**:
+- **Evidence** is for the panel. One `### <Project>: <Criterion>` story per project. STAR is the
+  skeleton you follow, never words the reader sees: the only bold lead-in in a story is
+  `**Headline**`. Four unlabelled prose paragraphs follow it, in this order:
 
   - **Headline**: the glossary term. Bold first line, the outcome, at least one number and the
     baseline or comparator it beat. Never the project name alone, never what the candidate did.
-  - **Situation**: the customer or stakeholder, what was broken or undefined, why it mattered now,
-    and the criterion's marker (Ambiguity: what was undefined and from whose view. Problem
-    Complexity: why the cause was not obvious or who else owned the code). Its last sentence is
-    the candidate's first move, in an action verb.
-  - **Task**: what the candidate owned, who asked, the `Ownership:` line.
-  - **Action**: the journey, candidate-led action verbs: what was tried or ruled out, why no
-    off-the-shelf path worked, who they reached out to or aligned, every artifact linked on its
+  - Paragraph 1, situation: the customer or stakeholder, what was broken or undefined, why it
+    mattered now, and the criterion's marker (Ambiguity: what was undefined and from whose view.
+    Problem Complexity: why the cause was not obvious or who else owned the code). Its last
+    sentence is the candidate's first move, in an action verb.
+  - Paragraph 2, task: what the candidate owned, who asked. Its last sentence is the
+    `Ownership: originated ..., executed ..., operated ...` sentence, not a labelled line.
+  - Paragraph 3, action: the journey, candidate-led action verbs: what was tried or ruled out, why
+    no off-the-shelf path worked, who they reached out to or aligned, every artifact linked on its
     identifier at the claim it supports. Its last sentence is the altitude test: why a strong
     engineer one level below could not have done it.
-  - **Result**: dated, numbers, adoption, reuse by others.
+  - Paragraph 4, result: dated, numbers, adoption, reuse by others.
   - One quote line, verbatim with name and role, or `(TO BE COLLECTED: quote from <role>)`.
+
+  No `**Situation**`, `**Task**`, `**Action**` or `**Result**` label anywhere. The lint fails a
+  printed label and a story with fewer than four paragraphs, the gate's `star-order` rule fails a
+  paragraph that is out of order, quoting its first sentence.
 
 A project appears in full once. Every other mention is one sentence with a cross-reference.
 At most 2 full stories per criterion, further projects under it in one sentence each. A story

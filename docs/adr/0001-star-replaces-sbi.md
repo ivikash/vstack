@@ -1,6 +1,6 @@
 # ADR 0001: STAR replaces SBI in the promotion document
 
-Date: 2026-11-23. Status: accepted.
+Date: 2026-11-23. Status: accepted, amended the same day (D28, below).
 
 ## Context
 
@@ -28,3 +28,16 @@ work-summary.
 - Trade-off accepted: a Task part adds 20 to 40 words per story against a 500-word cap. In return
   the ownership verdict and the journey have a fixed place a reviewer can find and a lint can
   count.
+
+## Amendment (D28, 2026-11-23)
+
+The owner ruled that STAR is the skeleton the writer follows, never words the reader sees. The
+bold `**Situation**`, `**Task**`, `**Action**` and `**Result**` lead-ins are removed from the
+template, the skill, both fixtures and the lint. A story is the heading, the `**Headline**` line,
+four unlabelled prose paragraphs in STAR order (the task paragraph ends with the `Ownership:`
+sentence, the action paragraph with the altitude sentence) and the quote line. The lint counts
+the paragraphs (`story-paragraphs`), fails a printed label (`no-star-labels`) and checks the
+Ownership sentence (`ownership-line`). The order of the four paragraphs is a judgement rule,
+`star-order` in checklist section H, which quotes the first sentence of the paragraph out of
+place. The reasons-not-to-promote lead-ins (`**Pattern**` to `**Next**`) are unchanged. An
+instance `draft_contract` that keyed on the four story lead-ins must drop those patterns.

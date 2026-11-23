@@ -15,9 +15,9 @@ Change a string here first, then the lint, never the other way round.
 | Sections, in order | `## Scope of Role`, `## Why now?`, `## Evidence`, `## Best reasons not to promote`, `## Feedback Summary`, optional `## Appendix` before Feedback Summary, `## Feedback` last when real feedback exists |
 | Story heading | `### <Project>: <Criterion>` (criterion name from the rubric, for example `### Lighthouse Parser: Ambiguity`) |
 | Headline | the first line under the story heading, `**Headline** <outcome with at least one number and its baseline or comparator>` |
-| STAR parts | paragraphs opening with the verbatim bold lead-ins `**Situation**`, `**Task**`, `**Action**`, `**Result**`, in that order |
-| Ownership line | inside **Task**: `Ownership: originated ..., executed ..., operated ...` (what the candidate originated, executed and operated) |
-| Altitude sentence | the last sentence of **Action**: `A strong <current level> would have ..., not ...` |
+| Story body | four prose paragraphs between the Headline and the quote, in STAR order (situation, task, action, result), with NO labels. STAR is the skeleton the writer follows, never words the reader sees (owner decision D28). The lint counts the paragraphs and fails a bold `**Situation**`, `**Task**`, `**Action**` or `**Result**` lead-in, the gate checks the order |
+| Ownership line | the last sentence of the second (task) paragraph: `Ownership: originated ..., executed ..., operated ...` (what the candidate originated, executed and operated) |
+| Altitude sentence | the last sentence of the third (action) paragraph: `A strong <current level> would have ..., not ...` |
 | Quote | one blockquote line, `> "<verbatim words>", <Name>, <role>` or `> (TO BE COLLECTED: quote from <role>)` |
 | Principles line | after the quote, `<principles.name> demonstrated: X, Y` (glossary), once per criterion |
 | Reason not to promote | `### <plain words>` then five paragraphs with the lead-ins `**Pattern**`, `**Gap**`, `**Also seen by**`, `**Does not block**`, `**Next**`, in that order |
@@ -59,17 +59,21 @@ in the instance, never in this skill.
 
    - `**Headline**`: the outcome, at least one number, and the baseline it beat or a comparator
      (from X to Y, N vs M, ahead of a date). Not the project name, not what the candidate did.
-   - `**Situation**`: the customer or stakeholder, what was broken or undefined, why it mattered
-     now, and the criterion's marker. Ambiguity: what was undefined and from whose view.
+   - Then four prose paragraphs in STAR order. STAR is the skeleton you follow, never words the
+     reader sees: no `**Situation**`, `**Task**`, `**Action**` or `**Result**` label, no
+     "Ownership:" on a line of its own. A panel reads a story, not a form.
+   - Paragraph 1, situation: the customer or stakeholder, what was broken or undefined, why it
+     mattered now, and the criterion's marker. Ambiguity: what was undefined and from whose view.
      Problem Complexity: why the cause was not obvious or who else owned the code. Execution,
      Impact, Scope and Influence: the deadline, the number at stake, or the people affected. End
      with the first thing the candidate did to get a foothold, in an action verb.
-   - `**Task**`: what the candidate owned and who asked. Close with the `Ownership:` line.
-   - `**Action**`: the journey in candidate-led action verbs. What was tried or ruled out and
-     why, why no off-the-shelf path worked, who the candidate reached out to or aligned, every
-     artifact linked on its identifier at the exact claim it supports. Close with the altitude
-     sentence: why a strong engineer one level below could not have done it.
-   - `**Result**`: dated, with numbers, adoption, and reuse by others.
+   - Paragraph 2, task: what the candidate owned and who asked. Its last sentence is the
+     `Ownership: originated ..., executed ..., operated ...` sentence.
+   - Paragraph 3, action: the journey in candidate-led action verbs. What was tried or ruled out
+     and why, why no off-the-shelf path worked, who the candidate reached out to or aligned, every
+     artifact linked on its identifier at the exact claim it supports. Its last sentence is the
+     altitude sentence: why a strong engineer one level below could not have done it.
+   - Paragraph 4, result: dated, with numbers, adoption, and reuse by others.
    - The quote line, verbatim with name and role, or `(TO BE COLLECTED: quote from <role>)`.
    - After the last story under a criterion, `<principles.name> demonstrated: X, Y` (glossary),
      unless `principles.cite_per_statement` is `true`.
