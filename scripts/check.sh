@@ -9,6 +9,7 @@
 #   glossary    every glossary key a skill references is defined in leadership-writing/glossary.md
 #   triggers    every skill description wins its own prompts and loses the others (evals/triggers.json)
 #   rules       every row in docs/RULES.md names an enforcer that exists
+#   promo-lint  scripts/promo-lint.py fails the red promo-doc fixture and passes the green one
 #   instance    the instance pointed at by VSTACK_INSTANCE (if set) is NOT inside this repo and is
 #               NOT a remote of it, so private files cannot be committed here by mistake
 set -euo pipefail
@@ -29,9 +30,11 @@ cur=$(git config user.email || true)
 # Union of the two source repos' denylists plus account-id, chat-id, doc-id and people-alias shapes.
 # Add a term here the moment it appears in a private file; never the other way round.
 DENY='amazon|quip|slackbot|midway|mwinit|phonetool|kingpin|chorus\.aws|pippin|taskei|krakenmare|cloudwatch|code\.amazon|w\.amazon|\.corp\.|@amazon\.com|isengard|brazil-build|gitfarm|git\.amazon|\bHV[123]\b|\bOV\b|Leadership Principle(s)? (demonstrated|language)|\bLP-anchored|\bSTO\b|\bL[4-8]\b(?!\s*(·|-|RUNNERS|harness|skills|kernel|instance|state|\d))|\bC0[0-9A-Z]{8,10}\b|\b[A-Z]{1,3}-?[0-9]{6,}\b|\b[0-9]{12}\b|\bP[0-9]{8,}\b|\bV[0-9]{8,}\b'
-hits=$(grep -rniIP "$DENY" --exclude-dir=.git --exclude-dir=scripts --exclude-dir=evals . \
+hits=$( { grep -rniIP "$DENY" --exclude-dir=.git --exclude-dir=scripts --exclude-dir=evals . ; \
+          grep -niIP "$DENY" evals/fixtures/*.md scripts/*.py ; } \
   | grep -v 'glossary.md:.*for example `Leadership Principles`' \
-  | grep -vP 'docs/social/.*\.py:.*(<path|markerWidth)' || true)
+  | grep -vP 'docs/social/.*\.py:.*(<path|markerWidth)' \
+  | grep -vP 'scripts/check.sh:' || true)
 if [ -n "$hits" ]; then say no-org "FAIL:"; echo "$hits" | cut -c1-160; fail=1; else say no-org "ok (no company-specific terms or ids)"; fi
 
 # schemas --------------------------------------------------------------------------------------
@@ -91,6 +94,18 @@ for sc in $(grep -oE '`vstack [a-z-]+' docs/RULES.md | awk '{print $2}' | sort -
   grep -q "add_parser(\"$sc\")" bin/vstack || { say rules "FAIL: docs/RULES.md names vstack subcommand '$sc' which does not exist"; fail=1; }
 done
 [ $fail -eq 0 ] && say rules "ok ($(grep -c '^| ' docs/RULES.md) rows, every enforcer exists)"
+
+# promo-lint -----------------------------------------------------------------------------------
+# the red fixture must fail (exit 1, every lint-side class named in evals/results), the green must pass
+if python3 scripts/promo-lint.py evals/fixtures/promo-doc-bad.md >/tmp/promo-lint-bad.$$ 2>&1; then
+  say promo-lint "FAIL: evals/fixtures/promo-doc-bad.md passed the lint, the red sample no longer trips it"; fail=1
+fi
+nbad=$(grep -c '^[a-z-]* ' /tmp/promo-lint-bad.$$ || true)
+if ! out=$(python3 scripts/promo-lint.py evals/fixtures/promo-doc-good.md 2>&1); then
+  say promo-lint "FAIL: evals/fixtures/promo-doc-good.md"; echo "$out" | sed 's/^/    /'; fail=1
+fi
+rm -f /tmp/promo-lint-bad.$$
+[ $fail -eq 0 ] && say promo-lint "ok (red fixture fails with $nbad lines, green fixture 0 failures)"
 
 # instance -------------------------------------------------------------------------------------
 if [ -n "${VSTACK_INSTANCE:-}" ]; then

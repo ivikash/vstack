@@ -425,6 +425,7 @@ def verify_contract(run_dir, cell):
     """The done-means contract: which required artifacts are missing or malformed in a run dir."""
     run_dir = Path(run_dir)
     missing = []
+    writer = cell.get("writer", {}).get("skill")
     ev = run_dir / "evidence.json"
     if not ev.exists():
         missing.append("evidence.json")
@@ -441,9 +442,12 @@ def verify_contract(run_dir, cell):
     if not draft.exists():
         missing.append("draft.md")
     else:
-        head = [l for l in draft.read_text().splitlines()[:6] if l.strip()]
-        if not any(l.lower().startswith("sources:") for l in head):
-            missing.append("draft.md has no `Sources: used ...; unavailable ...` header line")
+        nonempty = [l for l in draft.read_text().splitlines() if l.strip()]
+        # a promo doc opens with its document header and closes with the Sources line (template.md),
+        # every other genre carries it in the first six lines
+        window = nonempty[:6] + nonempty[-6:] if writer == "write-promo-doc" else nonempty[:6]
+        if not any(l.lower().startswith("sources:") for l in window):
+            missing.append("draft.md has no `Sources: used ...; unavailable ...` header line" + (" (first or last six lines for a promo doc)" if writer == "write-promo-doc" else ""))
     gate = run_dir / "gate.md"
     min_passes = int(cell.get("gate", {}).get("min_passes", 2))
     if not gate.exists():
@@ -465,7 +469,24 @@ def verify_contract(run_dir, cell):
         missing.append("result.json")
     if draft.exists():
         missing += check_draft_contract(draft.read_text(), cell.get("draft_contract", {}))
+        if writer == "write-promo-doc":
+            missing += check_promo_lint(draft)
     return missing
+
+
+def check_promo_lint(draft):
+    """The countable promo-doc rules (scripts/promo-lint.py, beside this file's parent) run on the
+    draft of every workflow whose writer is write-promo-doc, the same way check_draft_contract does:
+    a failing line marks the run contract_unmet. The readiness table is gap-analysis.md in the run
+    directory. The lint is absent when the engine runs from an install that did not ship scripts/."""
+    lint = Path(__file__).resolve().parent.parent / "scripts" / "promo-lint.py"
+    if not lint.exists():
+        return [f"promo-lint.py not found at {lint}, the writer is write-promo-doc"]
+    r = subprocess.run([sys.executable, str(lint), str(draft)], capture_output=True, text=True)
+    if r.returncode == 0:
+        return []
+    lines = [l for l in r.stdout.splitlines() if l and not l.startswith(("promo-lint:", "warning "))]
+    return [f"promo-lint {l}" for l in lines]
 
 
 def check_draft_contract(text, contract):

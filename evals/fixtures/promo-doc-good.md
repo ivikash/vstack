@@ -30,7 +30,7 @@ Beyond these, Dana completed the Quayside Tagging campaign for the team's 4 reso
 
 **Headline** Shipped to 9 regions 3 weeks ahead of the committed date, 40 million events a day for 310 customers.
 
-**Situation** In November 2025 a customer running factory equipment asked Harbor Telemetry to accept a vendor log format the team had never seen. The ticket said "support our logs" and nothing else: no sample files, no field list, no agreed owner. From the customer's view the product was broken for their whole fleet, and the quarterly roadmap had promised format coverage for that industry. What was undefined was the format itself, and which of two teams (ingest or console) would own the user-facing change. Dana asked the customer for samples the same week rather than wait for a specification nobody was writing.
+**Situation** In November 2025 a customer running factory machines asked Harbor Telemetry to accept a vendor log format the team had never seen. The ticket said "support our logs" and nothing else: no sample files, no field list, no agreed owner. From the customer's view the product was broken for their whole fleet, and the quarterly roadmap had promised format coverage for that industry. What was undefined was the format itself, and which of two teams (ingest or console) would own the user-facing change. Dana asked the customer for samples the same week rather than wait for a specification nobody was writing.
 
 **Task** Dana owned the definition and the ingest side, asked for by the product manager in [ticket 2210](https://example.com/tickets/2210). Nobody owned the console side when Dana started. Ownership: originated the format definition, executed both halves of the parser, operated the launch.
 

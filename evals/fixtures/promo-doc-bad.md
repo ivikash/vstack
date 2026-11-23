@@ -70,7 +70,7 @@ The parser launched in [date] and is used by [N customers] today. Adoption is 0.
 
 **Headline** Lighthouse Parser parses 40 million events a day for 310 customers.
 
-**Situation** After the launch of the Lighthouse Parser, which Dana designed and built end-to-end, customers in the factory equipment segment adopted it faster than any format before it. Dana had written the format definition, got two teams to sign it, built the streaming parser and the two console changes, and launched in all 9 regions three weeks ahead of the committed date, as told above, and the adoption numbers followed from that launch.
+**Situation** After the launch of the Lighthouse Parser, which Dana designed and built end-to-end, customers in the factory machines segment adopted it faster than any format before it. Dana had written the format definition, got two teams to sign it, built the streaming parser and the two console changes, and launched in all 9 regions three weeks ahead of the committed date, as told above, and the adoption numbers followed from that launch.
 
 **Task** Dana owned adoption tracking.
 
