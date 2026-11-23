@@ -1,6 +1,6 @@
 ---
 name: write-promo-doc
-description: Write a narrative promotion document for an engineer from supplied evidence and a level rubric, including a genuinely critical reasons-not-to-promote section. Use when a manager is preparing a promotion case to present to leadership. Verifies claims against any supplied artifact links before writing them; does NOT invent peer feedback or metrics; the caller provides evidence and the target-level rubric.
+description: Write a narrative promotion document for an engineer from supplied evidence and a level rubric, including a genuinely critical reasons-not-to-promote section. Use when a manager is preparing a promotion case to present to leadership. Verifies claims against any supplied artifact links before writing them; does NOT invent peer feedback or metrics; the caller provides evidence, the rubric and the target level.
 disable-model-invocation: false
 ---
 
@@ -9,27 +9,49 @@ disable-model-invocation: false
 Read [leadership-writing/house-rules.md](../leadership-writing/house-rules.md) and
 [leadership-writing/rationalizations.md](../leadership-writing/rationalizations.md) first and apply every rule in them.
 
-You turn supplied evidence about an engineer into a narrative promotion document that
-a manager can present to leadership, assessed against a target-level rubric the caller
-provides.
+You turn supplied evidence about an engineer into a narrative promotion document that a manager
+can present to leadership, assessed against a target-level rubric the caller provides.
 
-You do **not** fabricate peer feedback and you do **not** invent metrics. The caller
-supplies the evidence and the rubric. If the evidence includes links to artifacts
-(design docs, CRs, OpsWins, threat models, tickets), fetch and verify claims against
-them before writing, see "Verifying supplied evidence" below. Read the rubric the
-caller passes (see [rubric-TEMPLATE.md](rubric-TEMPLATE.md) for the shape an
-organization fills in). If no rubric is supplied, ask for one rather than assuming a
-particular career ladder.
+You do **not** fabricate peer feedback and you do **not** invent metrics. The caller supplies the
+evidence, the rubric and the target level. If the evidence includes links to artifacts (design
+docs, code reviews, recognition posts, threat models, tickets), fetch and verify claims against
+them before writing, see "Verifying supplied evidence" below.
+
+## Inputs, and when to refuse
+
+- **rubric** (required): the caller's ladder language, in the shape of
+  [rubric-TEMPLATE.md](rubric-TEMPLATE.md). Its dimensions become the story criteria.
+- **target_level** (required): the proposed level or title.
+- **evidence**: the gathered facts, with artifact links.
+- **why_now.order**: a ranked list of keys the caller sets per candidate (workflow
+  `config.why_now.order`, default `["impact", "ambiguity", "recency"]`). It decides the order of
+  the Why now wins. You never choose this order yourself.
+- optional: a rating (tone only, never printed), calibration samples, the glossary override.
+
+Without a rubric or without a target_level, do not write. Return one line naming the missing
+input and stop. A document written against a guessed ladder is worse than no document.
 
 ## Output discipline (read first)
 
-- Return ONLY the finished promotion document. The FIRST line of your output is the
-  document header; the LAST line is the end of the document. No preamble, no "Here is",
-  no "I don't need to fetch", no "Now I'll apply the fixes", no notes about your tools,
-  evidence, or process anywhere in the output.
-- Before returning, scan your output and DELETE any sentence that talks about writing
-  the document rather than being the document. A leaked process sentence (and any
-  em-dash inside it) is a release blocker.
+- Return ONLY the finished promotion document. The FIRST line of your output is the document
+  header, the LAST line is `Sources: used ...; unavailable ...`. No preamble, no "Here is", no
+  notes about your tools, evidence or process anywhere in the output.
+- Before returning, scan your output and DELETE any sentence that talks about writing the
+  document rather than being the document. A leaked process sentence is a release blocker.
+
+## Step 1: readiness assessment (before any prose)
+
+After reading the rubric, write the readiness table as a stage document (`gap-analysis.md` in a
+run directory, `<draft>.readiness.md` beside a fixture), never as a section of the promotion
+document. One row per rubric criterion, columns Criterion, Evidence (linked), Met / Partly /
+Not met, Gap. End it with one verdict line:
+
+`Readiness: Ready | Ready with gaps | Not ready`
+
+- **Not ready**: do not write the document. Return the readiness table and the gap list, and say
+  which evidence would change the verdict.
+- **Ready with gaps**: write the document and name every gap in Best reasons not to promote.
+- **Ready**: write the document. Reasons not to promote still name real gaps.
 
 ## Writing rules (MUST follow, scan output before returning)
 
@@ -37,116 +59,115 @@ Read [leadership-writing/house-rules.md](../leadership-writing/house-rules.md) a
 no-em-dash, no-semicolons, correct-grammar, define-acronyms, active-voice, zombie-test, show-dont-tell,
 quantify-impact, write-for-reader, logical-progression, no-superlatives, no-hedging (with its
 banlist), story-not-bullets, honest-and-data-driven, and no-assumptions. That file is the single
-source of truth for the voice; this skill applies it, it does not restate it. Write in the voice
-of an experienced engineering manager. Scan the output for em-dashes and hedging words before
-returning.
+source of truth for the voice. Write in the voice of an experienced engineering manager.
 
-Promo-doc-specific rules (these are genre requirements, not general voice; house-rules.md does
-not cover them):
+Promo-doc-specific rules (genre requirements, not general voice):
 
-- NEVER EXPOSE THE RATING. A performance rating or tier is a private input that
-  calibrates your tone only. Do not print it, name it, or paraphrase it anywhere in the
-  document. (The proposed level/title is the subject of a promotion doc and of course
-  stays; the performance rating tier does not appear.) The document proves the target
-  bar with evidence; the panel decides.
-- BE BALANCED and genuinely CRITICAL in the reasons-not-to-promote section. This section
-  must be a real, honest assessment, not a token gesture. Do not be sly. Do not cut
-  corners. Do not inflate scope or ownership. A missing fact often belongs here as a
+- NEVER EXPOSE THE RATING. A performance rating or tier is a private input that calibrates your
+  tone only. Do not print it, name it, or paraphrase it anywhere in the document. The proposed
+  level is the subject of the document and stays. The document proves the target bar with
+  evidence, the panel decides.
+- BE BALANCED and genuinely CRITICAL in the reasons-not-to-promote section. A real assessment,
+  not a token gesture. Do not inflate scope or ownership. A missing fact often belongs here as a
   candid gap.
-- NEVER INVENT PEER FEEDBACK. Do not invent reviewers, quotes, or feedback. Leave every
-  feedback item as a clearly-marked `[TO BE COLLECTED]` placeholder for the caller to
-  gather through their own process.
-- ASSESS AGAINST THE TARGET-LEVEL RUBRIC. The case must prove the target bar with
-  evidence measured against the caller's supplied rubric, regardless of any rating.
-- A claimed strength or capability needs at least 2 distinct examples to read as a
-  pattern; with only one, present it as emerging rather than established.
-- TONE CALIBRATED BY RATING (internal signal only, never written down): a supplied
-  rating shapes how strong the language is, not the content. Confident and differentiated
-  for a top rating; balanced, specific, and honest for a middle one. Never narrate the
-  rating in the prose. Stay within the no-superlatives rule at every tone level.
+- NEVER INVENT PEER FEEDBACK. No invented reviewers, quotes or feedback. Every missing feedback
+  item is `(TO BE COLLECTED)`, every missing quote is `(TO BE COLLECTED: quote from <role>)`.
+- ASSESS AGAINST THE TARGET-LEVEL RUBRIC. The case proves the target bar with evidence measured
+  against the caller's rubric, regardless of any rating.
+- A claimed strength needs at least 2 distinct examples to read as a pattern. With one, present
+  it as emerging.
+- TONE CALIBRATED BY RATING (internal signal only, never written down): a supplied rating shapes
+  how strong the language is, not the content. Stay within no-superlatives at every tone level.
+
+## Two markers, round brackets, identical everywhere
+
+- `(TO BE COLLECTED)` or `(TO BE COLLECTED: <what>)`: the data does not exist yet (a quote not
+  yet asked for, a feedback row, an adoption count nobody has measured).
+- `(TO BE CONFIRMED)` at the end of the sentence: the data exists but the number or its source
+  is unconfirmed.
+
+No other form. No square brackets, no `TODO` code spans, no `TBD`, no `(unverified)` in this
+genre. Resolve every marker you can before the section is called final, and leave the rest
+visible: a marker is a fact about the evidence, not a flaw in the writing.
 
 ## Verifying supplied evidence
 
-If the evidence includes links to artifacts, design docs, CRs, OpsWins, threat models,
-benchmarking docs, tickets, fetch them before finalizing any prose that depends on them.
-Cross-check every specific claim (a number, a root cause, a design decision) against
-what the artifact actually says. Do not assume the caller's summary of an artifact is
-accurate; summaries compress and sometimes invert details (a design doc's own
-"Recommended" option is not always the option that shipped).
-
-When a fetched artifact contradicts or can't confirm the caller's claim, do not
-silently keep the caller's version and do not silently overwrite it. Surface the
-discrepancy back to the caller and let them resolve it before the section is final.
+If the evidence includes links to artifacts, fetch them before finalising any prose that depends
+on them. Cross-check every specific claim (a number, a root cause, a design decision) against
+what the artifact says. Summaries compress and sometimes invert details (a design doc's own
+"Recommended" option is not always the option that shipped). When a fetched artifact contradicts
+or cannot confirm the caller's claim, do not silently keep either version. Surface the
+discrepancy to the caller and mark the sentence `(TO BE CONFIRMED)` until they resolve it.
 
 ## Checking attribution before crediting ownership
 
-Before writing a project as solely the candidate's, check any acknowledgements, credit
-lists, or attendee sections in the supplied artifacts for co-authors, single-threaded
-owners, or reviewers whose role could be misread as ownership if omitted.
-
-If the evidence shows shared ownership, a `roles.senior_technical_owner` who set direction, a peer who proposed
-the framework, a co-credited "development efforts" line, do not default to full-credit
-language. Write the qualified version: "owned implementation, security, and rollout
-under [name]'s direction as `roles.senior_technical_owner`" rather than implying the candidate originated the idea.
-When in doubt, ask the caller rather than guess which way to resolve it.
-
-## Inline TODOs for unresolved specifics
-
-The Feedback Summary table uses `[TO BE COLLECTED]` for placeholder rows. For narrative
-prose, use a different, more granular convention: when a single fact inside an
-otherwise-complete sentence is unconfirmed (which of several options shipped, an exact
-count, a metric's source), mark it inline as a code span, e.g.
-`` `TODO: confirm which option shipped` ``, rather than blocking the whole section or
-guessing. This lets a section draft proceed with a visible, specific gap instead of an
-all-or-nothing state. Resolve every inline TODO before the section is called final.
+Before writing a project as the candidate's, check acknowledgements, credit lists and attendee
+sections in the supplied artifacts for co-authors, a `roles.senior_technical_owner` who set
+direction, or reviewers whose role could be misread as ownership. Every story's Task part closes
+with one `Ownership:` line naming what the candidate originated, executed and operated. An
+ownership verb in a story (led, owned, drove, architected, designed, end-to-end) must be backed by
+that line and by the ownership audit's verdict (SUPPORTED, PARTIALLY SUPPORTED, UNSUPPORTED).
+With shared ownership, write the qualified version: "executed the implementation and rollout
+under <name>'s direction as `roles.senior_technical_owner`". When in doubt, ask the caller.
 
 ## Generating questions for the candidate
 
-When a claim can't be verified from supplied artifacts and the caller doesn't have the
-answer either, don't guess and don't leave it vague in the prose. Produce a short list
-of plain-language questions the caller can forward to the candidate directly. Write
-these as if the candidate has no context on this skill, the promotion process
-internals, or panel mechanics, just the plain factual question ("Which of the three
-options did we ship, and why?"), not "the panel will ask X."
+When a claim cannot be verified from supplied artifacts and the caller does not have the answer,
+produce a short list of plain-language questions the caller can forward to the candidate ("Which
+of the three options did we ship, and why?"), not "the panel will ask X". Mark the sentence in
+the draft `(TO BE CONFIRMED)` meanwhile.
 
 ## Structure
 
-Follow [template.md](template.md): a header block, scope of role, a "Why now?"
-narrative, an Evidence section with capability sections that tell deep project
-stories, a candid reasons-not-to-promote section, an optional Appendix for
-supplementary evidence, a feedback summary table left as placeholders, and (only once
-real feedback exists) a full Feedback section with each provider's own words.
+Follow [template.md](template.md). Its "Shapes the lint keys on" block holds the exact strings
+`scripts/promo-lint.py` checks. Two readers, two sections:
 
-Use the **SBI method** for every evidence example: Situation (brief context and why it
-mattered), Behavior (what THIS person specifically did, the bulk of the example,
-distinguishing individual from team work), Impact (measurable outcome with real metrics).
-Principles are cited the way the glossary ([leadership-writing/glossary.md](../leadership-writing/glossary.md)) says: when `principles.cite_per_statement`
-is `false` (the default), do not tag them per statement and close each capability-dimension
-section with a single consolidated line, `<principles.name> demonstrated: X, Y, Z`, covering
-every story told under that heading, after the last story (and its quote, if any). When it is
-`true`, cite one principle in bold brackets at the end of the statement it supports. Cite only
-principles that appear in `principles.list` when a list is supplied.
+- **Why now?** is for a VP. Three bold wins in the order `why_now.order` gives, each carrying its
+  story's Headline number, under 550 words, no unglossed internal codename.
+- **Evidence** is for the panel. One `### <Project>: <Criterion>` story per project, in **STAR**:
 
-If the caller provides calibration samples (example finished docs), read them first and
-match their structure and tone. They are calibration only; never copy their content.
+  - **Headline**: the glossary term. Bold first line, the outcome, at least one number and the
+    baseline or comparator it beat. Never the project name alone, never what the candidate did.
+  - **Situation**: the customer or stakeholder, what was broken or undefined, why it mattered now,
+    and the criterion's marker (Ambiguity: what was undefined and from whose view. Problem
+    Complexity: why the cause was not obvious or who else owned the code). Its last sentence is
+    the candidate's first move, in an action verb.
+  - **Task**: what the candidate owned, who asked, the `Ownership:` line.
+  - **Action**: the journey, candidate-led action verbs: what was tried or ruled out, why no
+    off-the-shelf path worked, who they reached out to or aligned, every artifact linked on its
+    identifier at the claim it supports. Its last sentence is the altitude test: why a strong
+    engineer one level below could not have done it.
+  - **Result**: dated, numbers, adoption, reuse by others.
+  - One quote line, verbatim with name and role, or `(TO BE COLLECTED: quote from <role>)`.
 
-## Self-check before finalizing a section
+A project appears in full once. Every other mention is one sentence with a cross-reference.
+At most 2 full stories per criterion, further projects under it in one sentence each. A story
+stays under 500 words, quote excluded. A shortened story keeps every link the longer one had.
 
-Before calling any section final, scan for:
+Principles are cited the way the glossary ([leadership-writing/glossary.md](../leadership-writing/glossary.md))
+says: when `principles.cite_per_statement` is `false` (the default), close each criterion with
+one line `<principles.name> demonstrated: X, Y`. When `true`, one principle in bold brackets at
+the end of the statement it supports. Cite only principles in `principles.list` when a list is
+supplied.
 
-- Unexplained internal codenames or team names (a reader outside the org won't know
-  what an internal team or system codename means). Either gloss it in one clause or
-  generalize it.
-- Artifact labels that overclaim substance. Don't call a three-option pros/cons
-  one-pager a "design document" if it isn't one.
-- Transition sentences that restate structure without adding a new fact ("The next
-  step is turning that into X.", "Each of these is a real Y."). Cut them.
-- The same story told twice with the same numbers in two different capability
-  sections. Cross-reference the first instance instead of repeating it.
-- Unsupported scope or superlative claims ("unusually wide," "world-class") that the
-  evidence doesn't actually establish. Cut the adjective and let the facts stand alone;
-  this is also a house-rules violation (no-superlatives), but it is called out here
-  because it is the kind of claim a reviewer will push back on by name.
+**Best reasons not to promote**: five parts per reason with the template's lead-ins (Pattern with
+two positive examples, Gap with one dated example of who pointed it out, Also seen by, Does not
+block with evidence, Next with a plan). Every gap a feedback provider states is addressed by one
+reason. An aspiration is not a reason. Headings in plain words. No reason may contradict a story
+(a gap "does not propose initiatives" beside a story that says "proposed and drove" is a blocker).
+
+If the caller provides calibration samples, read them first and match their structure and tone.
+They are calibration only, never copy their content.
+
+## Self-check before finalising a section
+
+- Unexplained internal codenames or team names: gloss in one clause or generalise.
+- Artifact labels that overclaim (a three-option one-pager is not a "design document").
+- Transition sentences that restate structure without a new fact. Cut them.
+- The same story with the same numbers under two headings. Cross-reference the first.
+- Unsupported scope or superlative claims. Cut the adjective and let the facts stand.
+- Run `scripts/promo-lint.py` on the draft when a shell is available. It prints one line per
+  countable failure, longest story first.
 
 ## Built-in validation loop (always, before returning)
 
@@ -154,7 +175,7 @@ A draft never leaves this skill unchecked. After the first full draft:
 
 1. Read [validate-writing/SKILL.md](../validate-writing/SKILL.md) and
    [validate-writing/checklist.md](../validate-writing/checklist.md) and apply them to your own
-   draft in **gate** mode, using the doc type `promo-doc`.
+   draft in **gate** mode, using the doc type `promo-doc` (section H holds the promo-doc rules).
 2. Apply every quoted fix. Re-run the gate. Repeat until a pass reports zero blockers and zero
    majors, with a minimum of two passes and a maximum of five.
 3. If blockers remain after the fifth pass, keep the draft and append a closing `**Known Gaps**`
@@ -166,13 +187,10 @@ A draft never leaves this skill unchecked. After the first full draft:
 
 ## Optional output: discussion cheat sheet
 
-On request, also produce a companion table from the same evidence: one row per
-project, columns for category (matching the capability-section dimensions), what makes
-this the target level and not the level below, what was the ambiguity, and what was
-the complexity, each written as a complete, speakable sentence with numbers embedded
-directly in it rather than deferred to a separate evidence column. This is meant to be
-read aloud in a live calibration discussion when someone asks "why is this hard" or
-"what's the level-defining part of this," not to replace the document itself.
+On request, also produce a companion table from the same evidence: one row per project, columns
+for criterion, what makes this the target level and not the level below, what was the ambiguity,
+what was the complexity, each a complete speakable sentence with its numbers embedded. For a live
+calibration discussion, not a replacement for the document.
 
 Return only the finished promotion document in markdown.
 
@@ -180,6 +198,13 @@ Return only the finished promotion document in markdown.
 
 Stop and re-read the rule when you see yourself producing any of these, on top of the shared list:
 
-- a Reasons Not To Promote section that only restates strengths
-- a claim with no code review, document or ticket beside it
+- a story that opens with what the candidate did instead of the Situation
+- a Headline with no number, or a number with nothing it is compared against
+- a reason not to promote with no named, dated example
+- a story filed under a criterion its Situation does not carry the marker for
+- a Reasons Not To Promote section that only restates strengths, or lists an aspiration as a gap
+- a claim with no code review, document or ticket linked beside it
 - a peer quote that is not verbatim from the evidence
+- a Why now ordered by time when `why_now.order` does not start with recency
+- a square bracket or `TODO` where a round-bracket marker belongs
+- a promotion document written with no readiness verdict, or against a `Not ready` verdict
