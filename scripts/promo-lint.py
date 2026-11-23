@@ -27,6 +27,10 @@ first, then this file, never the other way round.
     ## Feedback Summary
     Sources: used ...; unavailable ...      last line of the document
 
+Skips: `no-semicolons` and `no-em-dash` do not fire under `## Feedback`, whose provider text is
+verbatim by rule (finding R2). `bare-identifier` skips a leading YAML frontmatter block between two
+`---` lines (finding R3). Every other rule still reads those lines.
+
 Fallback (finding R1): a draft without `## Evidence` is still measured per story. The lint finds
 the shallowest heading level whose titles are bracketed (`#### [<Criterion>]`), treats each such
 heading as a criterion section, and splits its body at whole-line bold titles. It prints
@@ -176,10 +180,19 @@ def lint(text):
             fail("required-section", "document", f"missing `{name}`")
 
     collected = confirmed = 0
+    frontmatter_end = 0
+    if lines and lines[0].strip() == "---":
+        frontmatter_end = next((i for i, l in enumerate(lines[1:], 2) if l.strip() == "---"), 0)
+    section = None
     for i, l in enumerate(lines, 1):
-        if ";" in l and not l.startswith("Sources:"):
+        m = HEADING.match(l)
+        if m and len(m.group(1)) == 2:
+            section = m.group(2)
+        in_feedback = section == "Feedback"       # provider text is verbatim by rule (R2), house rules skip it
+        in_frontmatter = i <= frontmatter_end     # a leading YAML block is metadata, not prose (R3)
+        if ";" in l and not l.startswith("Sources:") and not in_feedback:
             fail("no-semicolons", f"line {i}", f"`{excerpt(l)}`")
-        if "\u2014" in l:
+        if "\u2014" in l and not in_feedback:
             fail("no-em-dash", f"line {i}", f"`{excerpt(l)}`")
         collected += len(MARKER_COLLECTED.findall(l))
         confirmed += len(MARKER_CONFIRMED.findall(l))
@@ -192,6 +205,8 @@ def lint(text):
             tail = l[m.end():].lstrip(".").lstrip()
             if tail and not tail[0].isupper() and not tail.startswith(("(", "[", "|", "*")):
                 fail("markers-consistent", f"line {i}", f"`(TO BE CONFIRMED)` is not at the end of its sentence: `{excerpt(l)}`")
+        if in_frontmatter:
+            continue
         for m in BARE_URL.finditer(l):
             fail("bare-identifier", f"line {i}", f"bare URL `{excerpt(m.group(0), 40)}`, link it on the artifact's identifier")
         if not l.startswith("#"):
