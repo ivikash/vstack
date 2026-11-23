@@ -96,7 +96,7 @@ In Q1 2026 the on-call rotation received 45 pages a week, and 19 alarms fired wi
 
 Dana volunteered to own the cleanup and the manager agreed in the team's quarterly plan ([the alarm review](https://example.com/docs/pier-alarm-review)). Ownership: originated the proposal, executed the cleanup, operates the on-call guide.
 
-Dana classified all 19 alarms by whether a customer could tell the difference, deleted 7, retuned 5 with data from 90 days of history, and rewrote the on-call guide so each remaining alarm names its first check, in [review 5130](https://example.com/reviews/5130). A strong Engineer II would have retuned the alarms assigned to them, not decided which 7 the team could live without.
+Dana classified all 19 alarms by whether a customer could tell the difference, and ruled out muting them wholesale because 2 of the 19 had paged on real incidents in the 90-day history. Dana agreed the delete list with Owen Faraday, the on-call lead, before the first change, then deleted 7, retuned 5 with data from the 90 days, and rewrote the on-call guide so each remaining alarm names its first check, in [review 5130](https://example.com/reviews/5130). A strong Engineer II would have retuned the alarms assigned to them, not decided which 7 the team could live without.
 
 Pages fell from 45 a week to 18 a week by 03/31/2026, a 60 percent drop. No incident has gone unnoticed since. (TO BE CONFIRMED)
 
@@ -150,9 +150,19 @@ Core values demonstrated: Ownership and Delivery.
 
 | Provider | Relationship | Support Promotion |
 |---|---|---|
-| (TO BE COLLECTED) | (TO BE COLLECTED) | (TO BE COLLECTED) |
-| (TO BE COLLECTED) | (TO BE COLLECTED) | (TO BE COLLECTED) |
+| Felix Marchetti | Senior Engineer, reviewer on the Tidewater Schema design | Yes |
+| Owen Faraday | Senior Engineer, on-call lead and peer on Breakwater Credentials | Yes |
 
-Formal feedback is to be solicited through the organisation's own process.
+Both providers gave their feedback in writing. Their words are reproduced in Feedback without editing.
+
+## Feedback
+
+### Felix Marchetti, Senior Engineer
+
+Relationship: reviewed the schema derivation note and two other designs by Dana in 2026. Best reasons to promote: Dana saw that three mappings were one problem and removed two sources instead of patching 27 mismatches. Best reasons not to promote: Dana's documents run long. The derivation note was 11 pages and I asked on 08/12/2026 for a 3-page version before the review could proceed.
+
+### Owen Faraday, Senior Engineer
+
+Relationship: on-call lead during the 10/20/2025 regional event and peer on Breakwater Credentials. Best reasons to promote: Dana disproved the retry fix with a number before anyone argued and changed another team's client to fix ours. Best reasons not to promote: Dana waits for someone to point at the next leverage play. The repeated manifest tests were automated well, but only after I named them on 05/06/2026.
 
 Sources: used sample evidence; unavailable none

@@ -210,7 +210,9 @@ A story's four prose paragraphs carry no labels (owner decision D28), so "situat
   or rewrite the situation paragraph`.
 - **ownership-verdict** (blocker): every ownership verb in a story (led, owned, drove, architected,
   designed, end-to-end) is backed by the story's `Ownership:` sentence and by an attribution line in
-  the ownership audit with a verdict SUPPORTED, PARTIALLY SUPPORTED or UNSUPPORTED. Prints:
+  the ownership audit (a stage document beside the draft, `ownership-audit.md` in a run directory
+  or `<stem>.ownership.md` beside a fixture) with a verdict SUPPORTED, PARTIALLY SUPPORTED or
+  UNSUPPORTED. Prints:
   `ownership-verdict -> "<verb>" in "<sentence>" has no Ownership: line (or: audit says
   UNSUPPORTED) -> qualify the verb or add the attribution`.
 - **one-story-once** (major): a project is told in full (more than 80 words) under exactly one
