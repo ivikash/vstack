@@ -38,3 +38,13 @@ Keep every value short. The skills substitute them verbatim into prose.
 
 - **senior_technical_owner**: `senior technical owner` (the role that sets direction on a
   project without owning the implementation; attribution rules name it)
+
+## promo
+
+- **headline**: `Headline` (the bold first line of every story in a promotion document: the
+  outcome, at least one number, and the baseline or comparator it beat. Never the project name
+  alone and never what the candidate did. The lint checks `**Headline**` as the first line under
+  a `### <Project>: <Criterion>` heading)
+- **markers**: `(TO BE COLLECTED)` when the data does not exist yet, `(TO BE CONFIRMED)` at the
+  end of a sentence whose number or source is unconfirmed. The only two markers in a promotion
+  document, round brackets, spelled exactly
