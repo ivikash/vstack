@@ -37,7 +37,8 @@ Severity key: **blocker** = unfit to share, **major** = weakens the doc, **minor
 - **label-projected**: Any projection or test-only figure must be labeled as such, not
   presented as a realized production result.
 - **no-invented-feedback**: Peer or stakeholder feedback must be left as a clearly marked
-  placeholder (for example `[TO BE COLLECTED]`). Named reviewers or quoted feedback that
+  placeholder (talent-card: `[TO BE COLLECTED: feedback text]`, promo-doc: `(TO BE COLLECTED)`
+  in round brackets, see section H markers-consistent). Named reviewers or quoted feedback that
   was not supplied is a blocker.
 - **attribution-honest**: Distinguish "led" from "contributed to". Do not overstate scope
   or ownership beyond what the evidence supports.
@@ -63,8 +64,10 @@ Severity key: **blocker** = unfit to share, **major** = weakens the doc, **minor
     detail sections in that same order, then a Known Gaps and Honest Assessment section.
     Each project has Summary, Timeline, Task, Challenges, Action, Result, Artifacts, in
     that order.
-  - promo-doc: Header block, Scope of Role, Promotion Assessment (with "Why now?"),
-    capability sections, Best reasons not to promote, Feedback Summary.
+  - promo-doc: Header block, `## Scope of Role`, `## Why now?`, `## Evidence` with one
+    `### <Project>: <Criterion>` story per project, `## Best reasons not to promote`,
+    `## Feedback Summary`, optional `## Appendix` and `## Feedback`, `Sources:` as the last
+    line. Exact strings in write-promo-doc/template.md.
 - **balance** (blocker for talent-card and promo-doc): Includes genuine growth areas
   (talent card) or a candid, specific "reasons not to promote" (promo doc). A section that
   is empty, hand-wavy, or purely positive fails this rule.
@@ -89,9 +92,10 @@ rules that are NOT generic voice:
   count as a pattern. One example is "emerging" or "one-time," not a demonstrated strength;
   label it that way rather than overstating. (Applies to talent-card strengths/growth and
   promo-doc capability claims.)
-- **sbi-structure**: Each evidence example should map to Situation -> Behavior -> Impact, with
-  Behavior (what THIS person specifically did) as the bulk and Situation kept short. Flag
-  examples that are all context and no distinct individual behavior.
+- **sbi-structure** (talent-card, work-summary): Each evidence example should map to Situation ->
+  Behavior -> Impact, with Behavior (what THIS person specifically did) as the bulk and Situation
+  kept short. Flag examples that are all context and no distinct individual behavior. A promo-doc
+  uses STAR instead (section H, star-situation and journey-in-action).
 - **principle-citation** (promo-doc): follow `principles.cite_per_statement` in the glossary.
   `false` (default): one roll-up line `<principles.name> demonstrated: X, Y, Z` closes each
   capability section and no per-statement tags appear. `true`: one principle in bold brackets at
@@ -114,7 +118,7 @@ Beyond line-level rules, flag the document if it matches a known failure shape:
 
 | Pattern | Tell | Fix |
 |---|---|---|
-| **resume-doc** | Lists accomplishments with no Situation/Behavior/Impact | Rewrite each example as SBI; show complexity and individual action |
+| **resume-doc** | Lists accomplishments with no Situation/Behavior/Impact (or STAR in a promo-doc) | Rewrite each example as SBI (STAR for a promo-doc), show complexity and individual action |
 | **hero-doc** | Superlatives everywhere ("exceptional", "world-class"); no metrics | Cut every superlative (see no-superlatives); let numbers carry it; this reads as biased |
 | **team-doc** | "We" throughout; the individual is invisible | Use the person's actions; specify what THEY did vs the team |
 | **shallow-breadth** | Many thin examples, none deep | Consolidate to fewer, fuller examples that show sustained depth |
@@ -156,6 +160,94 @@ For a leadership status update, in addition to the shared house rules, enforce:
   no invented sections.
 - **date-conflict-surfaced** (major): when two sources disagree, the more recent dated source is
   used and the conflict is noted under Known Gaps.
+
+## H. Promo-doc rules (`promo-doc` only)
+
+Judgement rules the gate applies to a promotion document, on top of sections A to F. The
+countable twins live in `scripts/promo-lint.py` (word caps, lead-ins present, a number in the
+Headline, one quote line per story, exact marker spelling, links per story, bare identifiers) and
+run before the gate. Each rule below names the quoted-failure form the gate prints, in the shape
+`[severity] rule -> offending -> fix`. Vocabulary: the Headline is the bold first line of a story
+(glossary), the criterion is a dimension of the caller's rubric.
+
+- **readiness-first** (blocker): the run holds a readiness table (one row per rubric criterion,
+  columns Criterion, Evidence, Met / Partly / Not met, Gap) ending `Readiness: Ready | Ready with
+  gaps | Not ready`, and no document exists for a `Not ready` verdict. Prints: `readiness-first ->
+  no readiness verdict in the run (or: verdict Not ready at "<line>") -> write gap-analysis.md
+  first, return the table and gap list instead of a document when Not ready`.
+- **star-situation** (blocker): a story's first two sentences after the Headline name the customer
+  or stakeholder, the ask, and what was broken or undefined. Fail when the first sentence's
+  grammatical subject is the candidate. Prints: `star-situation -> "<first sentence>" -> open with
+  who needed what and what was undefined, move the candidate's action to Action`.
+- **headline-carries-outcome** (major): the Headline states the outcome, not the project name or
+  the activity. Prints: `headline-carries-outcome -> "<Headline>" -> state what changed for whom,
+  with the number and its baseline`.
+- **headline-baseline** (major): the Headline's number carries a baseline it beat or a comparator
+  (from X to Y, N vs M, ahead of a date). Prints: `headline-baseline -> "<Headline>" -> add what the
+  number is compared against`.
+- **journey-in-action** (major): Situation and Action tell the journey in candidate-led action
+  verbs: what was tried or ruled out, why no off-the-shelf path worked, who the candidate reached
+  out to or aligned. Fail an Action that lists deliverables with no ruled-out option and no other
+  person. Prints: `journey-in-action -> "<Action paragraph excerpt>" -> name one option ruled out
+  and why, and who the candidate aligned`.
+- **altitude-test** (major): each story's Action ends with one sentence saying why a strong
+  engineer one level below could not have done it. Prints: `altitude-test -> story "<heading>" has
+  no altitude sentence -> add "A strong <current level> would have ..., not ..."`.
+- **criterion-fit** (blocker): the criterion in a story's heading matches the marker its Situation
+  carries (Ambiguity: what was undefined and from whose view. Problem Complexity: why the cause
+  was not obvious or who else owned the code). Prints: `criterion-fit -> "<heading>" carries the
+  marker of <other criterion> ("<sentence>") -> move the story under <other criterion> or rewrite
+  the Situation`.
+- **ownership-verdict** (blocker): every ownership verb in a story (led, owned, drove, architected,
+  designed, end-to-end) is backed by the story's `Ownership:` line and by an attribution line in
+  the ownership audit with a verdict SUPPORTED, PARTIALLY SUPPORTED or UNSUPPORTED. Prints:
+  `ownership-verdict -> "<verb>" in "<sentence>" has no Ownership: line (or: audit says
+  UNSUPPORTED) -> qualify the verb or add the attribution`.
+- **one-story-once** (major): a project is told in full (more than 80 words) under exactly one
+  heading. Every other mention, in Why now, another story or the Appendix, is one sentence with a
+  cross-reference. Prints: `one-story-once -> "<project>" told under "<heading A>" and "<heading
+  B>" -> keep the fuller telling, replace the other with one sentence and a cross-reference`.
+- **quote-per-story** (major): every story ends with one verbatim quote from a named person with
+  their role, or `(TO BE COLLECTED: quote from <role>)`. Prints: `quote-per-story -> story
+  "<heading>" has <0 or 2+> quotes -> add one verbatim quote with name and role, or the marker`.
+- **why-now-order** (blocker): the three Why now wins follow `why_now.order` from the caller's
+  config, never the writer's choice and never time unless recency is first, and each win's
+  sentence carries its story's Headline number. Prints: `why-now-order -> wins are ordered
+  <observed> against config <order> (or: win "<sentence>" carries no Headline number) -> reorder
+  by <order>, carry the number`.
+- **rntp-shape** (blocker): each reason not to promote has five parts in order: Pattern with two
+  positive examples, Gap with one dated example of who pointed it out, Also seen by a second
+  person, Does not block <level> with evidence, Next with a plan. Prints: `rntp-shape -> reason
+  "<heading>" lacks <part> -> add <part> with <what it needs>`.
+- **rntp-contradiction** (blocker): no reason's stated gap is contradicted by a story. Prints:
+  `rntp-contradiction -> gap "<gap sentence>" vs story "<story sentence>" -> narrow the gap to what
+  the stories support, or remove the contradicting claim`.
+- **aspiration-not-gap** (blocker): a reason names an observed gap, not what the manager would
+  like the candidate to take on next. Prints: `aspiration-not-gap -> "<reason heading or
+  sentence>" is an ask, not an observed gap -> replace with a gap a reviewer or provider has
+  pointed out, with its date`.
+- **provider-gap-addressed** (blocker): every gap a feedback provider states in `## Feedback` is
+  addressed by one reason in Best reasons not to promote. Providers change, so the check reads
+  the Feedback section present in the document, never a fixed list of names. Prints:
+  `provider-gap-addressed -> provider gap "<sentence>" has no reason -> add a reason in the five-
+  part shape`.
+- **plain-headings** (major): reason headings and story headings are plain words, no bracketed
+  principle tags, no abstract nouns stacked ("Cultivating proactive strategic opportunity
+  identification"). Prints: `plain-headings -> "<heading>" -> rewrite as what the candidate does
+  not yet do, in plain words`.
+- **markers-consistent** (blocker): exactly two markers, in round brackets: `(TO BE COLLECTED)`
+  or `(TO BE COLLECTED: <what>)` when the data does not exist yet, `(TO BE CONFIRMED)` at the end
+  of a sentence whose number or source is unconfirmed. Fail any square-bracket form, `TODO`,
+  `TBD`, `TBC` or `(unverified)` in a promo-doc. Prints: `markers-consistent -> "<token>" -> use
+  (TO BE COLLECTED) or (TO BE CONFIRMED)`.
+- **links-kept** (major): every code review, document or ticket named in a story is a hyperlink on
+  its identifier pointing at the real artifact, and a shortened story keeps every link the longer
+  version had (compare `promo-lint.py --counts` before and after). Prints: `links-kept -> story
+  "<heading>" dropped <n> links in the rewrite (or: "<identifier>" is bare) -> restore the links`.
+- **section-length** (major): a story under 500 words quote excluded, Why now under 550, at most
+  2 full stories and 600 words under one criterion. The lint measures, the gate prints the longest
+  offender first: `section-length -> "<heading>" <n> words, cap <cap> -> cut <what> and keep every
+  link`.
 
 > To extend: add rules under the right severity, or add a doc-type note in
 > required-sections. Keep rule ids short and stable so verdicts are easy to scan.

@@ -3,7 +3,7 @@
 The single source of truth for HOW leadership writing reads in this repo, independent of WHAT
 genre it is. Every writing skill (talent card, work summary, promo doc, executive update, and the
 rewrite skills) and the validator read this file and apply it. Edit a voice rule HERE, and do not
-restate it inside a skill. Genre-specific rules (rating placement, region counts, SBI structure,
+restate it inside a skill. Genre-specific rules (rating placement, region counts, SBI or STAR structure,
 green-by dates) live in the individual skills, not here.
 
 This file is provider-neutral and contains no organization-specific names, tools, or systems. Keep
