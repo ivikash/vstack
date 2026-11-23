@@ -29,9 +29,13 @@ cur=$(git config user.email || true)
 # no-org ---------------------------------------------------------------------------------------
 # Union of the two source repos' denylists plus account-id, chat-id, doc-id and people-alias shapes.
 # Add a term here the moment it appears in a private file; never the other way round.
-DENY='amazon|quip|slackbot|midway|mwinit|phonetool|kingpin|chorus\.aws|pippin|taskei|krakenmare|cloudwatch|code\.amazon|w\.amazon|\.corp\.|@amazon\.com|isengard|brazil-build|gitfarm|git\.amazon|\bHV[123]\b|\bOV\b|Leadership Principle(s)? (demonstrated|language)|\bLP-anchored|\bSTO\b|\bL[4-8]\b(?!\s*(·|-|RUNNERS|harness|skills|kernel|instance|state|\d))|\bC0[0-9A-Z]{8,10}\b|\b[A-Z]{1,3}-?[0-9]{6,}\b|\b[0-9]{12}\b|\bP[0-9]{8,}\b|\bV[0-9]{8,}\b'
+# Generic shapes (round 1c): a bare 12-character document id (letters and digits mixed, no
+# punctuation) and a bare people alias written `alias@` with no domain after it. Both are the
+# forms a reviewer pastes into a results file by habit. evals/results/*.md is scanned with every
+# pattern, the same as evals/fixtures/*.md.
+DENY='amazon|quip|slackbot|midway|mwinit|phonetool|kingpin|chorus\.aws|pippin|taskei|krakenmare|cloudwatch|code\.amazon|w\.amazon|\.corp\.|@amazon\.com|isengard|brazil-build|gitfarm|git\.amazon|\bHV[123]\b|\bOV\b|Leadership Principle(s)? (demonstrated|language)|\bLP-anchored|\bSTO\b|\bL[4-8]\b(?!\s*(·|-|RUNNERS|harness|skills|kernel|instance|state|\d))|\bC0[0-9A-Z]{8,10}\b|\b[A-Z]{1,3}-?[0-9]{6,}\b|\b[0-9]{12}\b|\bP[0-9]{8,}\b|\bV[0-9]{8,}\b|\b(?=[A-Za-z0-9]{12}\b)(?=[A-Za-z]*[0-9])(?=[0-9]*[A-Za-z])[A-Za-z0-9]{12}\b|\b[a-z][a-z0-9]{1,15}@(?![a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,})'
 hits=$( { grep -rniIP "$DENY" --exclude-dir=.git --exclude-dir=scripts --exclude-dir=evals . ; \
-          grep -niIP "$DENY" evals/fixtures/*.md scripts/*.py ; } \
+          grep -niIP "$DENY" evals/fixtures/*.md evals/results/*.md scripts/*.py ; } \
   | grep -v 'glossary.md:.*for example `Leadership Principles`' \
   | grep -vP 'docs/social/.*\.py:.*(<path|markerWidth)' \
   | grep -vP 'scripts/check.sh:' || true)
