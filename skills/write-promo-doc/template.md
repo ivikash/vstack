@@ -26,6 +26,11 @@ Change a string here first, then the lint, never the other way round.
 | Heading words | no heading or reason title contains leverage, play, strategic, proactive, cultivat-, drive alignment, synerg-, holistic or paradigm (lint plain-headings, D40) |
 | Review ids | a code review id (`CR-<n>`, `PR #<n>`, a `/pull/<n>` or `/reviews/<n>` link) sits in at most one story's action paragraph. Why now and the Appendix are exempt (lint one-cr-once, D37) |
 | Unfetchable links | a link to a document host the writer cannot fetch sits in a sentence ending `(TO BE CONFIRMED)` or carrying `(SUPPORTED)` after the ownership audit verified it (lint marker-direction, D38) |
+| Scope of Role | the team and the proposed level only, copied from the scope file's paragraphs for the level pair. No candidate name or alias, no hire or join date, no "joined" or "hired", no prior-team sentence (lint scope-no-candidate, D49) |
+| Tenure | `Time in Current Level: <N> months`, and every tenure figure in Why now in months. Never days (lint tenure-months, D50) |
+| Relative first | a Headline or Why now sentence with a relative figure and the absolute pair writes the relative first and the absolutes in round brackets: `cut failures by 99.7% (from 4,200 a day to 11 a day)` (lint relative-first, D51, house rule quantify-impact) |
+| Dates | MM/DD/YYYY in body text, no YYYY-MM-DD outside a URL, a link target or the frontmatter (lint date-format, D52, house rule date-format) |
+| Why now markers | none. A figure the evidence does not hold is told in its story with the marker (lint why-now-no-markers, D55) |
 
 Caps, quotes excluded: a story under 500 words (hard failure), Why now under 550 words (hard
 failure). Per criterion: at most 2 full stories and at most 600 words together. More is a lint
@@ -37,18 +42,25 @@ in the instance, never in this skill.
 
 1. **Header block**: `# {NAME} - Promotion Document`, then Employee Name, Manager Name
    ({MANAGER}), Current Title ({CURRENT_TITLE}), Proposed Title ({PROPOSED_TITLE}), Time in
-   Current Level ({TIME_IN_LEVEL}).
+   Current Level ({TIME_IN_LEVEL}, a month count from the `candidate-facts` block, never days).
 
 2. `## Scope of Role`: what the team owns and its scale, then what the PROPOSED level is expected
-   to be on this team. Use the supplied scope evidence.
+   to be on this team. The text is the two paragraphs the run config's `scope_file` holds for the
+   level pair (`target_level`), copied. Nothing about the candidate: no name, no hire or join
+   date, no prior team (D49). Without the file or the level pair the run stops and asks.
 
 3. `## Why now?`: for the VP reader. One opening sentence, then three bold wins, then one closing
    paragraph that names every other project in one sentence each.
 
-   - The three wins are the three stories with the highest rank under `why_now.order`, which the
-     caller supplies (workflow `config.why_now.order`, default `["impact", "ambiguity", "recency"]`).
-     Order the wins by that list, first key first. The writer never picks the order itself, and
-     never orders by time unless `recency` is the first key.
+   - The three wins are the three projects ranked highest in the owner's `story-ranking` table
+     (per-candidate decisions file: project, rank, one line on why it matters), in that order.
+     `why_now.order` (workflow `config.why_now.order`, default `["impact", "ambiguity",
+     "recency"]`) breaks ties between equal ranks only (D53). The writer never picks the order
+     itself. Without the table the run stops and asks.
+   - No `(TO BE CONFIRMED)` and no `(TO BE COLLECTED ...)` in Why now. A figure the evidence does
+     not hold stays in its story with the marker (D55). Where a sentence gives a relative figure and
+     the absolute pair, the relative comes first and the absolutes follow in round brackets (D51).
+     Tenure, when named, is in months (D50).
    - Each win is one bold sentence carrying the story's Headline number, followed by the
      criterion in round brackets and one plain sentence on the journey. Under 550 words in total.
    - Keep the candidate as the grammatical subject of every sentence. No internal codename
@@ -61,7 +73,10 @@ in the instance, never in this skill.
    Ambiguity, Problem Complexity, Execution, Impact, Scope and Influence). Each story:
 
    - `**Headline**`: the outcome, at least one number, and the baseline it beat or a comparator
-     (from X to Y, N vs M, ahead of a date). Not the project name, not what the candidate did.
+     (from X to Y, N vs M, ahead of a date). Not the project name, not what the candidate did. A
+     relative figure comes first, the absolute pair after it in round brackets (D51). Under each
+     criterion the first full story is the project the `story-ranking` table ranks highest there
+     (D53).
    - Then four prose paragraphs in STAR order. STAR is the skeleton you follow, never words the
      reader sees: no `**Situation**`, `**Task**`, `**Action**` or `**Result**` label, no
      "Ownership:" on a line of its own. A panel reads a story, not a form.

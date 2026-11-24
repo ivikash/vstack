@@ -22,14 +22,30 @@ them before writing, see "Verifying supplied evidence" below.
 - **rubric** (required): the caller's ladder language, in the shape of
   [rubric-TEMPLATE.md](rubric-TEMPLATE.md). Its dimensions become the story criteria.
 - **target_level** (required): the proposed level or title.
+- **scope_file** (required, run config): the per-team scope file. It holds one "current level"
+  paragraph and one "next level" paragraph per level pair, keyed by `target_level`. The next-level
+  paragraph differs per pair (the step to a senior level adds delivery through others, more
+  complex systems and more design than the step before it). `## Scope of Role` is copied from it.
+- **candidate-facts** (required, per-candidate decisions file): the prior roles with their months,
+  the date the current level started, and the months in level. See "Candidate facts".
+- **story-ranking** (required, per-candidate decisions file): a table with columns project, rank,
+  one line on why it matters, written by the owner. See "The owner ranks the stories".
 - **evidence**: the gathered facts, with artifact links.
 - **why_now.order**: a ranked list of keys the caller sets per candidate (workflow
-  `config.why_now.order`, default `["impact", "ambiguity", "recency"]`). It decides the order of
-  the Why now wins. You never choose this order yourself.
+  `config.why_now.order`, default `["impact", "ambiguity", "recency"]`). Since D53 it is a
+  tie-breaker only, between projects the `story-ranking` table gives the same rank. You never
+  choose an order yourself.
 - optional: a rating (tone only, never printed), calibration samples, the glossary override.
 
 Without a rubric or without a target_level, do not write. Return one line naming the missing
 input and stop. A document written against a guessed ladder is worse than no document.
+
+Without the scope file, without a level pair in it for `target_level`, or without the
+`story-ranking` table, the run STOPS before any prose: write `questions.md` in the run directory
+asking the owner for the missing input (for the ranking, list every candidate project with its
+evidence strength: the numbers the evidence holds, the markers it would need, the code review
+count) and write no draft. The next run reads the answers from the scope file and the decisions
+file, never from the chat.
 
 ## Output discipline (read first)
 
@@ -59,8 +75,8 @@ Not met, Gap. End it with one verdict line:
 ## Writing rules (MUST follow, scan output before returning)
 
 Read [leadership-writing/house-rules.md](../leadership-writing/house-rules.md) and apply EVERY rule in it:
-no-em-dash, no-semicolons, correct-grammar, define-acronyms, active-voice, zombie-test, show-dont-tell,
-quantify-impact, plain-headings, write-for-reader, logical-progression, no-superlatives, no-hedging (with its
+no-em-dash, no-semicolons, correct-grammar, define-acronyms, date-format, active-voice, zombie-test, show-dont-tell,
+quantify-impact (relative figure first, absolutes in round brackets), plain-headings, write-for-reader, logical-progression, no-superlatives, no-hedging (with its
 banlist), story-not-bullets, honest-and-data-driven, and no-assumptions. That file is the single
 source of truth for the voice. Write in the voice of an experienced engineering manager.
 
@@ -92,6 +108,55 @@ Promo-doc-specific rules (genre requirements, not general voice):
 No other form. No square brackets, no `TODO` code spans, no `TBD`, no `(unverified)` in this
 genre. Resolve every marker you can before the section is called final, and leave the rest
 visible: a marker is a fact about the evidence, not a flaw in the writing.
+
+## Scope of Role is about the team and the level (scope-no-candidate)
+
+`## Scope of Role` describes the team (what it owns, its scale) and what the PROPOSED level is
+expected to be on this team. It never describes the candidate: no name, no alias, no hire or join
+date, no "joined" or "hired", no prior team. Those facts live in the header block and in the
+stories. The text is the two paragraphs the scope file holds for the level pair, copied, not
+rewritten per candidate. The lint's `scope-no-candidate` fails the section on the candidate's name
+(from the title and the Employee Name line, plus the alias the instance sets through
+`PROMO_LINT_CANDIDATE_ALIAS`), a hire or join word, or a prior-team sentence.
+
+## Candidate facts (candidate-facts, tenure-months)
+
+The `candidate-facts` block in the per-candidate decisions file is an owner input: the prior roles
+with their months, the date the current level started, and the months in level. A fact the block
+does not hold prints as a TODO row for the owner in the run brief and as `(TO BE CONFIRMED)` at the
+end of the sentence that needs it. It is never inferred from a people-directory page or a hire
+date, and never invented. Two consequences:
+
+- The review-count window and any "in N months as a <title>" clause run from the date the
+  current level started, not from the hire date. A candidate hired at one level and promoted
+  since has a shorter window than their tenure on the team.
+- Tenure prints in months, never in days. The header's `Time in Current Level` is a month count,
+  and so is every tenure figure in Why now. The lint's `tenure-months` fails a day count in either
+  place.
+
+## The owner ranks the stories (owner-ranked-stories)
+
+Story importance is the owner's call, never the config order and never yours. The
+`story-ranking` table in the per-candidate decisions file (project, rank, one line on why it
+matters) decides the order of the Why now wins and which story is told first under each criterion.
+`why_now.order` breaks ties between projects of equal rank, nothing more. When the table is
+missing, stop and write `questions.md` as "Inputs, and when to refuse" says. The gate's
+`owner-ranked-stories` rule fails a Why now order or a first story that departs from the table.
+
+## Relative first, dates MM/DD/YYYY, no markers in Why now (relative-first, date-format, why-now-no-markers)
+
+Where a Headline or a Why now sentence carries both a relative figure (a percentage, an x-factor,
+"N times") and the absolute numbers, the relative comes first and the absolutes follow in round
+brackets: "cut credential-fetch failures by 99.7% (from 4,200 a day to 11 a day)". The house rule
+`quantify-impact` carries the same line for every genre, the lint's `relative-first` fails the
+other order and absolutes left outside the brackets.
+
+Dates in body text are MM/DD/YYYY (house rule `date-format`). A YYYY-MM-DD anywhere outside a URL,
+a link target or the frontmatter fails the lint's `date-format`.
+
+Why now carries no marker. A figure the evidence does not hold is left out of Why now and told in
+its story with `(TO BE CONFIRMED)` or `(TO BE COLLECTED: <what>)`. The lint's `why-now-no-markers`
+fails a Why now sentence with either marker.
 
 ## Verifying supplied evidence
 
@@ -205,8 +270,9 @@ the draft `(TO BE CONFIRMED)` meanwhile.
 Follow [template.md](template.md). Its "Shapes the lint keys on" block holds the exact strings
 `scripts/promo-lint.py` checks. Two readers, two sections:
 
-- **Why now?** is for a VP. Three bold wins in the order `why_now.order` gives, each carrying its
-  story's Headline number, under 550 words, no unglossed internal codename.
+- **Why now?** is for a VP. Three bold wins in the order the owner's `story-ranking` table gives
+  (`why_now.order` breaks ties), each carrying its story's Headline number, relative figure first,
+  under 550 words, no marker, no unglossed internal codename.
 - **Evidence** is for the panel. One `### <Project>: <Criterion>` story per project. STAR is the
   skeleton you follow, never words the reader sees: the only bold lead-in in a story is
   `**Headline**`. Four unlabelled prose paragraphs follow it, in this order:
@@ -297,7 +363,12 @@ Stop and re-read the rule when you see yourself producing any of these, on top o
 - a Reasons Not To Promote section that only restates strengths, or lists an aspiration as a gap
 - a claim with no code review, document or ticket linked beside it
 - a peer quote that is not verbatim from the evidence
-- a Why now ordered by time when `why_now.order` does not start with recency
+- a Why now ordered by time, or by anything other than the owner's `story-ranking` table
+- a Why now sentence carrying `(TO BE CONFIRMED)` or `(TO BE COLLECTED ...)`
+- a Scope of Role that names the candidate, their hire date or their previous team
+- a tenure in days, or a review window counted from the hire date instead of the level start
+- a sentence that gives the absolute numbers first and the percentage after them
+- a date written year first in body text
 - a square bracket or `TODO` where a round-bracket marker belongs
 - a promotion document written with no readiness verdict, or against a `Not ready` verdict
 - a sentence about the writing (an earlier draft, the evidence pull, what is told once below)
