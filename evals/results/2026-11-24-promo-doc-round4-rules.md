@@ -1,7 +1,7 @@
 # 2026-11-24 promo-doc round 4: the owner's reading of the first end-to-end document, D49 to D55
 
 Follow-up to `2026-11-24-promo-doc-round3-close.md`. Branch `promo-doc`, recreated from `05d5c83`
-(main). Commits `e8c9dba` (lint rules and both fixtures), `b998626` (SKILL and template), `730e70f`
+(main). Commits `e8c9dba` (lint rules and both fixtures), `b998626504b` (SKILL and template), `730e70f`
 (checklist H, house rules, the writer skills' rule lists), `e556caa` (decision rows D49 to D55 and
 seven class rows in `decisions.md`) and the commit carrying this file. Everything named here is
 fictional. Counts only, no names, no identifiers.
