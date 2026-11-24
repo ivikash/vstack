@@ -74,7 +74,7 @@ After the launch of the Lighthouse Parser, which Dana designed and built end-to-
 
 Dana owned adoption tracking, as the evidence row for the dashboard's author field records. Dana took the dashboard in [ticket 2610](https://example.com/tickets/2610) after [the adoption dashboard note](https://example.com/docs/adoption-dashboard-note) had closed.
 
-A dashboard was built on the derivation from [review 5010](https://example.com/reviews/5010). Adoption was tracked weekly as part of this work.
+A dashboard was built on 08/02/2026 on the derivation from [review 5010](https://example.com/reviews/5010). Adoption was tracked weekly as part of this work.
 
 40 million events a day for 310 customers by 10/31/2026. Adoption was 0.4% (TO BE COLLECTED: the adoption count, because nobody has measured it since launch) and trending up. The dashboard is the one stakeholders use. (TO BE CONFIRMED)
 

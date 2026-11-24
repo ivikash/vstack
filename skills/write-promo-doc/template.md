@@ -35,6 +35,7 @@ Change a string here first, then the lint, never the other way round.
 | Why now shape | one prose paragraph: no bullet, no sub-heading, no link, no bracketed criterion after a bold span, no bold span longer than six words. Every bold project name sits in a sentence that carries a number and its baseline (lint why-now-one-paragraph, D56). Sentence one carries the months in level and neither a review count nor a trait word (lint why-now-opener, D57). No sentence over 60 words, and an `On **Project**,` sentence names the candidate (pronoun or first name) within 12 words after the closing bold (lint why-now-sentence-shape, D76). A `N projects`, `N initiatives` or `N stories` count in the closing sentence agrees with the story headings (lint rollup-counts-held warning, checklist row, D77) |
 | Trait words | no word from the house `no-superlatives` banlist or trait words and no claim phrase from that line in Why now or a story paragraph. Quote lines, the Feedback section and the D24 altitude form `A strong <level> would have` are exempt (lint no-trait-words, D63, list read from house-rules.md) |
 | Ordering words | a story sentence in any of the four paragraphs with first, before, then, after or earlier links two or more artifacts only when their dates (MM/DD/YYYY in the sentence, or the run's `--dates` csv) agree with the words (lint ordering-stamped, D73, widened from the action paragraph to the whole story in D81, checklist ordering-words-stamped for stamps the lint cannot read) |
+| Printed dates beside links | the `--dates` csv holds the SHIPPED date of each artifact, and a MM/DD/YYYY printed within 40 characters of a linked artifact equals that artifact's csv date, so the reader never meets a created date beside a review link (lint dates-printed-match-csv, blocker when `--dates` is given, D82) |
 | Reasons intro | `## Best reasons not to promote` opens with one paragraph that counts the providers per theme before the first `###` (lint rntp-intro-counts warning, D69) |
 
 Caps, quotes excluded: a story under 500 words (hard failure), Why now under 550 words (hard
@@ -58,7 +59,7 @@ marker end (D75), the form every marker sentence ends on:
 
 environment the lint reads: PROMO_LINT_CANDIDATE_PRONOUN, PROMO_LINT_CANDIDATE_ALIAS,
 PROMO_LINT_HOUSE_RULES, PROMO_LINT_UNVERIFIED_HOSTS, PROMO_LINT_LINK_EXEMPT
-arguments: --impact-data <impact-data.md> (marker-propagation), --dates <url,date csv> (ordering-stamped)
+arguments: --impact-data <impact-data.md> (marker-propagation), --dates <url,date csv of SHIPPED dates> (ordering-stamped, dates-printed-match-csv, window 40 characters)
 ```
 
 ## The document

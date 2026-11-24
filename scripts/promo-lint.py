@@ -732,6 +732,35 @@ def fmt_date(d):
     return f"{d[1]:02d}/{d[2]:02d}/{d[0]}"
 
 
+DATE_LINK_WINDOW = 40          # dates-printed-match-csv, D82: characters between a printed date and the link it belongs to
+CROSS_REFERENCE = re.compile(r"\b(above|below|earlier)\b", re.I)   # why-now-sentence-shape floor, D85: `<figure> above` is not the sentence's own figure
+WHY_NOW_SENTENCE_FLOOR = 10    # why-now-sentence-shape floor, D85
+
+
+def lint_dates_printed(sec, sentence, dates, fail):
+    """dates-printed-match-csv (D82, blocker when `--dates` is given): a MM/DD/YYYY date printed
+    within DATE_LINK_WINDOW characters of a linked artifact equals that artifact's csv date. The
+    csv holds the SHIPPED date and the draft prints the shipped date, so a created date beside a
+    review link (the reader cannot see which one it is) fails naming both. The nearest link owns
+    the date, a link with no csv row is skipped."""
+    links = list(re.finditer(r"\[([^\]]+)\]\((https?://[^)]+)\)", sentence))
+    if not links:
+        return
+    for dm in US_DATE.finditer(sentence):
+        def gap(lm):
+            return max(0, lm.start() - dm.end(), dm.start() - lm.end())
+        nearest = min(links, key=gap)
+        if gap(nearest) > DATE_LINK_WINDOW:
+            continue
+        url = nearest.group(2)
+        row = dates.get(url) or next((v for k, v in dates.items() if k in url or url in k), None)
+        if row is None:
+            continue
+        printed = parse_date(dm.group(0))
+        if printed and printed != row:
+            fail("dates-printed-match-csv", sec, f"`{dm.group(0)}` beside `{nearest.group(1)}` is not the dates file's {fmt_date(row)} for it, the draft prints the shipped date the csv holds, so one of the two is the created date (D82): `{excerpt(sentence)}`")
+
+
 def lint_why_now_sentence_shape(sentence, k, name, pronoun, fail):
     """why-now-sentence-shape (D76): no Why now sentence over WHY_NOW_SENTENCE_CAP words, and an
     `On **Project**,` sentence names the candidate (pronoun or first name) within PRONOUN_WINDOW
@@ -1056,6 +1085,8 @@ def lint_stories(stories, fail, length_fails, warnings, counts, trait_check=lamb
                 lint_marker_form(sec, s, fail)
                 # ordering-stamped (D73, widened to every paragraph between the Headline and the quote, D81)
                 lint_ordering(sec, s, dates or {}, dates is not None, fail, warnings)
+                if dates is not None:
+                    lint_dates_printed(sec, s, dates, fail)
         quotes = [l for l in sbody if l.startswith(">")]
         if len(quotes) != 1:
             fail("quote-per-story", sec, f"{len(quotes)} quote lines, need exactly 1")
@@ -1168,7 +1199,7 @@ def main(argv):
         print("usage: promo-lint.py [--counts] [--impact-data <impact-data.md>] [--dates <url,date csv>] <draft.md>...\n"
               "  --counts       also prints words per story and section, links per story and marker counts, for a before/after comparison of a shortening\n"
               "  --impact-data  the impact-data stage document (one table row per figure, status in the last cell), turns on marker-propagation\n"
-              "  --dates        `url,date` rows (MM/DD/YYYY or YYYY-MM-DD) for the linked artifacts, read by ordering-stamped")
+              "  --dates        `url,date` rows (MM/DD/YYYY or YYYY-MM-DD, the SHIPPED date) for the linked artifacts, read by ordering-stamped and dates-printed-match-csv")
         return 2
     impact = impact_rows(impact_path) if impact_path else None
     dates = read_dates(dates_path) if dates_path else None
@@ -1192,7 +1223,7 @@ def main(argv):
     if impact is None:
         print("marker-propagation skipped: no --impact-data <path>, figures are not checked against the impact-data markers")
     if dates is None:
-        print("ordering-stamped read dates from the sentences only: no --dates <path>")
+        print("ordering-stamped read dates from the sentences only, dates-printed-match-csv skipped: no --dates <path>")
     return rc
 
 

@@ -114,6 +114,7 @@ nbare=$({ python3 scripts/promo-lint.py evals/fixtures/promo-doc-bad.md 2>&1 || 
 [ "${nfail:-0}" -gt "${nbare:-0}" ] || { say promo-lint "FAIL: the red stage files (impact-data, dates) add no failure, marker-propagation or ordering-stamped stopped reading them"; fail=1; }
 grep -q '^marker-propagation ' /tmp/promo-lint-bad.$$ || { say promo-lint "FAIL: marker-propagation did not fire on the red fixture with its impact-data file"; fail=1; }
 grep -q '^ordering-stamped ' /tmp/promo-lint-bad.$$ || { say promo-lint "FAIL: ordering-stamped did not fire on the red fixture with its dates file"; fail=1; }
+grep -q '^dates-printed-match-csv ' /tmp/promo-lint-bad.$$ || { say promo-lint "FAIL: dates-printed-match-csv did not fire on the red fixture with its dates file"; fail=1; }
 for args in "$(stage good)" ""; do
   if ! out=$(python3 scripts/promo-lint.py $args evals/fixtures/promo-doc-good.md 2>&1); then
     say promo-lint "FAIL: evals/fixtures/promo-doc-good.md (args: ${args:-none})"; echo "$out" | sed 's/^/    /'; fail=1

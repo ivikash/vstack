@@ -139,6 +139,12 @@ reads the rows the lint's matcher skips. Conventions the lint relies on:
 - The linked artifacts' dates go in a `url,date` csv the run passes as `--dates <path>`, so the
   lint's `ordering-stamped` rule can check first, before, then, after and earlier against them
   (D73). A stamp the csv does not hold stays with the checklist's `ordering-words-stamped`.
+- The csv holds the SHIPPED date of every code review (merged, not created) and the draft prints
+  the shipped date beside a review link. A printed MM/DD/YYYY within 40 characters of a linked
+  artifact must equal that artifact's csv row, the lint's `dates-printed-match-csv` fails any
+  other (D82). When the created date is the story (the review sat open for a quarter), the
+  impact-data row records the exception in its baseline cell and the draft names it ("opened
+  09/11/2026, shipped 09/25/2026") with the shipped date beside the link.
 
 ## Scope of Role is about the team and the level (scope-no-candidate)
 
