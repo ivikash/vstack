@@ -16,7 +16,7 @@ Harbor Telemetry owns the ingest path that turns raw device logs into queryable 
 
 Dana's case rests on three wins, ordered by impact, then ambiguity, then recency, the order the manager set for this candidate.
 
-**Breakwater Credentials cut credential-fetch failures from 4,200 a day to 11 a day during a regional event** (Problem Complexity). Dana traced a failure nobody owned across two teams' code, ruled out the retry fix everyone expected, and shipped a cache that the partner team adopted for its own fleet in March 2026.
+**Breakwater Credentials cut credential-fetch failures by 99.7% (from 4,200 a day to 11 a day) during a regional event** (Problem Complexity). Dana traced a failure nobody owned across two teams' code, ruled out the retry fix everyone expected, and shipped a cache that the partner team adopted for its own fleet in March 2026.
 
 **Lighthouse Parser shipped to 9 regions 3 weeks ahead of the committed date and parses 40 million events a day for 310 customers** (Ambiguity). The ask arrived as one customer's complaint with no format defined. Dana wrote the definition, got two teams to agree to it, and built the parser without a prior console change to copy from.
 
@@ -90,7 +90,7 @@ Core values demonstrated: Ownership and Delivery.
 
 ### Pier Alarm Cleanup: Impact
 
-**Headline** Pages down from 45 to 18 a week, 12 of 19 noisy alarms closed in one quarter.
+**Headline** Pages down 60% (from 45 to 18 a week), 12 of 19 noisy alarms closed in one quarter.
 
 In Q1 2026 the on-call rotation received 45 pages a week, and 19 alarms fired without a customer-facing cause. Builders had started to ignore pages, which is how a real incident on 01/14/2026 went unnoticed for 40 minutes. Dana pulled the 90-day page history the week after that incident.
 
@@ -98,7 +98,7 @@ Dana volunteered to own the cleanup and the manager agreed in the team's quarter
 
 Dana classified all 19 alarms by whether a customer could tell the difference, and ruled out muting them wholesale because 2 of the 19 had paged on real incidents in the 90-day history. Dana agreed the delete list with Owen Faraday, the on-call lead, before the first change, then deleted 7, retuned 5 with data from the 90 days, and rewrote the on-call guide so each remaining alarm names its first check, in [review 5130](https://example.com/reviews/5130). A strong Engineer II would have retuned the alarms assigned to them, not decided which 7 the team could live without.
 
-Pages fell from 45 a week to 18 a week by 03/31/2026, a 60 percent drop. No incident has gone unnoticed in the 7 months since. (TO BE CONFIRMED)
+Pages fell by 60% (from 45 a week to 18 a week) by 03/31/2026. No incident has gone unnoticed in the 7 months since. (TO BE CONFIRMED)
 
 > "Our on-call stopped dreading the phone. Dana did the boring work nobody else would.", Noor Haddad, Engineering Manager
 

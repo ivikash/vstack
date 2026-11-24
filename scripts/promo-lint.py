@@ -46,6 +46,20 @@ Round 3 close rule (D41):
                         manager, principal engineer, bar raiser) and carries no link and no marker, so
                         nothing in the paragraph holds the role. A warning, because a link elsewhere in the
                         story may hold it, the checklist rule of the same name decides
+Round 4 rules (the owner's reading of the first end-to-end document, decisions D49 to D55):
+    scope-no-candidate  `## Scope of Role` is about the team and the proposed level. It fails on the
+                        candidate's name (from the title and the Employee Name line) or alias (env var
+                        PROMO_LINT_CANDIDATE_ALIAS), on joined, hired, a hire or start date, and on a
+                        prior-team sentence
+    tenure-months       tenure is printed in months, never days: the `Time in Current Level` header
+                        line and any Why now sentence that gives a day count against a level or role
+    relative-first      a Headline or Why now sentence that carries both a relative figure (percent,
+                        x-factor, N times, N-fold) and the absolute pair (from X to Y, X to Y) puts the
+                        relative first and the absolutes after it in round brackets
+    date-format         body dates are MM/DD/YYYY, any YYYY-MM-DD outside a URL, a link target or the
+                        frontmatter fails
+    why-now-no-markers  Why now carries neither (TO BE COLLECTED ...) nor (TO BE CONFIRMED), a figure
+                        the evidence does not hold is told in its story with the marker
 Hosts the writer cannot fetch are `UNVERIFIED_HOSTS` plus the comma-separated env var
 PROMO_LINT_UNVERIFIED_HOSTS. Links the caller has verified by hand are exempt through the env var
 PROMO_LINT_LINK_EXEMPT (comma-separated URL substrings) or an adjacent `(SUPPORTED)` tag. The
@@ -95,7 +109,20 @@ BARE_ID = re.compile(r"(?<!\[)\b(CR|review|ticket|doc)[- ]?\d{2,}\b", re.I)
 QUOTE_LINE = re.compile(r'^> (".+", [A-Z][^,]+, [^,]+|\(TO BE COLLECTED: quote from [^()]+\))\s*$')
 DATE = re.compile(r"\b(\d{1,2}/\d{1,2}(/\d{2,4})?|\d{4}-\d{2}-\d{2}|(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{4}|Q[1-4] ?\d{2,4})\b")
 WORD = re.compile(r"[A-Za-z0-9][A-Za-z0-9'./%:-]*")
-COMPARATOR = re.compile(r"\b(from \S+( \S+){0,3} to \S+|down from|up from|vs\.?|versus|against|ahead of|early|earlier|instead of|fewer|more than|less than|before|cut from|to 0)\b", re.I)
+COMPARATOR = re.compile(r"\b(from \S+( \S+){0,3} to \S+|\d[\d,.]*( [a-z/]+){0,3} to \d|down from|up from|vs\.?|versus|against|ahead of|early|earlier|instead of|fewer|more than|less than|before|cut from|to 0)\b", re.I)
+
+# round 4 (D49 to D55)
+TITLE = re.compile(r"^# (.+?) - Promotion Document\s*$")
+EMPLOYEE_LINE = re.compile(r"^-?\s*Employee Name:\s*(.+?)\s*$")
+TENURE_LINE = re.compile(r"^-?\s*Time in Current Level:\s*(.+?)\s*$")
+HISTORY_WORD = re.compile(r"\b(joined|hired|hire date|start date|started on|onboarded|was promoted|promoted to)\b", re.I)
+PRIOR_TEAM = re.compile(r"\b(prior|previous|former|earlier|last) (team|role|org|group)\b|\bfrom the [A-Z][\w-]*( [A-Z][\w-]*)* team\b|\bcame from\b|\bmoved (over )?from\b|\btransferred (from|in)\b|\bbefore (joining|moving|coming)\b|\bhad been an?\b", re.I)
+DAYS = re.compile(r"\b\d[\d,]* days\b", re.I)
+TENURE_CONTEXT = re.compile(r"\b(level|role|tenure|in the job|since (joining|hire|starting))\b", re.I)
+TITLE_CONTEXT = re.compile(r"\bas an? [A-Z][A-Za-z]*")      # "as an Engineer II", case matters: "as a result" is not a title
+RELATIVE = re.compile(r"\b\d[\d.,]*\s?(%|percent|x\b|times\b|-fold\b)|\b\d[\d.,]*\s?(percentage points?)\b", re.I)
+ABSOLUTE_PAIR = re.compile(r"\b\d[\d,.]*( [a-zA-Z/]+){0,3} to \d[\d,.]*\b")
+ISO_DATE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
 
 MARKER_COLLECTED = re.compile(r"\(TO BE COLLECTED(: [^()]+)?\)")
 MARKER_CONFIRMED = re.compile(r"\(TO BE CONFIRMED\)")
@@ -217,6 +244,71 @@ def lint_readiness(path):
     return []
 
 
+def candidate_names(lines):
+    """The candidate's names the Scope section may not carry: the full name from the title and the
+    Employee Name line, each of its words of three letters or more, and the alias from
+    PROMO_LINT_CANDIDATE_ALIAS (the instance workflow sets it, no alias lives in this file)."""
+    import os
+    names = set()
+    for l in lines:
+        m = TITLE.match(l) or EMPLOYEE_LINE.match(l)
+        if m:
+            full = m.group(1).strip()
+            names.add(full)
+            names.update(w for w in re.findall(r"[A-Za-z][A-Za-z'-]{2,}", full))
+    alias = os.environ.get("PROMO_LINT_CANDIDATE_ALIAS", "").strip()
+    if alias:
+        names.add(alias)
+    return sorted(names, key=len, reverse=True)
+
+
+def lint_scope(body, names, fail):
+    """scope-no-candidate (D49): the section is about the team and the proposed level. One failure per
+    class per sentence: the candidate's name or alias, a hire or join word (with or without its
+    date), a prior-team sentence."""
+    text = " ".join(l.strip() for l in body if l.strip() and not HEADING.match(l))
+    for s in sentences(text):
+        hit = next((n for n in names if re.search(r"\b" + re.escape(n) + r"\b", s)), None)
+        if hit:
+            fail("scope-no-candidate", "Scope of Role", f"`{hit}` names the candidate, the section is about the team and the proposed level: `{excerpt(s)}`")
+        hw = HISTORY_WORD.search(s)
+        if hw:
+            what = "a hire or join date" if DATE.search(s) or re.search(r"\b(19|20)\d{2}\b", s) else "the candidate's history"
+            fail("scope-no-candidate", "Scope of Role", f"`{hw.group(0)}` gives {what}, that belongs in the header or a story: `{excerpt(s)}`")
+        pt = PRIOR_TEAM.search(s)
+        if pt:
+            fail("scope-no-candidate", "Scope of Role", f"`{pt.group(0)}` is a prior-team sentence: `{excerpt(s)}`")
+
+
+def tenure_days(s):
+    """A day count used as a tenure unit: `N days` in a sentence that also names a level, a role,
+    tenure or a title (`as an Engineer II`). `2 days ahead of the deadline` is a delivery figure and
+    is left alone (D50)."""
+    m = DAYS.search(s)
+    if m and (TENURE_CONTEXT.search(s) or TITLE_CONTEXT.search(s)):
+        return m.group(0)
+    return None
+
+
+def relative_first(s):
+    """relative-first (D51). Returns the failure text for a sentence that carries both a relative
+    figure and an absolute pair in the wrong order or without the round brackets, else None."""
+    r, a = RELATIVE.search(s), ABSOLUTE_PAIR.search(s)
+    if not r or not a:
+        return None
+    if a.start() < r.start():
+        return f"absolutes `{a.group(0)}` come before the relative `{r.group(0).strip()}`, write the relative first and the absolutes in round brackets"
+    between = s[r.end():a.start()]
+    if between.count("(") <= between.count(")"):
+        return f"absolutes `{a.group(0)}` follow the relative `{r.group(0).strip()}` but not in round brackets"
+    return None
+
+
+def body_text(line):
+    """A line with its link targets and bare URLs removed, for rules that read dates in prose."""
+    return BARE_URL.sub("", re.sub(r"\]\([^)]*\)", "]", line))
+
+
 def lint(text):
     lines = text.splitlines()
     length_fails, fails, warnings, counts = [], [], [], []
@@ -265,6 +357,12 @@ def lint(text):
                 fail("markers-consistent", f"line {i}", f"`(TO BE CONFIRMED)` is not at the end of its sentence: `{excerpt(l)}`")
         if in_frontmatter:
             continue
+        iso = ISO_DATE.search(body_text(l))
+        if iso:
+            fail("date-format", f"line {i}", f"`{iso.group(0)}` is not MM/DD/YYYY, the house date-format rule (D52): `{excerpt(l)}`")
+        tm = TENURE_LINE.match(l)
+        if tm and not (re.search(r"\b\d+ months?\b", tm.group(1), re.I) and not DAYS.search(tm.group(1))):
+            fail("tenure-months", f"line {i}", f"`Time in Current Level: {tm.group(1)}` is not a month count (D50)")
         for m in BARE_URL.finditer(l):
             fail("bare-identifier", f"line {i}", f"bare URL `{excerpt(m.group(0), 40)}`, link it on the artifact's identifier")
         if not l.startswith("#"):
@@ -273,7 +371,11 @@ def lint(text):
                 fail("bare-identifier", f"line {i}", f"`{m.group(0)}` is named but not linked")
     counts.append(f"markers (TO BE COLLECTED): {collected}, (TO BE CONFIRMED): {confirmed}")
 
+    names = candidate_names(lines)
     for title, body in split_sections(lines, 2):
+        if title == "Scope of Role":
+            lint_scope(body, names, fail)
+
         if title == "Why now?":
             n = words(body)
             counts.append(f"words Why now: {n} (cap {CAP_WHY_NOW})")
@@ -282,6 +384,16 @@ def lint(text):
             wins = [b for b in BOLD.findall("\n".join(body)) if re.search(r"\d", b)]
             if len(wins) < 3:
                 fail("why-now-wins", "Why now", f"{len(wins)} bold wins with a number, need 3")
+            prose = " ".join(l.strip() for l in body if l.strip() and not HEADING.match(l)).replace("**", "")
+            for s in sentences(prose):
+                if MARKER_COLLECTED.search(s) or MARKER_CONFIRMED.search(s):
+                    fail("why-now-no-markers", "Why now", f"`{excerpt(s)}` carries a marker, leave the figure out of Why now and tell it in its story (D55)")
+                d = tenure_days(s)
+                if d:
+                    fail("tenure-months", "Why now", f"`{d}` is a tenure in days, print months (D50): `{excerpt(s)}`")
+                rf = relative_first(s)
+                if rf:
+                    fail("relative-first", "Why now", f"{rf}: `{excerpt(s)}`")
 
         if title == "Evidence":
             stories = split_sections(body, 3)
@@ -405,6 +517,9 @@ def lint_stories(stories, fail, length_fails, warnings, counts):
             fail("headline-number", sec, f"`{excerpt(headline)}` has no number")
         if headline and re.search(r"\d", headline) and not COMPARATOR.search(headline):
             fail("headline-baseline", sec, f"`{excerpt(headline)}` has a number with no baseline or comparator (from X to Y, N vs M, ahead of <date>)")
+        rf = relative_first(headline) if headline else None
+        if rf:
+            fail("relative-first", sec, f"{rf}: `{excerpt(headline)}`")
         paras = paragraphs(sbody)
         if len(paras) < STORY_PARAGRAPHS:
             fail("story-paragraphs", sec, f"{len(paras)} prose paragraphs between the Headline and the quote, need {STORY_PARAGRAPHS} (situation, task, action, result, no labels)")

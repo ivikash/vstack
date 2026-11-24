@@ -1,22 +1,22 @@
 # Dana Whitfield - Promotion Document
 
-Fictional candidate, team, projects, numbers, links and reviewers. This file is the red sample: it carries every class of mistake a reviewer marked on a real document, re-created with invented content. `scripts/promo-lint.py` must fail on it and `evals/results/` records which rule catches which class. Round 3b added a process sentence in Why now, an unmarked initiative claim in a reason against a marked story sentence, one review id in two action paragraphs, an unfetchable document link without its marker, and two confirmed-markers on sentences that name no artifact.
+Fictional candidate, team, projects, numbers, links and reviewers. This file is the red sample: it carries every class of mistake a reviewer marked on a real document, re-created with invented content. `scripts/promo-lint.py` must fail on it and `evals/results/` records which rule catches which class. Round 3b added a process sentence in Why now, an unmarked initiative claim in a reason against a marked story sentence, one review id in two action paragraphs, an unfetchable document link without its marker, and two confirmed-markers on sentences that name no artifact. Round 4 added a candidate sentence in Scope of Role, a tenure in days in the header and in Why now, a Why now win with the absolutes ahead of the percentage, a body date in year-first form, and a Why now sentence carrying a marker.
 
 - Employee Name: Dana Whitfield
 - Manager Name: Noor Haddad
 - Current Title: Engineer II
 - Proposed Title: Senior Engineer
-- Time in Current Level: 26 months
+- Time in Current Level: 790 days
 
 ## Scope of Role
 
-Harbor Telemetry owns the ingest path for 1,400 internal customers; the team runs 6 services across 9 regions. A Senior Engineer owns a service end to end.
+Harbor Telemetry owns the ingest path for 1,400 internal customers; the team runs 6 services across 9 regions. Dana joined Harbor Telemetry in 2024 from the Console team. A Senior Engineer owns a service end to end.
 
 ## Why now?
 
-Dana joined Harbor Telemetry in 2024 and started on the Lighthouse Parser, which was the first project. Then came the Breakwater Credentials work during the regional event, and after that the Seawall Schema project, and most recently the Quayside Tagging campaign. Each project built on the one before it and Dana grew with each one. Dana demonstrated exceptional ownership across the Lighthouse Parser, Breakwater Credentials, Seawall Schema and Quayside Tagging, and the team relies on Dana for the hardest problems.
+Dana joined Harbor Telemetry in 2024 and started on the Lighthouse Parser, which was the first project. Then came the Breakwater Credentials work during the regional event, and after that the Seawall Schema project, and most recently the Quayside Tagging campaign. Each project built on the one before it and Dana grew with each one. In 790 days as an Engineer II Dana demonstrated exceptional ownership across the Lighthouse Parser, Breakwater Credentials, Seawall Schema and Quayside Tagging, and the team relies on Dana for the hardest problems.
 
-**Lighthouse Parser shipped early and customers love it.** Dana also worked on the Pier Alarm Cleanup and wrote an onboarding guide. The earlier draft listed the wins in the order impact, then recency, and each project is told once below.
+**Lighthouse Parser shipped early and customers love it.** **Breakwater Credentials cut credential-fetch failures from 4,200 a day to 11 a day, a 99 percent drop.** Dana also worked on the Pier Alarm Cleanup, which cut pages by more than half (TO BE CONFIRMED). Dana wrote an onboarding guide too. The earlier draft listed the wins in the order impact, then recency, and each project is told once below.
 
 ## Evidence
 
@@ -62,7 +62,7 @@ Dana fixed the race and shipped tagging for the 4 types. A senior builder asked 
 
 Dana took over the campaign, as the [campaign tracker](https://docs.google.com/document/d/fictional-quayside-tracker) records.
 
-All 4 types supported tagging on 06/28/2026. Dana had picked up Quayside Tagging before anyone asked. (TO BE CONFIRMED)
+All 4 types supported tagging on 2026-06-28. Dana had picked up Quayside Tagging before anyone asked. (TO BE CONFIRMED)
 
 > "Dana did the boring work nobody else would.", Noor Haddad, Engineering Manager
 
