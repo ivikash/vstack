@@ -41,6 +41,11 @@ Round 3b rules (the review's "What the gate missed" list, decisions D31 to D40):
     marker-direction    an unfetchable document link sits in a (TO BE CONFIRMED) sentence, and a
                         (TO BE CONFIRMED) with no artifact in its sentence is a warning
     plain-headings      a heading with a word from the jargon denylist
+Round 3 close rule (D41):
+    role-words-held     warning: a story paragraph gives another person a role (senior builder, product
+                        manager, principal engineer, bar raiser) and carries no link and no marker, so
+                        nothing in the paragraph holds the role. A warning, because a link elsewhere in the
+                        story may hold it, the checklist rule of the same name decides
 Hosts the writer cannot fetch are `UNVERIFIED_HOSTS` plus the comma-separated env var
 PROMO_LINT_UNVERIFIED_HOSTS. Links the caller has verified by hand are exempt through the env var
 PROMO_LINT_LINK_EXEMPT (comma-separated URL substrings) or an adjacent `(SUPPORTED)` tag. The
@@ -104,6 +109,7 @@ JOURNEY_NOUN = re.compile(r"\b(builder|reviewer|team|customer|owner|manager|part
 INITIATIVE = re.compile(r"without a ticket|on her own|on his own|unprompted|initiative", re.I)
 REVIEW_ID = re.compile(r"\bCR-(\d+)\b|\bPR #(\d+)|/pull/(\d+)\b|/reviews?/(\d+)\b", re.I)
 JARGON = re.compile(r"\b(leverage|play|strategic|proactive|cultivat\w*|drive alignment|synerg\w*|holistic|paradigm)\b", re.I)
+ROLE_WORD = re.compile(r"\b(senior builder|product manager|principal engineer|bar[- ]raiser)\b", re.I)   # D41
 UNVERIFIED_HOSTS = ["docs.google.com"]
 SUPPORTED_TAG = re.compile(r"\(SUPPORTED\)")
 SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+(?=[A-Z\"\u201c])")
@@ -426,6 +432,10 @@ def lint_stories(stories, fail, length_fails, warnings, counts):
                 review_sites.setdefault(rid, []).append(sec)
         # marker-direction (D38): per sentence of the story's prose
         for p in paras:
+            # role-words-held (D41): a role given to another person with nothing in the paragraph to hold it
+            rw = ROLE_WORD.search(p)
+            if rw and not LINK.search(p) and not MARKER_CONFIRMED.search(p) and not MARKER_COLLECTED.search(p):
+                warnings.append(f"warning role-words-held {sec}: `{rw.group(0)}` in `{excerpt(p)}` has no link and no marker in its paragraph, back the role with a people-directory row or an artifact, or write builder")
             for s in sentences(p):
                 for url in re.findall(r"\]\((https?://[^)]+)\)", s):
                     if any(h in url for h in hosts) and not any(x in url for x in exempt) and not SUPPORTED_TAG.search(s) and not MARKER_CONFIRMED.search(s):

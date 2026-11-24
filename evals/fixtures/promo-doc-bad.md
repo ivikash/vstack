@@ -58,7 +58,7 @@ Dana traced all three forms back to the pattern library and wrote an algorithm t
 
 A platform campaign required tagging by 06/30/2026 — Harbor Telemetry's 4 types did not support it.
 
-Dana fixed the race and shipped tagging for the 4 types.
+Dana fixed the race and shipped tagging for the 4 types. A senior builder asked for the fix in the team channel.
 
 Dana took over the campaign, as the [campaign tracker](https://docs.google.com/document/d/fictional-quayside-tracker) records.
 

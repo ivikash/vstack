@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Copy check for a promotion document: 8-word runs the draft shares with another person's prose.
 
-    promo-copycheck.py <draft.md> <source.md> [<source.md> ...]
+    promo-copycheck.py <draft.md> <source.md> [<source.md> ...] [--evidence-dir <dir>]
 
 Standard library only. For every source file, print each run of 8 or more consecutive words that
 also appears in the draft's own prose, grouped by source. Exit 1 when any run is found, exit 0 on a
@@ -18,6 +18,14 @@ Output, one line per run under a source header:
     source: <path>
       8-word run: "<the words>"
     promo-copycheck: <n> run(s) across <m> source(s)
+
+`--evidence-dir <dir>` (round 3 close, D41 to D48 set, item D47): a run that also appears in any
+file under that directory is a fact the writer could have read from a primary source, not only
+from the other person's prose. Such a run prints `source-held` with the first evidence file that
+holds it, is still counted and still sets the exit code, and the record says so instead of leaving
+the question to the reader.
+
+    8-word run: "<the words>" source-held: <evidence file>
 """
 import re
 import sys
@@ -67,14 +75,49 @@ def shared_runs(draft_words, source_words, n=RUN):
     return runs
 
 
+def evidence_shingles(evidence_dir, n=RUN):
+    """(path, shingle set) for every readable text file under evidence_dir, in path order."""
+    import os
+    out = []
+    for root, _, files in os.walk(evidence_dir):
+        for f in sorted(files):
+            path = os.path.join(root, f)
+            try:
+                with open(path, encoding="utf-8") as fh:
+                    out.append((path, shingles(tokens(fh.read()), n)))
+            except (UnicodeDecodeError, OSError):
+                continue
+    return sorted(out)
+
+
+def source_held(run, evidence):
+    """The first evidence file whose text contains every shingle of the run, else None."""
+    ws = run.split()
+    need = shingles(ws)
+    for path, sh in evidence:
+        if need <= sh:
+            return path
+    return None
+
+
 def main(argv):
-    if len(argv) < 3 or argv[1] in ("-h", "--help"):
+    args = argv[1:]
+    evidence_dir = None
+    if "--evidence-dir" in args:
+        i = args.index("--evidence-dir")
+        if i + 1 >= len(args):
+            print("--evidence-dir needs a directory")
+            return 2
+        evidence_dir = args[i + 1]
+        args = args[:i] + args[i + 2:]
+    if len(args) < 2 or args[0] in ("-h", "--help"):
         print(__doc__)
         return 2
-    with open(argv[1], encoding="utf-8") as fh:
+    with open(args[0], encoding="utf-8") as fh:
         draft_words = tokens(own_prose(fh.read()))
-    total, hit_sources = 0, 0
-    for path in argv[2:]:
+    evidence = evidence_shingles(evidence_dir) if evidence_dir else []
+    total, hit_sources, held = 0, 0, 0
+    for path in args[1:]:
         with open(path, encoding="utf-8") as fh:
             runs = shared_runs(draft_words, tokens(fh.read()))
         print(f"source: {path}")
@@ -82,8 +125,14 @@ def main(argv):
             hit_sources += 1
         for r in runs:
             total += 1
-            print(f'  {RUN}-word run: "{r}"')
-    print(f"promo-copycheck: {total} run(s) across {hit_sources} source(s)")
+            where = source_held(r, evidence) if evidence else None
+            if where:
+                held += 1
+                print(f'  {RUN}-word run: "{r}" source-held: {where}')
+            else:
+                print(f'  {RUN}-word run: "{r}"')
+    tail = f", {held} source-held" if evidence_dir else ""
+    print(f"promo-copycheck: {total} run(s) across {hit_sources} source(s){tail}")
     return 1 if total else 0
 
 
