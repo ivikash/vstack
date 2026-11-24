@@ -72,7 +72,7 @@ All 4 types supported tagging on 2026-06-28. Dana had picked up Quayside Tagging
 
 After the launch of the Lighthouse Parser, which Dana designed and built end-to-end, customers in the factory machines segment adopted it faster than any format before it. Dana had written the format definition, got two teams to sign it, built the streaming parser and the two console changes, and launched in all 9 regions three weeks ahead of the committed date, as told above, and the adoption numbers followed from that launch.
 
-Dana owned adoption tracking, as the evidence row for the dashboard's author field records.
+Dana owned adoption tracking, as the evidence row for the dashboard's author field records. Dana took the dashboard in [ticket 2610](https://example.com/tickets/2610) after [the adoption dashboard note](https://example.com/docs/adoption-dashboard-note) had closed.
 
 A dashboard was built on the derivation from [review 5010](https://example.com/reviews/5010). Adoption was tracked weekly as part of this work.
 

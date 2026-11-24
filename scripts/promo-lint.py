@@ -114,6 +114,17 @@ Round 4c rules (the first end-to-end review's "What the gate cannot see yet", D7
     story-lead          widened: the project group runs to the first `:**`, so a `::` identifier or a
                         code span with a colon in the heading is not cut at its first colon
     sentences()         a closing `)` ends a sentence too, so `x. (TO BE CONFIRMED) Next ...` splits
+Round 4e rules (the round 4b review's section H, decisions D81 to D85):
+    ordering-stamped    reads every paragraph between the Headline and the quote (situation, task,
+                        action, result), not only the action paragraph, same severities (D81)
+    dates-printed-match-csv  with `--dates`: a MM/DD/YYYY date printed within 40 characters of a
+                        linked artifact equals that artifact's csv date (the shipped date), else it
+                        fails naming both. The nearest link owns the date. Without the argument the
+                        rule is skipped (D82)
+    credit-not-subtraction  SUBTRACTION_CREDIT gains the paraphrase form `onto|into|on top of a ...
+                        core|design|schema (that|which) a|another|the teammate|builder|team` (D83)
+    why-now-sentence-shape  floor, warning: a Why now sentence under 10 words whose only figures are
+                        cross-references (`<figure> above|below|earlier`) or that has none (D85)
 Hosts the writer cannot fetch are `UNVERIFIED_HOSTS` plus the comma-separated env var
 PROMO_LINT_UNVERIFIED_HOSTS. Links the caller has verified by hand are exempt through the env var
 PROMO_LINT_LINK_EXEMPT (comma-separated URL substrings) or an adjacent `(SUPPORTED)` tag. The
@@ -681,7 +692,8 @@ def artifact_dates(sentence, dates):
 
 
 def lint_ordering(sec, sentence, dates, have_dates, fail, warnings):
-    """ordering-stamped (D73): an action sentence with first, before, then, after or earlier that
+    """ordering-stamped (D73, D81): a story sentence (any paragraph between the Headline and the
+    quote, not only the action paragraph) with first, before, then, after or earlier that
     links two or more dated artifacts whose dates run against the words fails. The claimed order is
     the textual order, reversed for a pair with `after` or `earlier` between them, or with `before`
     ahead of both. One linked artifact: warning. A linked artifact with no readable date when a dates
@@ -1042,6 +1054,8 @@ def lint_stories(stories, fail, length_fails, warnings, counts, trait_check=lamb
                 if impact is not None:
                     lint_marker_propagation(sec, s, impact, fail)
                 lint_marker_form(sec, s, fail)
+                # ordering-stamped (D73, widened to every paragraph between the Headline and the quote, D81)
+                lint_ordering(sec, s, dates or {}, dates is not None, fail, warnings)
         quotes = [l for l in sbody if l.startswith(">")]
         if len(quotes) != 1:
             fail("quote-per-story", sec, f"{len(quotes)} quote lines, need exactly 1")
@@ -1058,9 +1072,6 @@ def lint_stories(stories, fail, length_fails, warnings, counts, trait_check=lamb
                 fail("journey-countable", sec, f"action paragraph has no journey verb (ruled out, instead of, tried, rejected, aligned, asked) and names no other person: `{excerpt(action)}`")
             for rid in review_ids(action):
                 review_sites.setdefault(rid, []).append(sec)
-            # ordering-stamped (D73): ordering words against the artifacts' dates
-            for s in sentences(action):
-                lint_ordering(sec, s, dates or {}, dates is not None, fail, warnings)
             # candidate-subject-share (D64, warning, document-wide): action sentences opening on the candidate plus a verb
             for s in sentences(action):
                 if ALTITUDE_FORM.match(s):

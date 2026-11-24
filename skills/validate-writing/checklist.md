@@ -420,10 +420,13 @@ A story's four prose paragraphs carry no labels (owner decision D28), so "situat
   disagree or sit within minutes of each other, the two events share one clause with no order.
   Prints: `ordering-words-stamped -> "<sentence>" claims <event A> before <event B>, stamps
   <stamp A> and <stamp B> -> write both in one clause ("the day she ..."), or drop the order`.
-  Countable twin (D73): the lint's `ordering-stamped` fails an action sentence whose two or more
-  linked artifacts carry dates (in the sentence or the run's `--dates` csv) that run against the
-  words, and warns on one linked artifact. This rule reads the stamps the lint cannot (a tracker's
-  created time, a page's history) and every ordering claim kept takes a decisions-file row.
+  Countable twin (D73, D81): the lint's `ordering-stamped` fails a story sentence in any of the
+  four paragraphs (situation, task, action, result) whose two or more linked artifacts carry dates
+  (in the sentence or the run's `--dates` csv) that run against the words, and warns on one linked
+  artifact. This rule reads the stamps the lint cannot (a tracker's created time, a page's history)
+  and every ordering claim kept takes a decisions-file row. A sentence that pairs a tracker task
+  with a document compares the document's CREATED stamp with the task's CLOSE stamp, because "took
+  the work after the task closed" is false when the document was created before the close (D81).
 - **subset-words** (major): a count that is a subset in its source takes a subset word ("six of
   its", "six of the eight"), never the definite article alone. Prints: `subset-words -> "<the N
   things>" where the source gives <M> in total -> write "N of its M" or "N of the M"`.
