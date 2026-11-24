@@ -78,7 +78,7 @@ unchanged and green.
 | `e2ba4a4` | lint rules, both fixtures, four stage files, check.sh |
 | `bce91a8` | template, house rule credit-inline, checklist H, SKILL stage-document section |
 | `37bf7c3` | D72 to D80, D62 amended, two class rows in decisions.md |
-| this file's commit | this results file |
+| `42ac9cf` | this results file (its id added in the next commit) |
 
 ## What the instance copies
 
