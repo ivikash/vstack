@@ -77,11 +77,24 @@ Severity key: **blocker** = unfit to share, **major** = weakens the doc, **minor
 ## C. Writing quality (major)
 
 All the generic writing-voice rules live in [leadership-writing/house-rules.md](../leadership-writing/house-rules.md):
-claim-has-artifact (as honest-and-data-driven), quantify-impact, no-superlatives, write-for-reader,
-logical-progression, show-dont-tell, active-voice, zombie-test, no-hedging (with its banlist),
+claim-has-artifact (as honest-and-data-driven), quantify-impact, no-superlatives (with its banlist, trait words and claim phrases), write-for-reader,
+logical-progression, show-dont-tell (with its seven techniques), credit-inline, reuse-named, active-voice, zombie-test, no-hedging (with its banlist),
 define-acronyms, date-format, link-artifacts, plain-headings (and quantify-impact's relative-first line), and story-not-bullets. Read that file and enforce every rule in it
 as a checker (fail a real violation). This section adds only the people-review-specific quality
 rules that are NOT generic voice:
+
+- **no-trait-words** (major, every genre): no word from the house `no-superlatives` banlist or trait
+  words, and no claim phrase from the same line, in the author's prose. The list lives in the house
+  rule and nowhere else. A quote attributed to a named provider and a verbatim feedback section are
+  exempt. The promo-doc lint fails the words it can match, this rule reads the paraphrased tells the
+  list misses ("went the extra mile", "left no stone unturned"). Prints: `no-trait-words -> "<word
+  or phrase>" in "<sentence>" -> replace with the fact that shows it (the obstacle, the technique,
+  the figure with its verb)`.
+- **credit-inline** (major, every genre): shared work is credited by function in the same sentence
+  as the actor's act, never as a subtraction in the narrative ("under X's design", "with the core
+  authored by Y", "executed inside a goal someone else framed"). The subtraction belongs only in a
+  reasons-not-to-promote or gaps section. Prints: `credit-inline -> "<sentence>" subtracts -> name
+  who did what in the actor's sentence ("with the security reviewers", "across three teams")`.
 
 - **link-artifacts**: When the evidence supplies a URL for a referenced artifact (code review,
   design doc, ticket, dashboard, recognition post), the reference is a descriptive inline
