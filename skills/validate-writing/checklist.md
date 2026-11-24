@@ -280,6 +280,14 @@ A story's four prose paragraphs carry no labels (owner decision D28), so "situat
   with its baseline. Prints: `why-now-order -> projects are ordered <observed> against ranking
   <order> (or: sentence "<sentence>" carries no Headline number) -> reorder by <order>, carry the
   number`.
+- **why-now-matches-story** (blocker, D84): every Why now clause about a project is a subset of a
+  sentence in that project's story. A scope the story limits (one region, one account, one wave,
+  one change plan) is not widened in Why now: "ran the rollout region by region" fails when the
+  story holds one region, "for every resource type in all 9 regions" fails when the story says
+  4 types and no region. The lint cannot read this, the reviewer puts the Why now clause and the
+  story sentence side by side. Prints: `why-now-matches-story -> Why now "<clause>" widens story
+  "<heading>" sentence "<sentence>" from <story scope> to <Why now scope> -> narrow the clause to
+  the story's scope, or add the wider fact to the story with its evidence`.
 - **why-now-no-list** (major): no Why now sentence names more than three projects, and a project
   with no story in Evidence is not named in Why now (it goes to the Appendix, D14). The lint
   checks the one-paragraph shape, this rule reads the sentences. Prints: `why-now-no-list ->
