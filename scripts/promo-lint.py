@@ -90,6 +90,30 @@ Round 4 shape rules (the owner's example document, decisions D56 to D70):
                         (no intro paragraph counting providers before the first reason)
 Retired this round: why-now-wins (D56) and ownership-line (D59, the printed sentence was a label
 the reader sees, the ownership audit verdicts stay the gate).
+Round 4c rules (the first end-to-end review's "What the gate cannot see yet", D72 to D80):
+    marker-propagation  reads `--impact-data <path>` (the instance passes promo/<alias>/impact-data.md):
+                        a figure in a Why now or story sentence that matches a table row whose LAST
+                        cell carries (TO BE CONFIRMED) or (TO BE COLLECTED sits in a sentence ending
+                        on the same marker. Without the argument one line says the rule is skipped
+    ordering-stamped    an action sentence with first, before, then, after or earlier that links two
+                        or more artifacts whose dates run against the words (MM/DD/YYYY in the
+                        sentence, or `--dates <csv>` of url,date) fails. One linked artifact next to
+                        an unlinked artifact noun or a date: warning. Checklist ordering-words-stamped
+                        stays the blocker for stamps the lint cannot read
+    credit-not-subtraction  a story sentence matching SUBTRACTION_CREDIT (the house rule credit-inline's
+                        forbidden form, the regex is published in template.md for the contract twin)
+    no-process-leak     phrase list extended: author field, acknowledgement names, on record is, as
+                        hers/his/theirs is, evidence row, stage document
+    markers-consistent  form half: a (TO BE COLLECTED ...) marker is the last token of its sentence and
+                        the clause after the colon names an artifact, never an explanation (D46)
+    why-now-sentence-shape  no Why now sentence over 60 words, and an `On **Project**,` sentence names
+                        the candidate (PROMO_LINT_CANDIDATE_PRONOUN or first name) within 12 words
+    rollup-counts-held  warning: a `N projects|initiatives|stories` count in the closing Why now
+                        sentence disagrees with the story headings. The checklist row reads the
+                        impact-data rows for the other counts
+    story-lead          widened: the project group runs to the first `:**`, so a `::` identifier or a
+                        code span with a colon in the heading is not cut at its first colon
+    sentences()         a closing `)` ends a sentence too, so `x. (TO BE CONFIRMED) Next ...` splits
 Hosts the writer cannot fetch are `UNVERIFIED_HOSTS` plus the comma-separated env var
 PROMO_LINT_UNVERIFIED_HOSTS. Links the caller has verified by hand are exempt through the env var
 PROMO_LINT_LINK_EXEMPT (comma-separated URL substrings) or an adjacent `(SUPPORTED)` tag. The
@@ -160,7 +184,7 @@ MARKER_ANY = re.compile(r"(?i)[\[(]?\s*(to be collected|to be confirmed|tbd|tbc|
 
 # round 3b (D31 to D40)
 SOURCES_LINE = re.compile(r"^Sources( used)?:", re.I)
-PROCESS_LEAK = re.compile(r"earlier draft|evidence pull|reviewer of the|readiness row|in the order [a-z]+, then|told once below|working copy", re.I)
+PROCESS_LEAK = re.compile(r"earlier draft|evidence pull|reviewer of the|readiness row|in the order [a-z]+, then|told once below|working copy|author field|acknowledgement names|on record is|as (hers|his|theirs) is|evidence row|stage document", re.I)
 JOURNEY_VERB = re.compile(r"ruled out|instead of|rather than|tried|rejected|aligned|asked|brought .* to|\(TO BE COLLECTED: what (she|he|they) tried", re.I)
 JOURNEY_NOUN = re.compile(r"\b(builder|reviewer|team|customer|owner|manager|partner)s?\b", re.I)
 INITIATIVE = re.compile(r"without a ticket|on her own|on his own|unprompted|initiative", re.I)
@@ -169,14 +193,28 @@ JARGON = re.compile(r"\b(leverage|play|strategic|proactive|cultivat\w*|drive ali
 ROLE_WORD = re.compile(r"\b(senior builder|product manager|principal engineer|bar[- ]raiser)\b", re.I)   # D41
 UNVERIFIED_HOSTS = ["docs.google.com"]
 SUPPORTED_TAG = re.compile(r"\(SUPPORTED\)")
-SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+(?=[A-Z\"\u201c])")
+SENTENCE_SPLIT = re.compile(r"(?<=[.!?)])\s+(?=[A-Z\"\u201c])")   # a closing marker `)` ends a sentence too (round 4c)
 
 # round 4 shape (D56 to D70)
 CANDIDATE_SUBJECT_SHARE = 0.6   # candidate-subject-share warns under this share of action sentences (settled on the fixtures, D64)
 MONTHS = re.compile(r"\b\d+ months?\b", re.I)
 REVIEW_COUNT = re.compile(r"\b(authored|reviewed|wrote|landed|merged) \d[\d,]*( code)? reviews?\b|\b\d[\d,]* (code )?reviews?\b", re.I)
-STORY_LEAD = re.compile(r"^\*\*Q[1-4] \d{4}, ([^*:]+):\*\*")
+STORY_LEAD = re.compile(r"^\*\*Q[1-4] \d{4}, (.+?):\*\*")      # non-greedy to the first `:**`, so a `::` identifier or a code span with a colon stays whole (round 4c)
 BRACKETED_CRITERION = re.compile(r"\*\*\s*\(([A-Za-z][A-Za-z ]+)\)")
+
+# round 4c (the first end-to-end review's "What the gate cannot see yet", decisions D72 to D80)
+SUBTRACTION_CREDIT = re.compile(r"with the \w+ (core|design|schema|component) (from|by|authored by) (a|another|a second|the) builder|under (a|another|the) [^.]* design", re.I)   # credit-not-subtraction, D74. The instance copies this string as its contract twin
+ORDERING_WORD = re.compile(r"\b(first|before|then|after|earlier)\b", re.I)
+ARTIFACT_NOUN = re.compile(r"\b(reviews?|tickets?|documents?|docs?|notes?|designs?|pages?|dashboards?|analys[ie]s|commits?|pull requests?|CR|PR)\b")   # an unlinked event the one-link warning can point at
+US_DATE = re.compile(r"\b(\d{1,2})/(\d{1,2})/(\d{4})\b")
+MARKER_END = re.compile(r"\((TO BE CONFIRMED|TO BE COLLECTED(: [^()]+)?)\)\.?$")
+COLLECTED_CLAUSE = re.compile(r"\b(because|which|whether|so that|since|as the|as no|as nobody)\b", re.I)
+WHY_NOW_SENTENCE_CAP = 60      # why-now-sentence-shape, D76
+PRONOUN_WINDOW = 12            # words after the closing bold of an `On **Project**,` sentence
+ON_PROJECT = re.compile(r"^On \*\*[^*]+\*\*,?\s*(.*)$")
+ROLLUP_COUNT = re.compile(r"\b(\d+) (projects?|initiatives?|stories)\b", re.I)
+FIGURE = re.compile(r"(\d[\d,]*(?:\.\d+)?)\s?(%|percent\b|x\b|times\b|[A-Za-z]+)?")
+FIGURE_STOPWORDS = {"and", "of", "to", "in", "a", "an", "the", "or", "per", "at", "on", "by", "for", "from", "with", "into", "across", "than", "that", "its", "was", "is", "are", "were", "ahead", "before", "after", "since", "as"}
 BULLET = re.compile(r"^\s*([-*+]|\d+[.)])\s+")
 ALTITUDE_FORM = re.compile(r"^A strong [A-Z][\w ]* would have\b")           # D24 counterfactual, exempt from no-trait-words
 ABSENCE = re.compile(r"\b(no|never|nobody|no one|nothing|none|not exist(ed)?|could not|couldn't|had no|without|undefined|unowned|missing|lacked|exposed no|did not|had not|unmapped)\b", re.I)
@@ -489,7 +527,227 @@ def body_text(line):
     return BARE_URL.sub("", re.sub(r"\]\([^)]*\)", "]", line))
 
 
-def lint(text):
+# --- round 4c: the stage documents the lint may read ---------------------------------------------
+
+def figure_text(text):
+    """Prose with the tokens that look like figures but are not removed: link targets, bare URLs,
+    code review ids, dates (year-first, MM/DD/YYYY and M/D), and the thousands commas."""
+    t = body_text(text)
+    t = re.sub(r"\b(CR|PR)[- #]?\d+\b", " ", t)
+    t = ISO_DATE.sub(" ", t)
+    t = re.sub(r"\b\d{1,2}/\d{1,2}(/\d{2,4})?\b", " ", t)
+    t = re.sub(r"(?<=\d),(?=\d)", "", t)
+    return t
+
+
+def figures(text):
+    """The figures of an impact-data cell as (number, unit) keys. A number with three or more digits,
+    a decimal point, a percent or an x-factor is a figure on its own (unit kept for % and x). A one
+    or two digit integer is a figure only with the unit word that follows it (`7 months`, `5 s`),
+    because a bare `7` matches half the document. Normalises percent to % and times to x."""
+    out = []
+    for m in FIGURE.finditer(figure_text(text)):
+        num, unit = m.group(1), (m.group(2) or "").lower()
+        num = num.rstrip(".")
+        unit = {"percent": "%", "times": "x"}.get(unit, unit)
+        digits = re.sub(r"\D", "", num)
+        if not digits:
+            continue
+        if len(digits) >= 3 or "." in num or unit in ("%", "x"):
+            out.append((num, unit if unit in ("%", "x") else ""))
+        elif unit and unit not in FIGURE_STOPWORDS and len(unit) >= 1 and unit.isalpha():
+            out.append((num, unit))
+    return out
+
+
+def figure_in(sentence, key):
+    """True when the figure key appears in the sentence (commas, link targets and dates removed)."""
+    num, unit = key
+    t = figure_text(sentence)
+    n = re.escape(num)
+    if unit == "%":
+        return re.search(r"(?<![\d.])" + n + r"\s?(%|percent\b)", t, re.I) is not None
+    if unit == "x":
+        return re.search(r"(?<![\d.])" + n + r"\s?(x\b|times\b)", t, re.I) is not None
+    if unit:
+        return re.search(r"(?<![\d.])" + n + r"\s?" + re.escape(unit.rstrip("s")) + r"s?\b", t, re.I) is not None
+    return re.search(r"(?<![\d.])" + n + r"(?![\d.]\d)", t) is not None
+
+
+def impact_rows(path):
+    """Marked rows of an impact-data stage document: every table row whose first cell is a row
+    number and whose LAST cell (the status, `Evidence holds` or `Status`) carries (TO BE CONFIRMED)
+    or (TO BE COLLECTED. Returns (row number, marker, figure keys, number cell). When the status cell
+    itself names figures in the sentence that carries the marker (`The 7 months claim is not in any file (TO BE CONFIRMED)`), those are the marked figures
+    and the number cell's held figures stay free. Otherwise every figure of the number cell is
+    marked (marker-propagation, D72)."""
+    rows = []
+    with open(path, encoding="utf-8") as fh:
+        for l in fh:
+            if not l.startswith("|"):
+                continue
+            cells = [c.strip() for c in l.strip().strip("|").split("|")]
+            if len(cells) < 3 or not re.fullmatch(r"\d+", cells[0]):
+                continue
+            status = cells[-1]
+            if "(TO BE CONFIRMED)" in status:
+                marker = "(TO BE CONFIRMED)"
+            elif "(TO BE COLLECTED" in status:
+                marker = "(TO BE COLLECTED"
+            else:
+                continue
+            marked = [seg for seg in re.split(r"(?<=\.)\s+", status) if "(TO BE" in seg]
+            keys = figures(" ".join(marked)) or figures(cells[1])
+            if keys:
+                rows.append((cells[0], marker, keys, cells[1]))
+    return rows
+
+
+def sentence_marker(sentence):
+    """The marker a sentence ends on: `(TO BE CONFIRMED)`, `(TO BE COLLECTED`, or None."""
+    m = MARKER_END.search(sentence.strip())
+    if not m:
+        return None
+    return "(TO BE CONFIRMED)" if m.group(1) == "TO BE CONFIRMED" else "(TO BE COLLECTED"
+
+
+def lint_marker_propagation(sec, sentence, rows, fail, why_now=False):
+    """marker-propagation (D72): a figure that matches a marked impact-data row sits in a sentence
+    ending on the same marker. In Why now no marker is allowed (D55), so the figure moves to its
+    story. One failure per row per sentence."""
+    ending = sentence_marker(sentence)
+    for n, marker, keys, cell in rows:
+        hit = next((k for k in keys if figure_in(sentence, k)), None)
+        if hit is None or ending == marker:
+            continue
+        shown = (hit[0] + (" " + hit[1] if hit[1] and hit[1] not in ("%", "x") else hit[1])).strip()
+        where = "move the figure to its story and end that sentence with the marker (D55)" if why_now else f"end the sentence with `{marker}{')' if marker.endswith('COLLECTED') else ''}`"
+        fail("marker-propagation", sec, f"`{shown}` matches impact-data row {n} (`{excerpt(cell, 40)}`) whose status carries {marker}{')' if marker.endswith('COLLECTED') else ''}, {where}: `{excerpt(sentence)}`")
+
+
+def lint_marker_form(sec, sentence, fail):
+    """markers-consistent, the form half (D75, D46): a marker is the last token of its sentence, and
+    the clause after `TO BE COLLECTED:` names an artifact, not an explanation (no because, which,
+    whether, so that, since). The CONFIRMED position is also checked per line above."""
+    for m in MARKER_COLLECTED.finditer(sentence):
+        tail = sentence[m.end():].strip().lstrip(".").strip()
+        if tail:
+            fail("markers-consistent", sec, f"`(TO BE COLLECTED ...)` is not the last token of its sentence, `{excerpt(tail, 40)}` follows it (D75): `{excerpt(sentence)}`")
+        inner = (m.group(1) or "")[2:]
+        if inner and (COLLECTED_CLAUSE.search(inner) or len(inner.split()) > 12):
+            fail("markers-consistent", sec, f"`(TO BE COLLECTED: {excerpt(inner, 40)})` explains instead of naming the artifact, the stage document holds the reason (D46, D75): `{excerpt(sentence)}`")
+
+
+def read_dates(path):
+    """`url,date` rows of a dates csv. The date is MM/DD/YYYY or YYYY-MM-DD, returned as (y, m, d)."""
+    out = {}
+    with open(path, encoding="utf-8") as fh:
+        for l in fh:
+            if "," not in l or l.lower().startswith("url,"):
+                continue
+            url, date = (x.strip() for x in l.strip().rsplit(",", 1))
+            d = parse_date(date)
+            if url and d:
+                out[url] = d
+    return out
+
+
+def parse_date(s):
+    m = US_DATE.search(s)
+    if m:
+        return (int(m.group(3)), int(m.group(1)), int(m.group(2)))
+    m = ISO_DATE.search(s)
+    if m:
+        y, mo, d = m.group(0).split("-")
+        return (int(y), int(mo), int(d))
+    return None
+
+
+def artifact_dates(sentence, dates):
+    """(label, url, date) per linked artifact in a sentence. The date is the csv row for the url
+    (exact or substring), else the first MM/DD/YYYY after the link before the next link, else the
+    one before it since the previous link."""
+    links = list(re.finditer(r"\[([^\]]+)\]\((https?://[^)]+)\)", sentence))
+    out = []
+    for i, m in enumerate(links):
+        url = m.group(2)
+        d = dates.get(url) or next((v for k, v in dates.items() if k in url or url in k), None)
+        if d is None:
+            after = sentence[m.end(): links[i + 1].start() if i + 1 < len(links) else len(sentence)]
+            before = sentence[links[i - 1].end() if i else 0: m.start()]
+            d = parse_date(after) or parse_date(before)
+        out.append((m.group(1), url, d))
+    return out
+
+
+def lint_ordering(sec, sentence, dates, have_dates, fail, warnings):
+    """ordering-stamped (D73): an action sentence with first, before, then, after or earlier that
+    links two or more dated artifacts whose dates run against the words fails. The claimed order is
+    the textual order, reversed for a pair with `after` or `earlier` between them, or with `before`
+    ahead of both. One linked artifact: warning. A linked artifact with no readable date when a dates
+    file was given: warning. The checklist blocker ordering-words-stamped reads the stamps the lint
+    cannot."""
+    ow = ORDERING_WORD.search(sentence)
+    if not ow:
+        return
+    arts = artifact_dates(sentence, dates)
+    if not arts:
+        return
+    if len(arts) == 1:
+        rest = re.sub(r"\[[^\]]+\]\([^)]+\)", " ", sentence)
+        if ARTIFACT_NOUN.search(rest) or US_DATE.search(rest):
+            warnings.append(f"warning ordering-stamped {sec}: `{ow.group(0)}` orders one linked artifact against an event with no stamp in the sentence, link the other event or drop the order (checklist ordering-words-stamped, D73): `{excerpt(sentence)}`")
+        return
+    for label, url, d in arts:
+        if d is None and have_dates:
+            warnings.append(f"warning ordering-stamped {sec}: no date for `{label}` ({excerpt(url, 40)}) in the sentence or the dates file, the order it sits in cannot be checked (D73)")
+    spans = [m for m in re.finditer(r"\[[^\]]+\]\([^)]+\)", sentence)]
+    head = sentence[: spans[0].start()]
+    for i in range(len(arts) - 1):
+        a, b = arts[i], arts[i + 1]
+        if a[2] is None or b[2] is None:
+            continue
+        between = sentence[spans[i].end(): spans[i + 1].start()]
+        reversed_pair = re.search(r"\b(after|earlier)\b", between, re.I) is not None or (i == 0 and re.search(r"\bbefore\b", head, re.I) is not None and not re.search(r"\b(first|then|after|earlier)\b", between, re.I))
+        earlier, later = (b, a) if reversed_pair else (a, b)
+        if earlier[2] == later[2]:
+            warnings.append(f"warning ordering-stamped {sec}: `{earlier[0]}` and `{later[0]}` carry the same date, write both in one clause with no order (checklist ordering-words-stamped, D44)")
+        elif earlier[2] > later[2]:
+            fail("ordering-stamped", sec, f"`{excerpt(sentence)}` claims `{earlier[0]}` before `{later[0]}`, dates {fmt_date(earlier[2])} and {fmt_date(later[2])} run the other way, write both in one clause or drop the order (checklist ordering-words-stamped, D73)")
+
+
+def fmt_date(d):
+    return f"{d[1]:02d}/{d[2]:02d}/{d[0]}"
+
+
+def lint_why_now_sentence_shape(sentence, k, name, pronoun, fail):
+    """why-now-sentence-shape (D76): no Why now sentence over WHY_NOW_SENTENCE_CAP words, and an
+    `On **Project**,` sentence names the candidate (pronoun or first name) within PRONOUN_WINDOW
+    words after the closing bold."""
+    n = len(WORD.findall(sentence.replace("**", "")))
+    if n > WHY_NOW_SENTENCE_CAP:
+        fail("why-now-sentence-shape", "Why now", f"sentence {k + 1} runs {n} words, cap {WHY_NOW_SENTENCE_CAP}, split it (D76): `{excerpt(sentence)}`")
+    m = ON_PROJECT.match(sentence)
+    if m:
+        head = WORD.findall(m.group(1).replace("**", ""))[:PRONOUN_WINDOW]
+        subj = {pronoun} | ({name.lower()} if name else set())
+        if not any(w.lower().strip(".,'") in subj or w.lower().strip(".,").rstrip("'s") in subj for w in head):
+            fail("why-now-sentence-shape", "Why now", f"`On **Project**,` sentence holds `{pronoun}` or `{name}` back past {PRONOUN_WINDOW} words, the candidate's verb comes right after the project (D76): `{excerpt(sentence)}`")
+
+
+def lint_rollup_counts(sentence, stories, warnings):
+    """rollup-counts-held (D77, warning): a `N projects`, `N initiatives` or `N stories` count in the
+    closing Why now sentence agrees with the story headings (distinct projects, or headings for
+    stories). The checklist row of the same name reads the impact-data rows for the other counts."""
+    distinct = len({p.lower() for p, _, _ in stories})
+    for m in ROLLUP_COUNT.finditer(sentence):
+        n, noun = int(m.group(1)), m.group(2).lower()
+        actual = len(stories) if noun.startswith("stor") else distinct
+        if actual and n != actual:
+            warnings.append(f"warning rollup-counts-held Why now: closing sentence counts `{m.group(0)}`, the draft has {actual} {'story headings' if noun.startswith('stor') else 'distinct story projects'} (D77): `{excerpt(sentence)}`")
+
+
+def lint(text, impact=None, dates=None):
     lines = text.splitlines()
     length_fails, fails, warnings, counts = [], [], [], []
     shape = "template"
@@ -567,6 +825,11 @@ def lint(text):
         if m:
             fail("no-trait-words", sec, f"`{m.group(0)}` tells what the sentence should show, replace it with the obstacle, the technique or the figure with its verb (house rule no-superlatives, D63): `{excerpt(sentence)}`")
 
+    # round 4c: the pronoun is needed in Why now, which the loop meets before Evidence
+    evidence_paras = [p for t, b in split_sections(lines, 2) if t == "Evidence" for _, sb in split_sections(b, 3) for p in paragraphs(sb)]
+    pronoun = candidate_pronoun(evidence_paras)
+    why_now_sents, parsed = [], []
+
     for title, body in split_sections(lines, 2):
         if title == "Scope of Role":
             lint_scope(body, names, fail)
@@ -605,6 +868,13 @@ def lint(text):
                 rf = relative_first(s)
                 if rf:
                     fail("relative-first", "Why now", f"{rf}: `{excerpt(s)}`")
+                if impact is not None:
+                    lint_marker_propagation("Why now", s, impact, fail, why_now=True)
+                lint_marker_form("Why now", s, fail)
+            raw = " ".join(l.strip() for l in body if l.strip() and not HEADING.match(l))
+            why_now_sents = sentences(raw)
+            for k, s in enumerate(why_now_sents):
+                lint_why_now_sentence_shape(s, k, name, pronoun, fail)
 
         if title == "Evidence":
             stories = split_sections(body, 3)
@@ -618,8 +888,7 @@ def lint(text):
                 else:
                     project, crit = (x.strip() for x in head.rsplit(":", 1))
                 parsed.append((project, crit, sbody))
-            pronoun = candidate_pronoun([p for _, _, sb in parsed for p in paragraphs(sb)])
-            marked_projects = lint_stories(parsed, fail, length_fails, warnings, counts, trait_check, name, pronoun)
+            marked_projects = lint_stories(parsed, fail, length_fails, warnings, counts, trait_check, name, pronoun, impact, dates)
 
         if title == "Best reasons not to promote":
             reasons = split_sections(body, 3)
@@ -642,9 +911,11 @@ def lint(text):
         if fallback:
             shape = "fallback"
             pronoun = candidate_pronoun([p for _, _, sb in fallback for p in paragraphs(sb)])
-            marked_projects = lint_stories(fallback, fail, length_fails, warnings, counts, trait_check, name, pronoun)
+            marked_projects = lint_stories(fallback, fail, length_fails, warnings, counts, trait_check, name, pronoun, impact, dates)
     if marked_projects and reasons:
         lint_rntp_contradiction(reasons, marked_projects, fail)
+    if why_now_sents and parsed:
+        lint_rollup_counts(why_now_sents[-1], parsed, warnings)
 
     length_fails.sort(key=lambda x: -x[0])
     return [f for _, f in length_fails] + fails, warnings, counts, shape
@@ -710,7 +981,7 @@ def review_ids(text):
     return {next(g for g in m.groups() if g) for m in REVIEW_ID.finditer(text)}
 
 
-def lint_stories(stories, fail, length_fails, warnings, counts, trait_check=lambda sec, s: None, name=None, pronoun="she"):
+def lint_stories(stories, fail, length_fails, warnings, counts, trait_check=lambda sec, s: None, name=None, pronoun="she", impact=None, dates=None):
     """Per-story rules over (project, criterion, body) triples, from the template shape or the
     fallback splitter. The body's first non-empty line is the Headline slot. Returns the projects
     named inside a marked sentence of any story, for the document-wide rntp-contradiction scan."""
@@ -764,6 +1035,13 @@ def lint_stories(stories, fail, length_fails, warnings, counts, trait_check=lamb
         for p in paras:
             for s in sentences(p):
                 trait_check(sec, s)
+                # credit-not-subtraction (D74): shared work credited as a subtraction from the candidate's claim
+                sub = SUBTRACTION_CREDIT.search(s)
+                if sub:
+                    fail("credit-not-subtraction", sec, f"`{sub.group(0)}` credits shared work as a subtraction, write the credit as a widening in the same sentence as the candidate's act (house rule credit-inline, D74): `{excerpt(s)}`")
+                if impact is not None:
+                    lint_marker_propagation(sec, s, impact, fail)
+                lint_marker_form(sec, s, fail)
         quotes = [l for l in sbody if l.startswith(">")]
         if len(quotes) != 1:
             fail("quote-per-story", sec, f"{len(quotes)} quote lines, need exactly 1")
@@ -780,6 +1058,9 @@ def lint_stories(stories, fail, length_fails, warnings, counts, trait_check=lamb
                 fail("journey-countable", sec, f"action paragraph has no journey verb (ruled out, instead of, tried, rejected, aligned, asked) and names no other person: `{excerpt(action)}`")
             for rid in review_ids(action):
                 review_sites.setdefault(rid, []).append(sec)
+            # ordering-stamped (D73): ordering words against the artifacts' dates
+            for s in sentences(action):
+                lint_ordering(sec, s, dates or {}, dates is not None, fail, warnings)
             # candidate-subject-share (D64, warning, document-wide): action sentences opening on the candidate plus a verb
             for s in sentences(action):
                 if ALTITUDE_FORM.match(s):
@@ -859,15 +1140,31 @@ def lint_rntp_contradiction(reasons, marked_projects, fail):
 
 def main(argv):
     show_counts = "--counts" in argv
-    paths = [a for a in argv[1:] if a != "--counts"]
+    args = [a for a in argv[1:] if a != "--counts"]
+    impact_path = dates_path = None
+    paths = []
+    i = 0
+    while i < len(args):
+        if args[i] == "--impact-data" and i + 1 < len(args):
+            impact_path, i = args[i + 1], i + 2
+        elif args[i] == "--dates" and i + 1 < len(args):
+            dates_path, i = args[i + 1], i + 2
+        else:
+            paths.append(args[i])
+            i += 1
     if not paths or paths[0] in ("-h", "--help"):
         print(__doc__)
-        print("usage: promo-lint.py [--counts] <draft.md>...   --counts also prints words per story and section, links per story and marker counts, for a before/after comparison of a shortening")
+        print("usage: promo-lint.py [--counts] [--impact-data <impact-data.md>] [--dates <url,date csv>] <draft.md>...\n"
+              "  --counts       also prints words per story and section, links per story and marker counts, for a before/after comparison of a shortening\n"
+              "  --impact-data  the impact-data stage document (one table row per figure, status in the last cell), turns on marker-propagation\n"
+              "  --dates        `url,date` rows (MM/DD/YYYY or YYYY-MM-DD) for the linked artifacts, read by ordering-stamped")
         return 2
+    impact = impact_rows(impact_path) if impact_path else None
+    dates = read_dates(dates_path) if dates_path else None
     rc = 0
     for path in paths:
         with open(path, encoding="utf-8") as fh:
-            out, warnings, counts, shape = lint(fh.read())
+            out, warnings, counts, shape = lint(fh.read(), impact, dates)
         out += lint_readiness(readiness_path(path))
         prefix = f"{path}: " if len(paths) > 1 else ""
         if shape != "template":
@@ -880,6 +1177,11 @@ def main(argv):
         if out:
             rc = 1
         print(f"{prefix}promo-lint: {len(out)} failure(s), {len(warnings)} warning(s)")
+    # the stage documents not given, one line each, after the verdict so `shape:` stays the first line
+    if impact is None:
+        print("marker-propagation skipped: no --impact-data <path>, figures are not checked against the impact-data markers")
+    if dates is None:
+        print("ordering-stamped read dates from the sentences only: no --dates <path>")
     return rc
 
 

@@ -1,6 +1,6 @@
 # Dana Whitfield - Promotion Document
 
-Fictional candidate, team, projects, numbers, links and reviewers. This file is the red sample: it carries every class of mistake a reviewer marked on a real document, re-created with invented content. `scripts/promo-lint.py` must fail on it and `evals/results/` records which rule catches which class. Round 3b added a process sentence in Why now, an unmarked initiative claim in a reason against a marked story sentence, one review id in two action paragraphs, an unfetchable document link without its marker, and two confirmed-markers on sentences that name no artifact. Round 4 added a candidate sentence in Scope of Role, a tenure in days in the header and in Why now, a Why now win with the absolutes ahead of the percentage, a body date in year-first form, and a Why now sentence carrying a marker. Round 4 shape added a review count and a year in the Why now opener, a bracketed criterion and a link in Why now, a Scope section of one paragraph, stories with no quarter lead and one with the wrong project in its lead, a printed Ownership sentence, a trait word and a claim phrase in an action paragraph, passive action sentences, a result that ends on stakeholders, and no provider count before the first reason.
+Fictional candidate, team, projects, numbers, links and reviewers. This file is the red sample: it carries every class of mistake a reviewer marked on a real document, re-created with invented content. `scripts/promo-lint.py` must fail on it and `evals/results/` records which rule catches which class. Round 3b added a process sentence in Why now, an unmarked initiative claim in a reason against a marked story sentence, one review id in two action paragraphs, an unfetchable document link without its marker, and two confirmed-markers on sentences that name no artifact. Round 4 added a candidate sentence in Scope of Role, a tenure in days in the header and in Why now, a Why now win with the absolutes ahead of the percentage, a body date in year-first form, and a Why now sentence carrying a marker. Round 4 shape added a review count and a year in the Why now opener, a bracketed criterion and a link in Why now, a Scope section of one paragraph, stories with no quarter lead and one with the wrong project in its lead, a printed Ownership sentence, a trait word and a claim phrase in an action paragraph, passive action sentences, a result that ends on stakeholders, and no provider count before the first reason. Round 4c added a figure the impact-data file marks printed as fact in Why now and in an action paragraph, an ordering claim whose two linked artifacts are dated the other way round in `promo-doc-bad.dates.csv`, a credit written as a subtraction, audit vocabulary in a story, a marker followed by a clause and a collect-marker that explains instead of naming the artifact, a Why now sentence over 60 words that holds the pronoun back, and a roll-up count that disagrees with the story headings.
 
 - Employee Name: Dana Whitfield
 - Manager Name: Noor Haddad
@@ -14,9 +14,9 @@ Harbor Telemetry owns the ingest path for 1,400 internal customers; the team run
 
 ## Why now?
 
-Dana joined Harbor Telemetry in 2024, authored 212 code reviews since, and started on the Lighthouse Parser, which was the first project. Then came the Breakwater Credentials work during the regional event, and after that the Seawall Schema project, and most recently the Quayside Tagging campaign. Each project built on the one before it and Dana grew with each one. In 790 days as an Engineer II Dana demonstrated exceptional ownership across the Lighthouse Parser, Breakwater Credentials, Seawall Schema and Quayside Tagging, and the team relies on Dana for the hardest problems.
+Dana joined Harbor Telemetry in 2024, authored 212 code reviews since, and started on the Lighthouse Parser, which was the first project. Then came the Breakwater Credentials work during the regional event, and after that the Seawall Schema project, and most recently the Quayside Tagging campaign. Each project built on the one before it and Dana grew with each one. In 790 days as an Engineer II Dana demonstrated exceptional ownership across the Lighthouse Parser, Breakwater Credentials, Seawall Schema and Quayside Tagging, and the team relies on Dana for the hardest problems. On **Breakwater Credentials**, the shared credential cache that the 8,000-host processing fleet needed after the regional event of 10/20/2025, in which every host refreshed its credentials at the same moment and 300 customers saw delayed data for the rest of the afternoon while two teams' dashboards each showed their own half as healthy, she wrote the cache client and cut credential-fetch failures by 99.7% (from 4,200 a day to 11 a day).
 
-**Lighthouse Parser shipped early and customers love it.** (Ambiguity) **Breakwater Credentials cut credential-fetch failures from 4,200 a day to 11 a day, a 99 percent drop.** Dana also worked on the Pier Alarm Cleanup, which cut pages by more than half (TO BE CONFIRMED). Dana wrote an onboarding guide too, see [the onboarding guide](https://example.com/docs/onboarding-guide). The earlier draft listed the wins in the order impact, then recency, and each project is told once below.
+**Lighthouse Parser shipped early and customers love it.** (Ambiguity) **Breakwater Credentials cut credential-fetch failures from 4,200 a day to 11 a day, a 99 percent drop.** Dana also worked on the Pier Alarm Cleanup, which cut pages by more than half (TO BE CONFIRMED). Dana wrote an onboarding guide too, see [the onboarding guide](https://example.com/docs/onboarding-guide). The earlier draft listed the wins in the order impact, then recency, and each project is told once below. Across 7 projects Dana shipped in 26 months.
 
 ## Evidence
 
@@ -34,9 +34,9 @@ The parser launched in [date] and is used by [N customers] today. Adoption is 0.
 
 Dana noticed that credential fetches were failing during the 10/20/2025 regional event and immediately started debugging. The fleet was large and the failure rate was high.
 
-Dana proposed and drove the shared credential cache, architected the jittered refresh, and owned the rollout to both teams. See https://example.com/reviews/4902 and https://example.com/reviews/4917. Ownership: originated the cache, executed the fix, operated the rollout.
+Dana proposed and drove the shared credential cache, architected the jittered refresh, and owned the rollout to both teams, with the cache core from a second builder, under the Identity team's design. See https://example.com/reviews/4902 and https://example.com/reviews/4917. Ownership: originated the cache, executed the fix, operated the rollout.
 
-Dana did a deep investigation and was responsible for the rollout. Failures dropped significantly and stakeholders were happy.
+Dana did a deep investigation and was responsible for the rollout. Dana wrote the design note first and then the fix in [review 4902](https://example.com/reviews/4902). Failures dropped significantly and stakeholders were happy.
 
 ### Seawall Schema: Ambiguity
 
@@ -60,7 +60,7 @@ Dana traced all three forms back to the pattern library and wrote an algorithm t
 
 Dana fixed the race and shipped tagging for the 4 types. A senior builder asked for the fix in the team channel.
 
-Dana took over the campaign, as the [campaign tracker](https://docs.google.com/document/d/fictional-quayside-tracker) records.
+Dana took over the campaign, as the [campaign tracker](https://docs.google.com/document/d/fictional-quayside-tracker) records. Dana reproduced the race first in [review 5088](https://example.com/reviews/5088) and then shipped the tagging change in [review 5101](https://example.com/reviews/5101).
 
 All 4 types supported tagging on 2026-06-28. Dana had picked up Quayside Tagging before anyone asked. (TO BE CONFIRMED)
 
@@ -72,11 +72,11 @@ All 4 types supported tagging on 2026-06-28. Dana had picked up Quayside Tagging
 
 After the launch of the Lighthouse Parser, which Dana designed and built end-to-end, customers in the factory machines segment adopted it faster than any format before it. Dana had written the format definition, got two teams to sign it, built the streaming parser and the two console changes, and launched in all 9 regions three weeks ahead of the committed date, as told above, and the adoption numbers followed from that launch.
 
-Dana owned adoption tracking.
+Dana owned adoption tracking, as the evidence row for the dashboard's author field records.
 
 A dashboard was built on the derivation from [review 5010](https://example.com/reviews/5010). Adoption was tracked weekly as part of this work.
 
-40 million events a day for 310 customers by 10/31/2026. The dashboard is the one stakeholders use. (TO BE CONFIRMED)
+40 million events a day for 310 customers by 10/31/2026. Adoption was 0.4% (TO BE COLLECTED: the adoption count, because nobody has measured it since launch) and trending up. The dashboard is the one stakeholders use. (TO BE CONFIRMED)
 
 > (TO BE COLLECTED: quote from the product manager)
 

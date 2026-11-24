@@ -101,13 +101,25 @@ done
 
 # promo-lint -----------------------------------------------------------------------------------
 # the red fixture must fail (exit 1, every lint-side class named in evals/results), the green must pass
-if python3 scripts/promo-lint.py evals/fixtures/promo-doc-bad.md >/tmp/promo-lint-bad.$$ 2>&1; then
+# both run with their stage documents (round 4c): --impact-data turns on marker-propagation, --dates
+# gives ordering-stamped the artifact dates. The red stage files must add failures (the three
+# rules that read them), the green ones must add none, and the green must also pass without them.
+stage() { echo "--impact-data evals/fixtures/promo-doc-$1.impact-data.md --dates evals/fixtures/promo-doc-$1.dates.csv"; }
+if python3 scripts/promo-lint.py $(stage bad) evals/fixtures/promo-doc-bad.md >/tmp/promo-lint-bad.$$ 2>&1; then
   say promo-lint "FAIL: evals/fixtures/promo-doc-bad.md passed the lint, the red sample no longer trips it"; fail=1
 fi
 nbad=$(grep -c '^[a-z-]* ' /tmp/promo-lint-bad.$$ || true)
-if ! out=$(python3 scripts/promo-lint.py evals/fixtures/promo-doc-good.md 2>&1); then
-  say promo-lint "FAIL: evals/fixtures/promo-doc-good.md"; echo "$out" | sed 's/^/    /'; fail=1
-fi
+nfail=$(sed -n 's/^promo-lint: \([0-9]*\) failure.*/\1/p' /tmp/promo-lint-bad.$$)
+nbare=$({ python3 scripts/promo-lint.py evals/fixtures/promo-doc-bad.md 2>&1 || true; } | sed -n 's/^promo-lint: \([0-9]*\) failure.*/\1/p')
+[ "${nfail:-0}" -gt "${nbare:-0}" ] || { say promo-lint "FAIL: the red stage files (impact-data, dates) add no failure, marker-propagation or ordering-stamped stopped reading them"; fail=1; }
+grep -q '^marker-propagation ' /tmp/promo-lint-bad.$$ || { say promo-lint "FAIL: marker-propagation did not fire on the red fixture with its impact-data file"; fail=1; }
+grep -q '^ordering-stamped ' /tmp/promo-lint-bad.$$ || { say promo-lint "FAIL: ordering-stamped did not fire on the red fixture with its dates file"; fail=1; }
+for args in "$(stage good)" ""; do
+  if ! out=$(python3 scripts/promo-lint.py $args evals/fixtures/promo-doc-good.md 2>&1); then
+    say promo-lint "FAIL: evals/fixtures/promo-doc-good.md (args: ${args:-none})"; echo "$out" | sed 's/^/    /'; fail=1
+  fi
+  echo "$out" | grep -q '^warning ' && { say promo-lint "FAIL: evals/fixtures/promo-doc-good.md carries a warning (args: ${args:-none})"; echo "$out" | grep '^warning ' | sed 's/^/    /'; fail=1; }
+done
 rm -f /tmp/promo-lint-bad.$$
 # the flattened red fixture (pre-template shape) must be measured per story through the fallback
 flat=$(python3 scripts/promo-lint.py evals/fixtures/promo-doc-bad.flat.md 2>&1 || true)
@@ -126,7 +138,7 @@ nruns=$(grep -c 'word run:' /tmp/promo-copy-bad.$$ || true); rm -f /tmp/promo-co
 if ! out=$(python3 scripts/promo-copycheck.py evals/fixtures/promo-doc-good.md "$fb" 2>&1); then
   say promo-lint "FAIL: promo-copycheck.py found a run in promo-doc-good.md"; echo "$out" | sed 's/^/    /'; fail=1
 fi
-[ $fail -eq 0 ] && say promo-lint "ok (red fixture fails with $nbad lines, green fixture 0 failures, flattened red fixture linted through the fallback, copy check $nruns run(s) on red and 0 on green)"
+[ $fail -eq 0 ] && say promo-lint "ok (red fixture fails with $nbad lines and $nfail failures, $nbare failures without its stage files, green fixture 0 failures and 0 warnings with and without, flattened red fixture linted through the fallback, copy check $nruns run(s) on red and 0 on green)"
 
 # instance -------------------------------------------------------------------------------------
 if [ -n "${VSTACK_INSTANCE:-}" ]; then

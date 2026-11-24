@@ -1,6 +1,6 @@
 # Dana Whitfield - Promotion Document
 
-Fictional candidate, team, projects, numbers, links and reviewers. This file is the green sample for `scripts/promo-lint.py` and the promo-doc rules in `skills/validate-writing/checklist.md`. Nothing in it describes a real person or organisation.
+Fictional candidate, team, projects, numbers, links and reviewers. This file is the green sample for `scripts/promo-lint.py` and the promo-doc rules in `skills/validate-writing/checklist.md`. Nothing in it describes a real person or organisation. Its companion files sit beside it: `promo-doc-good.readiness.md`, `promo-doc-good.impact-data.md` (read with `--impact-data`) and `promo-doc-good.dates.csv` (read with `--dates`).
 
 - Employee Name: Dana Whitfield
 - Manager Name: Noor Haddad
@@ -18,7 +18,7 @@ A Senior Engineer on this team owns a service end to end, sets the design for pr
 
 ## Why now?
 
-Dana has 26 months in level as an Engineer II after 14 months as an Engineer I on the same team. In that time she has delivered across three initiatives, **Breakwater Credentials**, **Lighthouse Parser** and **Tidewater Schema**, while carrying the team's on-call. On **Breakwater Credentials**, she traced a failure nobody owned across two teams' code, disproved the retry fix with a reproduction, and shipped a shared cache that cut credential-fetch failures by **99.7% (from 4,200 a day to 11 a day)**, which the Identity team adopted for its own 2,000-host fleet in March 2026. On **Lighthouse Parser**, she turned one customer's one-line complaint into a 14-field format definition two teams signed, wrote both the ingest and the console halves so neither team waited on the other, and launched in all 9 regions 3 weeks ahead of the committed date, parsing **40 million events a day for 310 customers** by 10/31/2026. On **Tidewater Schema**, she found the same field data held in three hand-written shapes, replaced all three with one derivation, and cut the schema sources **from 3 to 1** across 180 pipelines, deleting 2,300 lines of mappings. On operations she classified all 19 of the team's noisy alarms by whether a customer could tell the difference and closed 12 of them in one quarter, cutting pages by 60% (from 45 to 18 a week), and she carries one of the team's 7 on-call slots. She wrote the onboarding script the 3 builders who joined in 2026 used to ship their first change in 11, 9 and 14 days instead of the 6-week average before it. Across these 3 initiatives she shipped in 2 teams' codebases and 4 services in 26 months.
+Dana has 26 months in level as an Engineer II after 14 months as an Engineer I on the same team. In that time she has delivered across three initiatives, **Breakwater Credentials**, **Lighthouse Parser** and **Tidewater Schema**, while carrying the team's on-call. On **Breakwater Credentials**, she traced a failure nobody owned across two teams' code, disproved the retry fix with a reproduction, and shipped a shared cache that cut credential-fetch failures by **99.7% (from 4,200 a day to 11 a day)**, which the Identity team adopted for its own 2,000-host fleet in March 2026. On **Lighthouse Parser**, she turned one customer's one-line complaint into a 14-field format definition two teams signed, wrote both the ingest and the console halves so neither team waited on the other, and launched in all 9 regions 3 weeks ahead of the committed date, parsing **40 million events a day for 310 customers** by 10/31/2026. On **Tidewater Schema**, she found the same field data held in three hand-written shapes, replaced all three with one derivation, and cut the schema sources **from 3 to 1** across 180 pipelines, deleting 2,300 lines of mappings. On operations she classified all 19 of the team's noisy alarms by whether a customer could tell the difference and closed 12 of them in one quarter, cutting pages by 60% (from 45 to 18 a week), and she carries one of the team's 7 on-call slots. She wrote the onboarding script the 3 builders who joined in 2026 used to ship their first change in 11, 9 and 14 days instead of the 6-week average before it. Across 6 projects she shipped in 2 teams' codebases and 4 services in 26 months.
 
 ## Evidence
 
@@ -88,15 +88,15 @@ Dana volunteered to own the cleanup and the manager agreed in the team's quarter
 
 Dana classified all 19 alarms by whether a customer could tell the difference, and ruled out muting them wholesale because 2 of the 19 had paged on real incidents in the 90-day history. She agreed the delete list with Owen Faraday, the on-call lead, before the first change, then deleted 7, retuned 5 with data from the 90 days, and rewrote the on-call guide so each remaining alarm names its first check, in [review 5130](https://example.com/reviews/5130). A strong Engineer II would have retuned the alarms assigned to them, not decided which 7 the team could live without.
 
-Pages fell by 60% (from 45 a week to 18 a week) by 03/31/2026, and no incident has gone unnoticed in the 7 months since. (TO BE CONFIRMED) The on-call rotation's 7 builders now run the first-check guide on every page.
+Pages fell by 60% (from 45 a week to 18 a week) by 03/31/2026, and no incident has gone unnoticed in the 7 months since. (TO BE CONFIRMED) Harbor Telemetry's 7 on-call builders now run the first-check guide on every page.
 
 > "Our on-call stopped dreading the phone. Dana did the boring work nobody else would.", Noor Haddad, Engineering Manager
 
-### Onboarding Guide: Scope and Influence
+### Onboarding Guide `Harbor::Setup`: Scope and Influence
 
 **Headline** 3 new builders shipped their first change within 2 weeks instead of 6.
 
-**Q1 2026, Onboarding Guide:** a new builder on Harbor Telemetry took 6 weeks on average to ship a first change, because the setup steps lived in 4 people's heads and no document held them. Nobody had asked for a guide. Dana started writing one while onboarding the next builder.
+**Q1 2026, Onboarding Guide `Harbor::Setup`:** a new builder on Harbor Telemetry took 6 weeks on average to ship a first change, because the setup steps lived in 4 people's heads and no document held them. Nobody had asked for a guide. Dana started writing one while onboarding the next builder.
 
 Dana wrote the guide without being asked and the manager made it the team standard in [the onboarding guide](https://example.com/docs/onboarding-guide), with the two builders she onboarded checking each step as they ran it.
 
