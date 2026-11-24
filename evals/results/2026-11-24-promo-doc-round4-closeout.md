@@ -86,7 +86,7 @@ unchanged and green.
 | `e8a6098` | D86 to D90, D67 amended in place, one class row in decisions.md |
 | `f099c46` | this results file (its id added in the next commit) |
 | `f86325c` | the results file's own id |
-| next | held_rows splits a marked row the way impact_rows does, so a held figure beside a marked one in the same row counts as held (the live draft's top story ends on such a figure) |
+| `f49b256` | held_rows splits a marked row the way impact_rows does, so a held figure beside a marked one in the same row counts as held (the live draft's top story ends on such a figure) |
 
 ## What the instance copies
 
