@@ -27,7 +27,9 @@ them before writing, see "Verifying supplied evidence" below.
   paragraph differs per pair (the step to a senior level adds delivery through others, more
   complex systems and more design than the step before it). `## Scope of Role` is copied from it.
 - **candidate-facts** (required, per-candidate decisions file): the prior roles with their months,
-  the date the current level started, and the months in level. See "Candidate facts".
+  the date the current level started, the months in level, and the candidate's pronoun (she, he or
+  they), which the lint's `candidate-subject-share` reads through `PROMO_LINT_CANDIDATE_PRONOUN`.
+  See "Candidate facts".
 - **story-ranking** (required, per-candidate decisions file): a table with columns project, rank,
   one line on why it matters, written by the owner. See "The owner ranks the stories".
 - **evidence**: the gathered facts, with artifact links.
@@ -122,7 +124,10 @@ rewritten per candidate. The lint's `scope-no-candidate` fails the section on th
 ## Candidate facts (candidate-facts, tenure-months)
 
 The `candidate-facts` block in the per-candidate decisions file is an owner input: the prior roles
-with their months, the date the current level started, and the months in level. A fact the block
+with their months, the date the current level started, the months in level, and the pronoun the
+document uses for the candidate (the instance workflow passes it to the lint as
+`PROMO_LINT_CANDIDATE_PRONOUN`, without it the lint takes the commonest of she, he, they in the
+stories). A fact the block
 does not hold prints as a TODO row for the owner in the run brief and as `(TO BE CONFIRMED)` at the
 end of the sentence that needs it. It is never inferred from a people-directory page or a hire
 date, and never invented. Two consequences:
@@ -143,6 +148,55 @@ matters) decides the order of the Why now wins and which story is told first und
 missing, stop and write `questions.md` as "Inputs, and when to refuse" says. The gate's
 `owner-ranked-stories` rule fails a Why now order or a first story that departs from the table.
 
+## Why now is one paragraph for the VP (why-now-one-paragraph, why-now-opener, why-now-no-list, why-now-rollup)
+
+Write Why now last, from the finished stories, as ONE paragraph under 550 words with no bullet, no
+sub-heading, no link, no criterion in brackets and no marker. Procedure:
+
+1. Sentence one: the months in level from the `candidate-facts` block and the prior roles in one
+   clause ("Dana has 26 months in level as an Engineer II after 14 months as an Engineer I on the
+   same team"). Never the review counts, those open the review-process story.
+2. Sentence two: how many initiatives, listed with each project name in bold, in the order the
+   `story-ranking` table gives (D53, `why_now.order` breaks ties). You never pick the order.
+3. One sentence per ranked project, three at most, each opening "On **Project**," with two or
+   three of the candidate's verbs from that story's action paragraph and ending on the story's
+   Headline number with its baseline, relative first (D51). Bold the number, not the sentence.
+4. One sentence on operations (incidents root-caused, on-call scopes with a one-clause gloss
+   each), one on people (who the candidate onboarded or mentored, with the number that landed).
+5. One closing sentence that rolls up in counts (projects, services, teams, regions, months), not
+   in trait words. "Across these 3 initiatives she shipped in 2 teams' codebases and 4 services in
+   26 months", never "a consistent ability to".
+
+A project with no story is not named in Why now, it goes to the Appendix (D14). No sentence names
+more than three projects. The candidate is the grammatical subject of every sentence. The lint's
+`why-now-one-paragraph` fails a second paragraph, a bullet, a sub-heading, a link, a bracketed
+criterion, a bold span over six words with no digit, and a bold project name with no numbered
+sentence. `why-now-opener` fails a first sentence with no month count, with a review count or with
+a trait word. The gate's `why-now-no-list` and `why-now-rollup` read the rest.
+
+## Show, don't tell (no-trait-words, obstacle-first, figure-has-verb, reuse-named, candidate-subject-share)
+
+The house rule `show-dont-tell` lists the seven techniques, the house rule `no-superlatives` holds
+the denylist of trait words and claim phrases, and the lint's `no-trait-words` reads that list from
+`house-rules.md` at run time, so there is one list. In a story:
+
+- Open the situation paragraph with the bold lead `**Qn YYYY, <Project>:**` (lint `story-lead`),
+  then the obstacle in concrete nouns before the candidate's first verb: what did not exist, who
+  else owned the code. The lint's `obstacle-first` warns when no absence construction precedes
+  the candidate's first sentence.
+- Open action sentences on the candidate's name or pronoun and a verb. The lint's
+  `candidate-subject-share` warns when fewer than 60 percent of action sentences do, quoting the
+  rest.
+- Name the technique per component instead of an adjective about depth. Never deep, thorough,
+  rigorous, robust, strong, consistent, impressive, instrumental, "ability to", "well beyond",
+  "was responsible for", "owned quality", or demonstrat- followed by a trait. The lint fails each
+  one, quoting the sentence. The D24 altitude form "A strong <level> would have" is the one
+  exemption.
+- Put each result figure in the sentence with the verb that produced it (`figure-has-verb`
+  warns on a numbered sentence with no verb) and end the result paragraph on who uses the work now,
+  a named team or builder, or on the exact sentence "No reuse by others is on record."
+  (`reuse-named` warns otherwise, "stakeholders" is not a name).
+
 ## Relative first, dates MM/DD/YYYY, no markers in Why now (relative-first, date-format, why-now-no-markers)
 
 Where a Headline or a Why now sentence carries both a relative figure (a percentage, an x-factor,
@@ -152,7 +206,8 @@ brackets: "cut credential-fetch failures by 99.7% (from 4,200 a day to 11 a day)
 other order and absolutes left outside the brackets.
 
 Dates in body text are MM/DD/YYYY (house rule `date-format`). A YYYY-MM-DD anywhere outside a URL,
-a link target or the frontmatter fails the lint's `date-format`.
+a link target or the frontmatter fails the lint's `date-format`. A quarter label (`Q3 2026`) in a
+story lead is not a date and passes (D52 amended by D62).
 
 Why now carries no marker. A figure the evidence does not hold is left out of Why now and told in
 its story with `(TO BE CONFIRMED)` or `(TO BE COLLECTED: <what>)`. The lint's `why-now-no-markers`
@@ -171,13 +226,15 @@ discrepancy to the caller and mark the sentence `(TO BE CONFIRMED)` until they r
 
 Before writing a project as the candidate's, check acknowledgements, credit lists and attendee
 sections in the supplied artifacts for co-authors, a `roles.senior_technical_owner` who set
-direction, or reviewers whose role could be misread as ownership. Every story's task paragraph
-(the second) ends with one `Ownership:` sentence naming what the candidate originated, executed
-and operated. An
-ownership verb in a story (led, owned, drove, architected, designed, end-to-end) must be backed by
-that line and by the ownership audit's verdict (SUPPORTED, PARTIALLY SUPPORTED, UNSUPPORTED).
-With shared ownership, write the qualified version: "executed the implementation and rollout
-under <name>'s direction as `roles.senior_technical_owner`". When in doubt, ask the caller.
+direction, or reviewers whose role could be misread as ownership. An ownership verb in a story
+(led, owned, drove, architected, designed, end-to-end) must be backed by the ownership audit's
+verdict (SUPPORTED, PARTIALLY SUPPORTED, UNSUPPORTED). No `Ownership:` sentence is printed (D59,
+the printed line was a label the reader sees, the same class D28 removed). With shared ownership,
+credit the other party by function in the same sentence as the candidate's act, in the task
+paragraph: "shipped the Identity team's half with that team's senior owner as reviewer, who then
+ran the rollout on their fleet". Never as a subtraction ("under <name>'s design, with the core
+authored by another builder"), which belongs only in Best reasons not to promote (house rule
+`credit-inline`). The ownership audit stays the gate (D21). When in doubt, ask the caller.
 
 ## Task-tracker dates and other builders' fixes (asana-date-role)
 
@@ -270,28 +327,34 @@ the draft `(TO BE CONFIRMED)` meanwhile.
 Follow [template.md](template.md). Its "Shapes the lint keys on" block holds the exact strings
 `scripts/promo-lint.py` checks. Two readers, two sections:
 
-- **Why now?** is for a VP. Three bold wins in the order the owner's `story-ranking` table gives
-  (`why_now.order` breaks ties), each carrying its story's Headline number, relative figure first,
-  under 550 words, no marker, no unglossed internal codename.
+- **Why now?** is for a VP. One paragraph: months in level first, the initiatives in bold in the
+  owner's `story-ranking` order (`why_now.order` breaks ties), one "On **Project**," sentence per
+  ranked project ending on its Headline number with its baseline, then operations, people and a
+  roll-up in counts. Under 550 words, no bullet, no link, no bracketed criterion, no marker, no
+  trait word, no unglossed internal codename. See "Why now is one paragraph for the VP".
 - **Evidence** is for the panel. One `### <Project>: <Criterion>` story per project. STAR is the
   skeleton you follow, never words the reader sees: the only bold lead-in in a story is
   `**Headline**`. Four unlabelled prose paragraphs follow it, in this order:
 
   - **Headline**: the glossary term. Bold first line, the outcome, at least one number and the
     baseline or comparator it beat. Never the project name alone, never what the candidate did.
-  - Paragraph 1, situation: the customer or stakeholder, what was broken or undefined, why it
-    mattered now, and the criterion's marker (Ambiguity: what was undefined and from whose view.
-    Problem Complexity: why the cause was not obvious or who else owned the code). Its last
-    sentence is the candidate's first move, in an action verb.
-  - Paragraph 2, task: what the candidate owned, who asked. Its last sentence is the
-    `Ownership: originated ..., executed ..., operated ...` sentence, not a labelled line.
-  - Paragraph 3, action: the journey, candidate-led action verbs: what was tried or ruled out, why
-    no off-the-shelf path worked, who they reached out to or aligned, every artifact linked on its
-    identifier at the claim it supports. The lint's `journey-countable` fails a paragraph with none
-    of those verbs and no other person named, and `one-cr-once` fails a review id that already sits
-    in another story's action paragraph. Its last sentence is the altitude test: why a strong
-    engineer one level below could not have done it.
-  - Paragraph 4, result: dated, numbers, adoption, reuse by others.
+  - Paragraph 1, situation: opens with the bold lead `**Qn YYYY, <Project>:**`, then the obstacle
+    in concrete nouns before the candidate's first verb (what did not exist, who else owned the
+    code) and the criterion's marker (Ambiguity: what was undefined and from whose view. Problem
+    Complexity: why the cause was not obvious or who else owned the code). Its last sentence is the
+    candidate's first move, in an action verb.
+  - Paragraph 2, task: what the candidate owned, who handed it over and why, stated as a fact of
+    the project, shared work credited by function in the same sentence. No `Ownership:` sentence.
+  - Paragraph 3, action: candidate-led sentences, name or pronoun first and a verb second: the
+    fork with the cost of the fast option, why no off-the-shelf path worked, who they reached out to
+    or aligned, the technique per component, every artifact linked on its identifier at the claim
+    it supports. The lint's `journey-countable` fails a paragraph with none of those verbs and no
+    other person named, and `one-cr-once` fails a review id that already sits in another story's
+    action paragraph. Its last sentence is the altitude sentence in either form: the D24
+    counterfactual, or a factual contrast naming who else was engaged and what the candidate alone
+    did (D60).
+  - Paragraph 4, result: each figure beside the verb that produced it, dated, relative first,
+    ending on who uses the work now or on "No reuse by others is on record."
   - One quote line, verbatim with name and role, or `(TO BE COLLECTED: quote from <role>)`.
 
   No `**Situation**`, `**Task**`, `**Action**` or `**Result**` label anywhere. The lint fails a
@@ -303,12 +366,15 @@ At most 2 full stories per criterion, further projects under it in one sentence 
 stays under 500 words, quote excluded. A shortened story keeps every link the longer one had.
 
 Principles are cited the way the glossary ([leadership-writing/glossary.md](../leadership-writing/glossary.md))
-says: when `principles.cite_per_statement` is `false` (the default), close each criterion with
-one line `<principles.name> demonstrated: X, Y`. When `true`, one principle in bold brackets at
-the end of the statement it supports. Cite only principles in `principles.list` when a list is
-supplied.
+says: `principles.print_line` is `false` by default (D61), so no principles line is printed in the
+manager's stories, the providers' bracketed tags in Feedback carry them. When `print_line` is
+`true` and `principles.cite_per_statement` is `false`, close each criterion with one line
+`<principles.name> demonstrated: X, Y`. When `cite_per_statement` is `true`, one principle in bold
+brackets at the end of the statement it supports. Cite only principles in `principles.list` when a
+list is supplied.
 
-**Best reasons not to promote**: five parts per reason with the template's lead-ins (Pattern with
+**Best reasons not to promote**: one intro paragraph that names the themes and counts how many
+providers raised each (the lint's `rntp-intro-counts` warns without it), then five parts per reason with the template's lead-ins (Pattern with
 two positive examples, Gap with one dated example of who pointed it out, Also seen by, Does not
 block with evidence, Next with a plan). Every gap a feedback provider states is addressed by one
 reason. An aspiration is not a reason. Headings in plain words. No reason may contradict a story
@@ -364,6 +430,16 @@ Stop and re-read the rule when you see yourself producing any of these, on top o
 - a claim with no code review, document or ticket linked beside it
 - a peer quote that is not verbatim from the evidence
 - a Why now ordered by time, or by anything other than the owner's `story-ranking` table
+- a Why now of more than one paragraph, a bold sentence standing alone as a win, a criterion in
+  brackets, a review count in the first sentence, or a closing sentence that names a pattern in
+  trait words instead of counts
+- a story whose first paragraph does not open `**Qn YYYY, <Project>:**`, or a printed
+  `Ownership:` sentence
+- deep, thorough, rigorous, robust, strong, consistent, impressive, "ability to", "was responsible
+  for", or demonstrat- plus a trait anywhere in your own prose
+- a result paragraph that ends on "stakeholders" or on nothing about who uses the work now
+- shared work written as a subtraction ("under X's design") in a story instead of a credit by
+  function in the same sentence
 - a Why now sentence carrying `(TO BE CONFIRMED)` or `(TO BE COLLECTED ...)`
 - a Scope of Role that names the candidate, their hire date or their previous team
 - a tenure in days, or a review window counted from the hire date instead of the level start
