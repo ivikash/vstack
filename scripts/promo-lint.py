@@ -761,13 +761,19 @@ def lint_dates_printed(sec, sentence, dates, fail):
             fail("dates-printed-match-csv", sec, f"`{dm.group(0)}` beside `{nearest.group(1)}` is not the dates file's {fmt_date(row)} for it, the draft prints the shipped date the csv holds, so one of the two is the created date (D82): `{excerpt(sentence)}`")
 
 
-def lint_why_now_sentence_shape(sentence, k, name, pronoun, fail):
+def lint_why_now_sentence_shape(sentence, k, name, pronoun, fail, warnings=None):
     """why-now-sentence-shape (D76): no Why now sentence over WHY_NOW_SENTENCE_CAP words, and an
     `On **Project**,` sentence names the candidate (pronoun or first name) within PRONOUN_WINDOW
-    words after the closing bold."""
+    words after the closing bold. Floor (D85, warning): a sentence under WHY_NOW_SENTENCE_FLOOR
+    words with no figure of its own, a `<figure> above|below|earlier` cross-reference is not its
+    own, carries no new fact for the VP."""
     n = len(WORD.findall(sentence.replace("**", "")))
     if n > WHY_NOW_SENTENCE_CAP:
         fail("why-now-sentence-shape", "Why now", f"sentence {k + 1} runs {n} words, cap {WHY_NOW_SENTENCE_CAP}, split it (D76): `{excerpt(sentence)}`")
+    if warnings is not None and n < WHY_NOW_SENTENCE_FLOOR:
+        own = [m for m in re.finditer(r"\d[\d,.]*%?", sentence) if not CROSS_REFERENCE.search(sentence[m.end(): m.end() + 24])]
+        if not own:
+            warnings.append(f"warning why-now-sentence-shape Why now: sentence {k + 1} runs {n} words, floor {WHY_NOW_SENTENCE_FLOOR}, and carries no figure of its own, a cross-reference tells the VP nothing new, cut it or fold its fact into the project's sentence (D85): `{excerpt(sentence)}`")
     m = ON_PROJECT.match(sentence)
     if m:
         head = WORD.findall(m.group(1).replace("**", ""))[:PRONOUN_WINDOW]
@@ -915,7 +921,7 @@ def lint(text, impact=None, dates=None):
             raw = " ".join(l.strip() for l in body if l.strip() and not HEADING.match(l))
             why_now_sents = sentences(raw)
             for k, s in enumerate(why_now_sents):
-                lint_why_now_sentence_shape(s, k, name, pronoun, fail)
+                lint_why_now_sentence_shape(s, k, name, pronoun, fail, warnings)
 
         if title == "Evidence":
             stories = split_sections(body, 3)
