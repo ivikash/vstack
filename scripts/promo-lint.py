@@ -125,6 +125,17 @@ Round 4e rules (the round 4b review's section H, decisions D81 to D85):
                         core|design|schema (that|which) a|another|the teammate|builder|team` (D83)
     why-now-sentence-shape  floor, warning: a Why now sentence under 10 words whose only figures are
                         cross-references (`<figure> above|below|earlier`) or that has none (D85)
+Round 4 close-out rules (the round 4c review's section H, decisions D86 to D89):
+    dates-csv-coverage  warning, with `--dates`: a MM/DD/YYYY printed within 40 characters of a
+                        linked artifact that has no csv row prints `add a row for <url> or move the
+                        date`. The nearest link owns the date, so a neighbouring link's date does not
+                        fire on a link with no row (D86)
+    headline-no-identifier  warning: a code review, ticket or MCM identifier (or a link to one) in a
+                        story Headline, `move the identifier to the action paragraph and keep the
+                        date`. The owner decides per draft (D87)
+    reuse-named         silent when the result paragraph's last sentence carries a figure from a HELD
+                        impact-data row (needs `--impact-data`), the checklist vp-read note (D79)
+                        decides the ending of a top-ranked story (D67 amended, D88)
 Hosts the writer cannot fetch are `UNVERIFIED_HOSTS` plus the comma-separated env var
 PROMO_LINT_UNVERIFIED_HOSTS. Links the caller has verified by hand are exempt through the env var
 PROMO_LINT_LINK_EXEMPT (comma-separated URL substrings) or an adjacent `(SUPPORTED)` tag. The
@@ -233,6 +244,9 @@ ACTION_VERB = re.compile(r"\b(cut|fell|dropped|rose|reached|shipped|launched|del
 REUSE = re.compile(r"\b(now (uses?|runs?|run every|extends?|plans? from|reads?|ships?|follows?)|adopted|reused|copied|extend(s|ed)?|baseline|reference|plans? from|run(s)? every|standard|took over|picked up|carries|uses it|use it|rely on|relies on|built on|now points?|pattern to copy|copied)\b", re.I)
 NO_REUSE = "No reuse by others is on record."
 PRONOUNS = ("she", "he", "they")
+
+# round 4 close-out (the round 4c review's section H, decisions D86 to D89)
+HEADLINE_IDENTIFIER = re.compile(r"\b(CR|MCM|PR|review|ticket|issue)[- #]?\d{2,}\b|\]\(https?://[^)]*/(reviews?|tickets?|mcms?|issues?|pull)/\d+", re.I)   # headline-no-identifier, D87
 
 
 def house_rules_path():
@@ -614,6 +628,27 @@ def impact_rows(path):
     return rows
 
 
+def held_rows(path):
+    """Held rows of an impact-data stage document: every numbered table row whose LAST cell carries
+    neither marker. Returns (row number, figure keys, number cell). reuse-named (D67 amended by D88)
+    is silent when a result paragraph's last sentence carries one of these figures, because the
+    D79 note lets a top-ranked story end on its held figure instead of a user name."""
+    rows = []
+    with open(path, encoding="utf-8") as fh:
+        for l in fh:
+            if not l.startswith("|"):
+                continue
+            cells = [c.strip() for c in l.strip().strip("|").split("|")]
+            if len(cells) < 3 or not re.fullmatch(r"\d+", cells[0]):
+                continue
+            if "(TO BE CONFIRMED)" in cells[-1] or "(TO BE COLLECTED" in cells[-1]:
+                continue
+            keys = figures(cells[1])
+            if keys:
+                rows.append((cells[0], keys, cells[1]))
+    return rows
+
+
 def sentence_marker(sentence):
     """The marker a sentence ends on: `(TO BE CONFIRMED)`, `(TO BE COLLECTED`, or None."""
     m = MARKER_END.search(sentence.strip())
@@ -737,12 +772,14 @@ CROSS_REFERENCE = re.compile(r"\b(above|below|earlier)\b", re.I)   # why-now-sen
 WHY_NOW_SENTENCE_FLOOR = 10    # why-now-sentence-shape floor, D85
 
 
-def lint_dates_printed(sec, sentence, dates, fail):
+def lint_dates_printed(sec, sentence, dates, fail, warnings=None):
     """dates-printed-match-csv (D82, blocker when `--dates` is given): a MM/DD/YYYY date printed
     within DATE_LINK_WINDOW characters of a linked artifact equals that artifact's csv date. The
     csv holds the SHIPPED date and the draft prints the shipped date, so a created date beside a
     review link (the reader cannot see which one it is) fails naming both. The nearest link owns
-    the date, a link with no csv row is skipped."""
+    the date. A link with no csv row is a `dates-csv-coverage` warning (D86): the date it carries
+    is not checked by anything, so the writer adds the row or moves the date. Because the nearest
+    link owns the date, a neighbouring link's date never fires on a link with no row."""
     links = list(re.finditer(r"\[([^\]]+)\]\((https?://[^)]+)\)", sentence))
     if not links:
         return
@@ -755,6 +792,8 @@ def lint_dates_printed(sec, sentence, dates, fail):
         url = nearest.group(2)
         row = dates.get(url) or next((v for k, v in dates.items() if k in url or url in k), None)
         if row is None:
+            if warnings is not None:
+                warnings.append(f"warning dates-csv-coverage {sec}: `{dm.group(0)}` beside `{nearest.group(1)}` has no dates.csv row, so nothing checks it, add a row for {url} or move the date (D86): `{excerpt(sentence)}`")
             continue
         printed = parse_date(dm.group(0))
         if printed and printed != row:
@@ -794,7 +833,7 @@ def lint_rollup_counts(sentence, stories, warnings):
             warnings.append(f"warning rollup-counts-held Why now: closing sentence counts `{m.group(0)}`, the draft has {actual} {'story headings' if noun.startswith('stor') else 'distinct story projects'} (D77): `{excerpt(sentence)}`")
 
 
-def lint(text, impact=None, dates=None):
+def lint(text, impact=None, dates=None, held=None):
     lines = text.splitlines()
     length_fails, fails, warnings, counts = [], [], [], []
     shape = "template"
@@ -935,7 +974,7 @@ def lint(text, impact=None, dates=None):
                 else:
                     project, crit = (x.strip() for x in head.rsplit(":", 1))
                 parsed.append((project, crit, sbody))
-            marked_projects = lint_stories(parsed, fail, length_fails, warnings, counts, trait_check, name, pronoun, impact, dates)
+            marked_projects = lint_stories(parsed, fail, length_fails, warnings, counts, trait_check, name, pronoun, impact, dates, held)
 
         if title == "Best reasons not to promote":
             reasons = split_sections(body, 3)
@@ -958,7 +997,7 @@ def lint(text, impact=None, dates=None):
         if fallback:
             shape = "fallback"
             pronoun = candidate_pronoun([p for _, _, sb in fallback for p in paragraphs(sb)])
-            marked_projects = lint_stories(fallback, fail, length_fails, warnings, counts, trait_check, name, pronoun, impact, dates)
+            marked_projects = lint_stories(fallback, fail, length_fails, warnings, counts, trait_check, name, pronoun, impact, dates, held)
     if marked_projects and reasons:
         lint_rntp_contradiction(reasons, marked_projects, fail)
     if why_now_sents and parsed:
@@ -1028,7 +1067,7 @@ def review_ids(text):
     return {next(g for g in m.groups() if g) for m in REVIEW_ID.finditer(text)}
 
 
-def lint_stories(stories, fail, length_fails, warnings, counts, trait_check=lambda sec, s: None, name=None, pronoun="she", impact=None, dates=None):
+def lint_stories(stories, fail, length_fails, warnings, counts, trait_check=lambda sec, s: None, name=None, pronoun="she", impact=None, dates=None, held=None):
     """Per-story rules over (project, criterion, body) triples, from the template shape or the
     fallback splitter. The body's first non-empty line is the Headline slot. Returns the projects
     named inside a marked sentence of any story, for the document-wide rntp-contradiction scan."""
@@ -1055,6 +1094,10 @@ def lint_stories(stories, fail, length_fails, warnings, counts, trait_check=lamb
         rf = relative_first(headline) if headline else None
         if rf:
             fail("relative-first", sec, f"{rf}: `{excerpt(headline)}`")
+        # headline-no-identifier (D87, warning): a review, ticket or MCM identifier in the Headline
+        hid = HEADLINE_IDENTIFIER.search(headline) if headline else None
+        if hid:
+            warnings.append(f"warning headline-no-identifier {sec}: Headline carries the identifier `{excerpt(hid.group(0), 40)}`, move the identifier to the action paragraph and keep the date (D87): `{excerpt(headline)}`")
         paras = paragraphs(sbody)
         if len(paras) < STORY_PARAGRAPHS:
             fail("story-paragraphs", sec, f"{len(paras)} prose paragraphs between the Headline and the quote, need {STORY_PARAGRAPHS} (situation, task, action, result, no labels)")
@@ -1092,7 +1135,7 @@ def lint_stories(stories, fail, length_fails, warnings, counts, trait_check=lamb
                 # ordering-stamped (D73, widened to every paragraph between the Headline and the quote, D81)
                 lint_ordering(sec, s, dates or {}, dates is not None, fail, warnings)
                 if dates is not None:
-                    lint_dates_printed(sec, s, dates, fail)
+                    lint_dates_printed(sec, s, dates, fail, warnings)
         quotes = [l for l in sbody if l.startswith(">")]
         if len(quotes) != 1:
             fail("quote-per-story", sec, f"{len(quotes)} quote lines, need exactly 1")
@@ -1125,10 +1168,13 @@ def lint_stories(stories, fail, length_fails, warnings, counts, trait_check=lamb
             for s in rsents:
                 if re.search(r"\d", s) and not ACTION_VERB.search(s):
                     warnings.append(f"warning figure-has-verb {sec}: result sentence carries a number and no verb, put the figure beside the verb that produced it (D66): `{excerpt(s)}`")
-            # reuse-named (D67, warning): the last result sentence names a user or is the no-reuse sentence
+            # reuse-named (D67, warning): the last result sentence names a user or is the no-reuse sentence.
+            # Silent when that sentence carries a figure from a HELD impact-data row (D88, needs --impact-data):
+            # the D79 checklist note decides whether a top-ranked story ends on its held figure
             last = MARKER_CONFIRMED.sub("", rsents[-1]).strip() if rsents else ""
-            if last and last != NO_REUSE and not (REUSE.search(last) and re.search(r"\b[A-Z][a-z]+\b|\bteams?\b", last[1:])):
-                warnings.append(f"warning reuse-named {sec}: result paragraph does not end on who uses the work now (a named team or builder) or on `{NO_REUSE}` (D67): `{excerpt(last)}`")
+            held_ending = bool(held) and any(figure_in(last, k) for _, keys, _ in held for k in keys)
+            if last and last != NO_REUSE and not held_ending and not (REUSE.search(last) and re.search(r"\b[A-Z][a-z]+\b|\bteams?\b", last[1:])):
+                warnings.append(f"warning reuse-named {sec}: result paragraph does not end on who uses the work now (a named team or builder), on a held impact-data figure, or on `{NO_REUSE}` (D67, D88): `{excerpt(last)}`")
             if re.search(r"\bstakeholders\b", last, re.I):
                 warnings.append(f"warning reuse-named {sec}: `stakeholders` is not a name (D67): `{excerpt(last)}`")
         # marker-direction (D38): per sentence of the story's prose
@@ -1208,11 +1254,12 @@ def main(argv):
               "  --dates        `url,date` rows (MM/DD/YYYY or YYYY-MM-DD, the SHIPPED date) for the linked artifacts, read by ordering-stamped and dates-printed-match-csv")
         return 2
     impact = impact_rows(impact_path) if impact_path else None
+    held = held_rows(impact_path) if impact_path else None
     dates = read_dates(dates_path) if dates_path else None
     rc = 0
     for path in paths:
         with open(path, encoding="utf-8") as fh:
-            out, warnings, counts, shape = lint(fh.read(), impact, dates)
+            out, warnings, counts, shape = lint(fh.read(), impact, dates, held)
         out += lint_readiness(readiness_path(path))
         prefix = f"{path}: " if len(paths) > 1 else ""
         if shape != "template":

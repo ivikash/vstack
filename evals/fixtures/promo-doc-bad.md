@@ -54,7 +54,7 @@ Dana traced all three forms back to the pattern library and wrote an algorithm t
 
 ### Quayside Tagging: Execution
 
-**Headline** Tagging shipped for all 4 resource types.
+**Headline** Tagging shipped for all 4 resource types in [review 5101](https://example.com/reviews/5101).
 
 **Q2 2026, Seawall Schema:** a platform campaign required tagging by 06/30/2026 — Harbor Telemetry's 4 types did not support it.
 
@@ -76,7 +76,7 @@ Dana owned adoption tracking, as the evidence row for the dashboard's author fie
 
 A dashboard was built on 08/02/2026 on the derivation from [review 5010](https://example.com/reviews/5010). Adoption was tracked weekly as part of this work.
 
-40 million events a day for 310 customers by 10/31/2026. Adoption was 0.4% (TO BE COLLECTED: the adoption count, because nobody has measured it since launch) and trending up. The dashboard is the one stakeholders use. (TO BE CONFIRMED)
+40 million events a day for 310 customers by 10/31/2026. The [launch ticket](https://example.com/tickets/2701) closed 10/03/2026 beside the dashboard in [review 5010](https://example.com/reviews/5010). Adoption was 0.4% (TO BE COLLECTED: the adoption count, because nobody has measured it since launch) and trending up. The dashboard is the one stakeholders use. (TO BE CONFIRMED)
 
 > (TO BE COLLECTED: quote from the product manager)
 
