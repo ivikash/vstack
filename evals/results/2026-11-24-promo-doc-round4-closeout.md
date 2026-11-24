@@ -84,7 +84,7 @@ unchanged and green.
 | `17c5b87` | lint: the two warnings, held_rows and the reuse-named silence, red fixture lines, check.sh |
 | `fdade2c` | template rows, checklist H notes, house rule credit-inline verb clause, SKILL conventions |
 | `e8a6098` | D86 to D90, D67 amended in place, one class row in decisions.md |
-| this file | its id added in the next commit |
+| `f099c46` | this results file (its id added in the next commit) |
 
 ## What the instance copies
 
