@@ -124,6 +124,55 @@ fix. It gets a row in the ownership audit naming that builder and the verdict, a
 says what the candidate did (found it, scoped it, reviewed it). The gate's `asana-date-role` rule
 fails the sentence otherwise.
 
+An ordering word between two tool-stamped events (before, after, then, once) is used only when the
+stamps agree with the order the sentence claims. A comment stamped three minutes after the task's
+completion does not support "verified before closing". When the stamps disagree or sit within
+minutes of each other, the two events share one clause with no order ("verified in production the
+day she closed the task"). The gate's `ordering-words-stamped` rule fails the sentence otherwise.
+
+## Roles given to other people (role-words-held, asked-for-by-audited)
+
+A role word on another person in a story (senior builder, principal engineer, product manager,
+bar raiser) is a claim like any other. It is backed by a people-directory row in the evidence or
+an artifact that names the role (an acknowledgement, a review record, a design-doc field).
+Otherwise write the plain word "builder" or end the sentence `(TO BE CONFIRMED)`. The ownership
+audit covers the candidate's verbs, not the roles the draft gives to others, so check these
+separately. The lint warns on a story paragraph that carries a role word and no link and no
+marker (`role-words-held`), the gate's rule of the same name decides.
+
+The template's "asked for by <who>" clause in the task paragraph names the person or group behind
+the ask. Every such subject gets one row in the ownership audit with the artifact that shows the
+ask (a ticket, a chat message with its link, a design-doc requester field, an acknowledgement).
+The lint checks that the clause exists, the gate's `asked-for-by-audited` rule checks that its
+subject has the row.
+
+## Counts that are a subset (subset-words)
+
+When the source gives a count as part of a larger set (the service runs in 8 regions, the
+automation covers 6), the sentence takes a subset word: "six of its regions", "six of the eight".
+"The six regions" claims the six are the whole set and fails the gate's `subset-words` rule.
+
+## Reasons not to promote: what a Pattern may cite (pattern-cites-unmarked)
+
+A reason's Pattern names two positive examples. It may cite a story as an example of a trait
+(initiative, finding work unprompted, teaching) only when that story asserts the trait in a
+sentence with no marker. A story that marks the trait `(TO BE CONFIRMED)` or `(TO BE COLLECTED)`
+is not yet an example of it, and the Pattern leans on a claim the document itself has not made.
+The document-wide `rntp-contradiction` rule covers the explicit claim, this one covers the lean.
+
+## Before the sink: warnings ruled, parked findings logged (marker-warnings-ruled, parked-findings-logged)
+
+The lint's warnings are not noise the writer may carry past the gate. Before the document is
+written to its sink, every `marker-direction` warning is ruled on by the caller: the sentence takes
+`(TO BE COLLECTED: <artifact>)` with the artifact named, or the clause is cut, or the caller's
+ruling to keep it is recorded in the candidate's decisions file. The gate's `marker-warnings-ruled`
+rule blocks a sink write with an unruled warning.
+
+Every reviewer finding the caller parks (a story placement, a wording the caller wants to keep, a
+figure not worth chasing) gets one row in the candidate's decisions file with the date, the
+finding, where it was raised and the reviewer's advice, so the next round does not re-open it. The
+run brief names the row. The gate's `parked-findings-logged` rule reads the decisions file.
+
 ## Provider gaps when feedback is not in yet (provider-gap-fallback)
 
 When the Feedback Summary rows are still `(TO BE COLLECTED)`, the provider gaps are the rows of
@@ -139,6 +188,10 @@ that holds another person's words: the feedback file, reviewer rewrites, calibra
 previous version by another author. It lists every run of 8 or more shared words by source. A
 run in your own prose is rewritten in your words or moved into a quote line with its name and
 role. The quote lines and the `## Feedback` section are exempt because they are verbatim by rule.
+Pass `--evidence-dir <dir>` pointing at the gathered evidence: a run that also appears in a file
+there prints as `source-held`, which means the fact was readable from a primary source and the run
+is recorded as such rather than left for the reader to judge. A source-held run is still a run, so
+rewrite it unless it is an identifier or product-name list.
 
 ## Generating questions for the candidate
 

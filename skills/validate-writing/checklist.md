@@ -290,10 +290,52 @@ A story's four prose paragraphs carry no labels (owner decision D28), so "situat
   not yet do, in plain words`.
 - **copy-check** (blocker): no run of 8 or more words in the author's prose is shared with a file
   that holds another person's words (the feedback file, reviewer rewrites, calibration samples).
-  `scripts/promo-copycheck.py <draft> <source>...` lists runs by source, the quote lines and the
-  Feedback section are exempt because they are verbatim by rule. Prints: `copy-check -> "<run>"
-  from <source> -> rewrite in the author's words or move it into a quote line with its name and
-  role`.
+  `scripts/promo-copycheck.py <draft> <source>... --evidence-dir <dir>` lists runs by source, the
+  quote lines and the Feedback section are exempt because they are verbatim by rule. A run the
+  script prints as `source-held` (the same words sit in a file under the evidence directory) is
+  recorded as such and passes when it is an identifier, data-format or product-name list, and is
+  rewritten when it is a sentence of argument. Prints: `copy-check -> "<run>" from <source> ->
+  rewrite in the author's words or move it into a quote line with its name and role` or
+  `copy-check -> "<run>" from <source>, source-held by <evidence file> -> recorded, no change`.
+- **role-words-held** (major): a role word on another person in a story (senior builder, principal
+  engineer, product manager, bar raiser) attached to a specific act is backed by a people-directory
+  row in the evidence or an artifact naming the role. Otherwise the sentence takes `(TO BE
+  CONFIRMED)` or the plain word "builder". The lint warns on a story paragraph with a role word and
+  no link and no marker, this rule reads the evidence for the rest. Prints: `role-words-held ->
+  "<role word>" in "<sentence>" has no directory row or artifact -> write builder, or end the
+  sentence (TO BE CONFIRMED), or add the row`.
+- **asked-for-by-audited** (major): the subject of every "asked for by" clause in a task paragraph
+  has one row in the ownership audit with the artifact that shows the ask (a ticket, a chat message
+  with its link, a design-doc requester field, an acknowledgement). The lint checks that the clause
+  exists, this rule checks its evidence. Prints: `asked-for-by-audited -> "asked for by <subject>"
+  in story "<heading>" has no audit row -> add the row with the artifact, or name the subject the
+  evidence holds`.
+- **pattern-cites-unmarked** (blocker): a reason's Pattern cites a story as an example of a trait
+  only when that story asserts the trait in a sentence with no marker. A story that marks the trait
+  `(TO BE CONFIRMED)` or `(TO BE COLLECTED)` is not yet an example of it. `rntp-contradiction`
+  covers a reason's explicit claim, this rule covers the Pattern's lean. Prints:
+  `pattern-cites-unmarked -> Pattern "<sentence>" cites story "<heading>" for <trait>, which the
+  story marks "<marked sentence>" -> cite a story that asserts it, or drop the example`.
+- **ordering-words-stamped** (major): an ordering word between two tool-stamped events (before,
+  after, then, once) is used only when the stamps agree with the order claimed. When the stamps
+  disagree or sit within minutes of each other, the two events share one clause with no order.
+  Prints: `ordering-words-stamped -> "<sentence>" claims <event A> before <event B>, stamps
+  <stamp A> and <stamp B> -> write both in one clause ("the day she ..."), or drop the order`.
+- **subset-words** (major): a count that is a subset in its source takes a subset word ("six of
+  its", "six of the eight"), never the definite article alone. Prints: `subset-words -> "<the N
+  things>" where the source gives <M> in total -> write "N of its M" or "N of the M"`.
+- **marker-warnings-ruled** (blocker, before the sink write): every lint `marker-direction` warning
+  on the draft is ruled on before the document is written to its sink. A ruling is one of: the
+  sentence now carries `(TO BE COLLECTED: <artifact>)` with the artifact named, the clause is cut,
+  or the caller's decision to keep it is a row in the candidate's decisions file. An unruled
+  warning blocks the write, not the draft. Prints: `marker-warnings-ruled -> warning "<sentence>"
+  has no ruling -> name the artifact in (TO BE COLLECTED: ...), cut the clause, or record the
+  ruling in the decisions file before the sink write`.
+- **parked-findings-logged** (major): every reviewer finding the caller parks (a placement, a
+  wording kept, a figure not chased) has one row in the candidate's decisions file with the date,
+  the finding, where it was raised and the reviewer's advice. A finding mentioned only in a
+  bar-check or run brief is not logged. Prints: `parked-findings-logged -> finding "<finding>"
+  parked in <file> has no decisions row -> add the row with date and the reviewer's advice`.
 - **markers-consistent** (blocker): exactly two markers, in round brackets: `(TO BE COLLECTED)`
   or `(TO BE COLLECTED: <what>)` when the data does not exist yet, `(TO BE CONFIRMED)` at the end
   of a sentence whose number or source is unconfirmed. Fail any square-bracket form, `TODO`,
