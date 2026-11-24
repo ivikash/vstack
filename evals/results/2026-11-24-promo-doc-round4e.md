@@ -61,7 +61,7 @@ Invocation, from the repo root: `bash scripts/check.sh`. The promo-lint group no
 | `35638d3` | checklist why-now-matches-story, template Why now row, red widened clause |
 | `9c06bc8` | why-now-sentence-shape floor warning, red cross-reference sentence |
 | `79f53bc` | decision log D81 to D85, class row in decisions.md |
-| this file | results record |
+| `b8af5b2` | results record (this file) |
 
 Every commit was pushed to `origin promo-doc` on its own before the next. `main` is untouched.
 
