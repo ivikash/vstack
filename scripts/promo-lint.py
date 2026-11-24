@@ -133,9 +133,10 @@ Round 4 close-out rules (the round 4c review's section H, decisions D86 to D88):
     headline-no-identifier  warning: a code review, ticket or MCM identifier (or a link to one) in a
                         story Headline, `move the identifier to the action paragraph and keep the
                         date`. The owner decides per draft (D87)
-    reuse-named         silent when the result paragraph's last sentence carries a figure from a HELD
-                        impact-data row (needs `--impact-data`), the checklist vp-read note (D79)
-                        decides the ending of a top-ranked story (D67 amended, D88)
+    reuse-named         silent when the result paragraph's last sentence carries a HELD impact-data
+                        figure (needs `--impact-data`): a figure of an unmarked row, or a figure of a
+                        marked row that the marker's sentence does not name. The checklist vp-read
+                        note (D79) decides the ending of a top-ranked story (D67 amended, D88)
 Hosts the writer cannot fetch are `UNVERIFIED_HOSTS` plus the comma-separated env var
 PROMO_LINT_UNVERIFIED_HOSTS. Links the caller has verified by hand are exempt through the env var
 PROMO_LINT_LINK_EXEMPT (comma-separated URL substrings) or an adjacent `(SUPPORTED)` tag. The
@@ -629,10 +630,13 @@ def impact_rows(path):
 
 
 def held_rows(path):
-    """Held rows of an impact-data stage document: every numbered table row whose LAST cell carries
-    neither marker. Returns (row number, figure keys, number cell). reuse-named (D67 amended by D88)
-    is silent when a result paragraph's last sentence carries one of these figures, because the
-    D79 note lets a top-ranked story end on its held figure instead of a user name."""
+    """Held figures of an impact-data stage document: for every numbered table row, the figures of
+    the number cell that no marker covers. An unmarked row holds every figure. A marked row whose
+    status names the unheld figure in the marker's own sentence (`5.5x held with its baseline. 1.5%
+    to 3.7% not in the body (TO BE CONFIRMED)`) holds the rest, the same split impact_rows makes.
+    Returns (row number, figure keys, number cell). reuse-named (D67 amended by D88) is silent
+    when a result paragraph's last sentence carries one of these figures, because the D79 note
+    lets a top-ranked story end on its held figure instead of a user name."""
     rows = []
     with open(path, encoding="utf-8") as fh:
         for l in fh:
@@ -641,9 +645,14 @@ def held_rows(path):
             cells = [c.strip() for c in l.strip().strip("|").split("|")]
             if len(cells) < 3 or not re.fullmatch(r"\d+", cells[0]):
                 continue
-            if "(TO BE CONFIRMED)" in cells[-1] or "(TO BE COLLECTED" in cells[-1]:
-                continue
-            keys = figures(cells[1])
+            status = cells[-1]
+            all_keys = figures(cells[1])
+            if "(TO BE CONFIRMED)" in status or "(TO BE COLLECTED" in status:
+                marked = [seg for seg in re.split(r"(?<=\.)\s+", status) if "(TO BE" in seg]
+                marked_keys = figures(" ".join(marked)) or all_keys
+                keys = [k for k in all_keys if k not in marked_keys]
+            else:
+                keys = all_keys
             if keys:
                 rows.append((cells[0], keys, cells[1]))
     return rows

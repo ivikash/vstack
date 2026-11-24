@@ -12,7 +12,7 @@ only, no names, no identifiers.
 |---|---|---|---|---|---|
 | D86 | 1 | dates-csv-coverage | lint warning with `--dates`, check.sh requires it on red, template Dated links row, checklist ordering-words-stamped coverage paragraph, SKILL convention | a result sentence "The [launch ticket] closed 10/03/2026 beside the dashboard in [review 5010]", the ticket has no csv row, the review has one. The date sits nearer the ticket, so the ticket warns and the review's dates-printed-match-csv stays quiet | 1 |
 | D87 | 2 | headline-no-identifier | lint warning, check.sh requires it on red, template Identifiers in a Headline row, checklist headline-carries-outcome note, SKILL convention. The owner decides per draft | the tagging story's Headline gains "in [review 5101]" | 1 |
-| D88 | 4 | reuse-named silent on a held figure | lint (held_rows reads the unmarked impact-data rows, needs `--impact-data`), checklist reuse-named amended, template result step, SKILL convention, D67 amended in place with the date | none in red, by design. Proof on scratch copies of the green fixture below | 0 |
+| D88 | 4 | reuse-named silent on a held figure | lint (held_rows reads the held figures of every impact-data row, the unmarked rows whole and a marked row's figures that its marker sentence does not name, needs `--impact-data`), checklist reuse-named amended, template result step, SKILL convention, D67 amended in place with the date | none in red, by design. Proof on scratch copies of the green fixture below | 0 |
 | D89 | 3 | credit-inline verb note | checklist note under credit-not-subtraction (judgement, no lint), house rule credit-inline | none, judgement | 0 |
 | D90 | 5 | bar-check counts pasted verbatim | SKILL impact-data conventions, instance mistakes row (instruction only) | none, a convention for the record beside the draft | 0 |
 
@@ -85,6 +85,8 @@ unchanged and green.
 | `fdade2c` | template rows, checklist H notes, house rule credit-inline verb clause, SKILL conventions |
 | `e8a6098` | D86 to D90, D67 amended in place, one class row in decisions.md |
 | `f099c46` | this results file (its id added in the next commit) |
+| `f86325c` | the results file's own id |
+| next | held_rows splits a marked row the way impact_rows does, so a held figure beside a marked one in the same row counts as held (the live draft's top story ends on such a figure) |
 
 ## What the instance copies
 
@@ -96,6 +98,7 @@ mistakes file gains the retyped-figure row.
 
 ## Not done, and limits
 
+- held_rows mirrors impact_rows: a marked row whose status names the unheld figure in the marker's own sentence keeps its other figures held. A marked row whose status names no figure marks every figure of the number cell, so none of them is held.
 - D88 has no red fixture line and no check.sh guard: the silence is proven on a scratch copy of the
   green fixture only. A green fixture story ending on its held figure would guard it, at the cost of
   changing a green ending the owner's example shape set.
