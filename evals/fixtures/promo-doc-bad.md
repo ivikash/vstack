@@ -1,6 +1,6 @@
 # Dana Whitfield - Promotion Document
 
-Fictional candidate, team, projects, numbers, links and reviewers. This file is the red sample: it carries every class of mistake a reviewer marked on a real document, re-created with invented content. `scripts/promo-lint.py` must fail on it and `evals/results/` records which rule catches which class. Round 3b added a process sentence in Why now, an unmarked initiative claim in a reason against a marked story sentence, one review id in two action paragraphs, an unfetchable document link without its marker, and two confirmed-markers on sentences that name no artifact. Round 4 added a candidate sentence in Scope of Role, a tenure in days in the header and in Why now, a Why now win with the absolutes ahead of the percentage, a body date in year-first form, and a Why now sentence carrying a marker.
+Fictional candidate, team, projects, numbers, links and reviewers. This file is the red sample: it carries every class of mistake a reviewer marked on a real document, re-created with invented content. `scripts/promo-lint.py` must fail on it and `evals/results/` records which rule catches which class. Round 3b added a process sentence in Why now, an unmarked initiative claim in a reason against a marked story sentence, one review id in two action paragraphs, an unfetchable document link without its marker, and two confirmed-markers on sentences that name no artifact. Round 4 added a candidate sentence in Scope of Role, a tenure in days in the header and in Why now, a Why now win with the absolutes ahead of the percentage, a body date in year-first form, and a Why now sentence carrying a marker. Round 4 shape added a review count and a year in the Why now opener, a bracketed criterion and a link in Why now, a Scope section of one paragraph, stories with no quarter lead and one with the wrong project in its lead, a printed Ownership sentence, a trait word and a claim phrase in an action paragraph, passive action sentences, a result that ends on stakeholders, and no provider count before the first reason.
 
 - Employee Name: Dana Whitfield
 - Manager Name: Noor Haddad
@@ -14,9 +14,9 @@ Harbor Telemetry owns the ingest path for 1,400 internal customers; the team run
 
 ## Why now?
 
-Dana joined Harbor Telemetry in 2024 and started on the Lighthouse Parser, which was the first project. Then came the Breakwater Credentials work during the regional event, and after that the Seawall Schema project, and most recently the Quayside Tagging campaign. Each project built on the one before it and Dana grew with each one. In 790 days as an Engineer II Dana demonstrated exceptional ownership across the Lighthouse Parser, Breakwater Credentials, Seawall Schema and Quayside Tagging, and the team relies on Dana for the hardest problems.
+Dana joined Harbor Telemetry in 2024, authored 212 code reviews since, and started on the Lighthouse Parser, which was the first project. Then came the Breakwater Credentials work during the regional event, and after that the Seawall Schema project, and most recently the Quayside Tagging campaign. Each project built on the one before it and Dana grew with each one. In 790 days as an Engineer II Dana demonstrated exceptional ownership across the Lighthouse Parser, Breakwater Credentials, Seawall Schema and Quayside Tagging, and the team relies on Dana for the hardest problems.
 
-**Lighthouse Parser shipped early and customers love it.** **Breakwater Credentials cut credential-fetch failures from 4,200 a day to 11 a day, a 99 percent drop.** Dana also worked on the Pier Alarm Cleanup, which cut pages by more than half (TO BE CONFIRMED). Dana wrote an onboarding guide too. The earlier draft listed the wins in the order impact, then recency, and each project is told once below.
+**Lighthouse Parser shipped early and customers love it.** (Ambiguity) **Breakwater Credentials cut credential-fetch failures from 4,200 a day to 11 a day, a 99 percent drop.** Dana also worked on the Pier Alarm Cleanup, which cut pages by more than half (TO BE CONFIRMED). Dana wrote an onboarding guide too, see [the onboarding guide](https://example.com/docs/onboarding-guide). The earlier draft listed the wins in the order impact, then recency, and each project is told once below.
 
 ## Evidence
 
@@ -34,9 +34,9 @@ The parser launched in [date] and is used by [N customers] today. Adoption is 0.
 
 Dana noticed that credential fetches were failing during the 10/20/2025 regional event and immediately started debugging. The fleet was large and the failure rate was high.
 
-Dana proposed and drove the shared credential cache, architected the jittered refresh, and owned the rollout to both teams. See https://example.com/reviews/4902 and https://example.com/reviews/4917.
+Dana proposed and drove the shared credential cache, architected the jittered refresh, and owned the rollout to both teams. See https://example.com/reviews/4902 and https://example.com/reviews/4917. Ownership: originated the cache, executed the fix, operated the rollout.
 
-Failures dropped significantly and the Identity team was happy.
+Dana did a deep investigation and was responsible for the rollout. Failures dropped significantly and stakeholders were happy.
 
 ### Seawall Schema: Ambiguity
 
@@ -46,7 +46,7 @@ By June 2026 downstream tables needed typed schemas from the pattern-based parse
 
 Dana owned the single derivation, asked for by the manager after the third mismatch incident in [ticket 2455](https://example.com/tickets/2455), and also took on the migration of every pipeline that depended on any of the three mappings, which included the 180 pipelines themselves and the 12 downstream correction layers that consumers had written in the meantime.
 
-Dana traced all three forms back to the pattern library and wrote an algorithm that derives the typed schema from the pattern alone, documented in [the schema derivation note](https://example.com/docs/tidewater-derivation), which runs to 11 pages and covers every edge case the three mappings had handled differently, including the 27 known mismatches and 9 further cases that nobody had noticed because they had not yet produced an incident. Dana considered keeping the hand-written mappings behind a feature flag so that the migration could be rolled back per pipeline, and rejected that option because the flag would have kept all three sources alive indefinitely and the team would never have deleted them. Dana then considered generating the mappings once and checking them in as code, and rejected that too because a generated file is a fourth copy the moment the pattern changes. Dana walked the two other builders through the derivation in two sessions before deleting their mappings, shipped the derivation in [review 5010](https://example.com/reviews/5010), and migrated the 180 pipelines in 4 batches of 45, pausing after each batch for a week to watch the downstream tables for type errors, of which there were none in any of the four batches. The 12 downstream correction layers were removed by their owners after Dana sent each of them a diff showing that the corrected and the derived schema were identical for their tables.
+Dana traced all three forms back to the pattern library and wrote an algorithm that derives the typed schema from the pattern alone, documented in [the schema derivation note](https://example.com/docs/tidewater-derivation), which runs to 11 pages and covers every edge case the three mappings had handled differently, including the 27 known mismatches and 9 further cases that nobody had noticed because they had not yet produced an incident. Dana considered keeping the hand-written mappings behind a feature flag so that the migration could be rolled back per pipeline, and rejected that option because the flag would have kept all three sources alive indefinitely and the team would never have deleted them. Dana then considered generating the mappings once and checking them in as code, and rejected that too because a generated file is a fourth copy the moment the pattern changes. Dana walked the two other builders through the derivation in two sessions before deleting their mappings, shipped the derivation in [review 5010](https://example.com/reviews/5010), and migrated the 180 pipelines in 4 batches of 45, pausing after each batch for a week to watch the downstream tables for type errors, of which there were none in any of the four batches. The 12 downstream correction layers were removed by their owners after Dana sent each of them a diff showing that the corrected and the derived schema were identical for their tables. The migration plan was reviewed by the manager before the first batch.
 
 2,300 lines of mappings were deleted by 09/18/2026 and all 180 pipelines infer their schema, and the 27 mismatches are gone, and the 12 correction layers are gone too, and there has been no mismatch incident since; the downstream team said thank you.
 
@@ -56,7 +56,7 @@ Dana traced all three forms back to the pattern library and wrote an algorithm t
 
 **Headline** Tagging shipped for all 4 resource types.
 
-A platform campaign required tagging by 06/30/2026 — Harbor Telemetry's 4 types did not support it.
+**Q2 2026, Seawall Schema:** a platform campaign required tagging by 06/30/2026 — Harbor Telemetry's 4 types did not support it.
 
 Dana fixed the race and shipped tagging for the 4 types. A senior builder asked for the fix in the team channel.
 
@@ -74,9 +74,9 @@ After the launch of the Lighthouse Parser, which Dana designed and built end-to-
 
 Dana owned adoption tracking.
 
-Dana built a dashboard on the derivation from [review 5010](https://example.com/reviews/5010).
+A dashboard was built on the derivation from [review 5010](https://example.com/reviews/5010). Adoption was tracked weekly as part of this work.
 
-40 million events a day for 310 customers by 10/31/2026. The dashboard is the one the team uses. (TO BE CONFIRMED)
+40 million events a day for 310 customers by 10/31/2026. The dashboard is the one stakeholders use. (TO BE CONFIRMED)
 
 > (TO BE COLLECTED: quote from the product manager)
 

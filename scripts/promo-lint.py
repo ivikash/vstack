@@ -12,13 +12,14 @@ first, then this file, never the other way round.
 
     # <Name> - Promotion Document
     ## Scope of Role
-    ## Why now?                             under 550 words, three bold wins each with a number
+    ## Why now?                             under 550 words, one paragraph, months first
     ## Evidence
     ### <Project>: <Criterion>              one story, criterion from the rubric
     **Headline** <outcome, number, baseline>   bold lead-in, first line under the H3
+    **Qn YYYY, <Project>:** <situation>     the first paragraph opens with the quarter lead (D62)
     <four prose paragraphs>                 situation, task, action, result in that order, no labels
                                             (D28: STAR is the writer's skeleton, never words the
-                                            reader sees). The task paragraph ends `Ownership: ...`
+                                            reader sees). No Ownership sentence (D59)
     > "...", <Name>, <role>                 one blockquote line, or
     > (TO BE COLLECTED: quote from <role>)
     ## Best reasons not to promote
@@ -60,6 +61,35 @@ Round 4 rules (the owner's reading of the first end-to-end document, decisions D
                         frontmatter fails
     why-now-no-markers  Why now carries neither (TO BE COLLECTED ...) nor (TO BE CONFIRMED), a figure
                         the evidence does not hold is told in its story with the marker
+Round 4 shape rules (the owner's example document, decisions D56 to D70):
+    why-now-one-paragraph  Why now is one prose paragraph: no bullet, no sub-heading, no link, no
+                        bracketed criterion after a bold span, no bold span over six words (a bold
+                        sentence is a list the VP skims), and every bold project name sits in a
+                        sentence that carries a number and its baseline. Replaces why-now-wins
+    why-now-opener      the first Why now sentence carries a month count, and neither a review count
+                        nor a trait word
+    story-lead          a story's first paragraph opens with a bold `**Qn YYYY, <Project>:**` lead
+                        naming the story's own project. The quarter label is not a date, date-format
+                        allows it (D52)
+    no-trait-words      no word from the house no-superlatives banlist or trait words and no claim
+                        phrase from that line in Why now or a story paragraph. The list is read from
+                        skills/leadership-writing/house-rules.md at run time (PROMO_LINT_HOUSE_RULES
+                        overrides the path), nothing here holds a copy. Quote lines, the Feedback
+                        section and the D24 altitude form `A strong <level> would have` are exempt
+    scope-current-level `## Scope of Role` has three paragraphs, the middle one names the current
+                        title and the last the proposed title (header lines)
+    markers-consistent  skips the `## Feedback` section, whose providers tag principles in square
+                        brackets in verbatim text (D70)
+    warnings: candidate-subject-share (share of action-paragraph sentences opening on the
+                        candidate's first name or pronoun plus a verb under CANDIDATE_SUBJECT_SHARE,
+                        the pronoun from PROMO_LINT_CANDIDATE_PRONOUN or the commonest of she, he,
+                        they in the stories), obstacle-first (situation paragraph has no absence
+                        construction before the candidate's first sentence), figure-has-verb (a result
+                        sentence with a number and no verb), reuse-named (the result paragraph's last
+                        sentence names no user and is not the no-reuse sentence), rntp-intro-counts
+                        (no intro paragraph counting providers before the first reason)
+Retired this round: why-now-wins (D56) and ownership-line (D59, the printed sentence was a label
+the reader sees, the ownership audit verdicts stay the gate).
 Hosts the writer cannot fetch are `UNVERIFIED_HOSTS` plus the comma-separated env var
 PROMO_LINT_UNVERIFIED_HOSTS. Links the caller has verified by hand are exempt through the env var
 PROMO_LINT_LINK_EXEMPT (comma-separated URL substrings) or an adjacent `(SUPPORTED)` tag. The
@@ -141,6 +171,101 @@ UNVERIFIED_HOSTS = ["docs.google.com"]
 SUPPORTED_TAG = re.compile(r"\(SUPPORTED\)")
 SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+(?=[A-Z\"\u201c])")
 
+# round 4 shape (D56 to D70)
+CANDIDATE_SUBJECT_SHARE = 0.6   # candidate-subject-share warns under this share of action sentences (settled on the fixtures, D64)
+MONTHS = re.compile(r"\b\d+ months?\b", re.I)
+REVIEW_COUNT = re.compile(r"\b(authored|reviewed|wrote|landed|merged) \d[\d,]*( code)? reviews?\b|\b\d[\d,]* (code )?reviews?\b", re.I)
+STORY_LEAD = re.compile(r"^\*\*Q[1-4] \d{4}, ([^*:]+):\*\*")
+BRACKETED_CRITERION = re.compile(r"\*\*\s*\(([A-Za-z][A-Za-z ]+)\)")
+BULLET = re.compile(r"^\s*([-*+]|\d+[.)])\s+")
+ALTITUDE_FORM = re.compile(r"^A strong [A-Z][\w ]* would have\b")           # D24 counterfactual, exempt from no-trait-words
+ABSENCE = re.compile(r"\b(no|never|nobody|no one|nothing|none|not exist(ed)?|could not|couldn't|had no|without|undefined|unowned|missing|lacked|exposed no|did not|had not|unmapped)\b", re.I)
+ACTION_VERB = re.compile(r"\b(cut|fell|dropped|rose|reached|shipped|launched|deleted|migrated|closed|reduced|raised|grew|took|went|parsed|passed|adopted|run|runs|ran|infer|inferred|supported|stayed|copied|moved|built|wrote|fixed|removed|finished|landed|returned|served|handled|added|saved|replaced|held|uses|used|extends|extended|merged|delivered|freed|stopped|opened|came|left|put|kept|read|sent|made|got|gone|are|is|were|was)\b|\b[a-z]{3,}ed\b", re.I)
+REUSE = re.compile(r"\b(now (uses?|runs?|run every|extends?|plans? from|reads?|ships?|follows?)|adopted|reused|copied|extend(s|ed)?|baseline|reference|plans? from|run(s)? every|standard|took over|picked up|carries|uses it|use it|rely on|relies on|built on|now points?|pattern to copy|copied)\b", re.I)
+NO_REUSE = "No reuse by others is on record."
+PRONOUNS = ("she", "he", "they")
+
+
+def house_rules_path():
+    import os
+    env = os.environ.get("PROMO_LINT_HOUSE_RULES", "").strip()
+    if env:
+        return env
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "skills", "leadership-writing", "house-rules.md")
+
+
+def trait_denylist(path=None):
+    """The no-superlatives banlist, trait words and quoted claim phrases, read from the house rule
+    line `- **no-superlatives**: ...` so the lint and the house rule cannot drift (D63, D71).
+    Returns (words, phrases, error). A missing or unparseable file is a lint failure, never a
+    silent pass."""
+    path = path or house_rules_path()
+    try:
+        with open(path, encoding="utf-8") as fh:
+            line = next((l for l in fh if l.startswith("- **no-superlatives**")), None)
+    except OSError:
+        return [], [], f"house rules not readable at {path}, set PROMO_LINT_HOUSE_RULES"
+    if not line:
+        return [], [], f"no `- **no-superlatives**` line in {path}"
+    words = []
+    for label in (r"Banlist \(not exhaustive\):", r"Trait words[^:]*:"):
+        m = re.search(label + r"\s*([^.]+)\.", line)
+        if m:
+            words += [w.strip() for w in m.group(1).split(",") if w.strip()]
+    m = re.search(r"Claim phrases:\s*(.+?)\. Quotes attributed", line)
+    phrases = re.findall(r'"([^"]+)"', m.group(1)) if m else []
+    if not words or not phrases:
+        return words, phrases, f"could not parse the banlist, trait words and claim phrases from {path}"
+    return words, phrases, None
+
+
+def trait_pattern(words, phrases):
+    """One regex for the denylist. The three demonstrat- forms become one pattern that passes a
+    factual object (`demonstrated that`, `demonstrated the fix`) and fails a trait or principle
+    noun (`demonstrated exceptional ownership`, `demonstrating customer obsession`)."""
+    alts = [r"\b" + re.escape(w) + r"\b" for w in words]
+    for p in phrases:
+        if p.startswith("demonstrat"):
+            continue
+        alts.append(r"\b" + re.escape(p) + r"\b")
+    if any(p.startswith("demonstrat") for p in phrases):
+        alts.append(r"\bdemonstrat(?:es|ed|ing)\b(?!\s+(?:that|how|why|the|a|an|this|it|its|with|by|in|on|to)\b)")
+    return re.compile("|".join(alts), re.I)
+
+
+def first_name(lines):
+    for l in lines:
+        m = TITLE.match(l)
+        if m:
+            return m.group(1).strip().split()[0]
+    return None
+
+
+def header_field(lines, label):
+    pat = re.compile(r"^-?\s*" + re.escape(label) + r":\s*(.+?)\s*$")
+    return next((pat.match(l).group(1) for l in lines if pat.match(l)), None)
+
+
+def candidate_pronoun(story_paragraphs):
+    """PROMO_LINT_CANDIDATE_PRONOUN (the instance sets it from the candidate-facts block, D64), else
+    the commonest of she, he, they across the story paragraphs."""
+    import os
+    env = os.environ.get("PROMO_LINT_CANDIDATE_PRONOUN", "").strip().lower()
+    if env:
+        return env
+    text = " ".join(story_paragraphs).lower()
+    counts = {p: len(re.findall(r"\b" + p + r"\b", text)) for p in PRONOUNS}
+    best = max(counts, key=counts.get)
+    return best if counts[best] else "she"
+
+
+def opens_on_candidate(sentence, name, pronoun):
+    """True when the sentence opens with the candidate's first name or pronoun and a word follows
+    (the verb). `Dana's` and `Dana,` do not count, the actor must be the subject."""
+    subj = [re.escape(name)] if name else []
+    subj.append(pronoun)
+    return re.match(r"^(?:" + "|".join(subj) + r")\s+[a-z]", sentence, re.I) is not None
+
 
 def unverified_hosts():
     import os
@@ -215,6 +340,61 @@ def paragraphs(body):
 
 
 READINESS = re.compile(r"^Readiness: (Ready|Ready with gaps|Not ready)\s*$", re.M)
+
+
+def prose_paragraphs(body):
+    """Blank-line separated prose blocks of a section body, headings, blockquotes and table rows
+    excluded (Scope of Role, Why now, the reasons intro)."""
+    out, cur = [], []
+    for l in body:
+        if not l.strip() or HEADING.match(l) or l.startswith(">") or l.startswith("|"):
+            if cur:
+                out.append(" ".join(cur))
+                cur = []
+            continue
+        cur.append(l.strip())
+    if cur:
+        out.append(" ".join(cur))
+    return out
+
+
+def body_before_first_heading(body):
+    out = []
+    for l in body:
+        if HEADING.match(l):
+            break
+        out.append(l)
+    return out
+
+
+def lint_why_now_shape(body, fail, trait_check):
+    """why-now-one-paragraph (D56): one prose paragraph, no bullet, no sub-heading, no link, no
+    bracketed criterion after a bold span, no bold span over six words, and every bold project
+    name (a bold span with no digit) sits in a sentence carrying a number and its baseline."""
+    sec = "Why now"
+    for l in body:
+        if HEADING.match(l):
+            fail("why-now-one-paragraph", sec, f"sub-heading `{excerpt(l)}`, Why now is one paragraph (D56)")
+        if BULLET.match(l):
+            fail("why-now-one-paragraph", sec, f"bullet `{excerpt(l)}`, Why now is one paragraph of full sentences (D56)")
+        if LINK.search(l) or BARE_URL.search(l):
+            fail("why-now-one-paragraph", sec, f"link in `{excerpt(l)}`, Why now carries no links, the stories do (D56)")
+    paras = prose_paragraphs(body)
+    for extra in paras[1:]:
+        fail("why-now-one-paragraph", sec, f"{len(paras)} paragraphs, need 1, fold this one in or move it to its story: `{excerpt(extra)}`")
+    text = " ".join(paras)
+    for m in BRACKETED_CRITERION.finditer(text):
+        fail("why-now-one-paragraph", sec, f"`({m.group(1)})` is a bracketed criterion, the story heading carries it (D56)")
+    for b in BOLD.findall(text):
+        n = len(b.split())
+        if (n > 6 and not re.search(r"\d", b)) or n > 12:
+            fail("why-now-one-paragraph", sec, f"bold span of {n} words reads as a list item, bold the project name or the number with its baseline, not the sentence (D56): `{excerpt(b)}`")
+    names = {b.strip() for b in BOLD.findall(text) if not re.search(r"\d", b) and len(b.split()) <= 6}
+    sents = sentences(text)
+    for nm in sorted(names):
+        carrying = [s for s in sents if nm in s]
+        if not any(re.search(r"\d", s) and (COMPARATOR.search(s) or RELATIVE.search(s)) for s in carrying):
+            fail("why-now-one-paragraph", sec, f"bold project `{nm}` has no sentence with a number and its baseline, write `On **{nm}**, <verbs> and <landing figure with baseline>` (D56)")
 
 
 def readiness_path(draft_path):
@@ -346,15 +526,16 @@ def lint(text):
                 fail("no-process-leak", f"line {i}", f"`{pm.group(0)}` talks about the writing, not the candidate: `{excerpt(l)}`")
         collected += len(MARKER_COLLECTED.findall(l))
         confirmed += len(MARKER_CONFIRMED.findall(l))
-        for m in MARKER_ANY.finditer(l):
-            tok = m.group(0)
-            if MARKER_COLLECTED.fullmatch(tok) or MARKER_CONFIRMED.fullmatch(tok):
-                continue
-            fail("markers-consistent", f"line {i}", f"`{excerpt(tok)}` is not (TO BE COLLECTED) or (TO BE CONFIRMED)")
-        for m in MARKER_CONFIRMED.finditer(l):
-            tail = l[m.end():].lstrip(".").lstrip()
-            if tail and not tail[0].isupper() and not tail.startswith(("(", "[", "|", "*")):
-                fail("markers-consistent", f"line {i}", f"`(TO BE CONFIRMED)` is not at the end of its sentence: `{excerpt(l)}`")
+        if not in_feedback:                       # providers tag principles in square brackets, verbatim (D70)
+            for m in MARKER_ANY.finditer(l):
+                tok = m.group(0)
+                if MARKER_COLLECTED.fullmatch(tok) or MARKER_CONFIRMED.fullmatch(tok):
+                    continue
+                fail("markers-consistent", f"line {i}", f"`{excerpt(tok)}` is not (TO BE COLLECTED) or (TO BE CONFIRMED)")
+            for m in MARKER_CONFIRMED.finditer(l):
+                tail = l[m.end():].lstrip(".").lstrip()
+                if tail and not tail[0].isupper() and not tail.startswith(("(", "[", "|", "*")):
+                    fail("markers-consistent", f"line {i}", f"`(TO BE CONFIRMED)` is not at the end of its sentence: `{excerpt(l)}`")
         if in_frontmatter:
             continue
         iso = ISO_DATE.search(body_text(l))
@@ -372,20 +553,50 @@ def lint(text):
     counts.append(f"markers (TO BE COLLECTED): {collected}, (TO BE CONFIRMED): {confirmed}")
 
     names = candidate_names(lines)
+    name, pronoun = first_name(lines), None
+    current_title, proposed_title = header_field(lines, "Current Title"), header_field(lines, "Proposed Title")
+    trait_words, trait_phrases, trait_err = trait_denylist()
+    if trait_err:
+        fail("no-trait-words", "document", trait_err)
+    traits = trait_pattern(trait_words, trait_phrases) if not trait_err else None
+
+    def trait_check(sec, sentence):
+        if traits is None or ALTITUDE_FORM.match(sentence):
+            return
+        m = traits.search(sentence)
+        if m:
+            fail("no-trait-words", sec, f"`{m.group(0)}` tells what the sentence should show, replace it with the obstacle, the technique or the figure with its verb (house rule no-superlatives, D63): `{excerpt(sentence)}`")
+
     for title, body in split_sections(lines, 2):
         if title == "Scope of Role":
             lint_scope(body, names, fail)
+            paras = prose_paragraphs(body)
+            if len(paras) != 3:
+                fail("scope-current-level", "Scope of Role", f"{len(paras)} paragraphs, need 3: the team and its scale, what the current level does here, what the proposed level does (D68)")
+            else:
+                if current_title and current_title.lower() not in paras[1].lower():
+                    fail("scope-current-level", "Scope of Role", f"middle paragraph does not name the current title `{current_title}`, it describes what the current level does on this team (D68): `{excerpt(paras[1])}`")
+                if proposed_title and proposed_title.lower() not in paras[2].lower():
+                    fail("scope-current-level", "Scope of Role", f"last paragraph does not name the proposed title `{proposed_title}` (D68): `{excerpt(paras[2])}`")
 
         if title == "Why now?":
             n = words(body)
             counts.append(f"words Why now: {n} (cap {CAP_WHY_NOW})")
             if n >= CAP_WHY_NOW:
                 length_fails.append((n - CAP_WHY_NOW, f"why-now-length Why now: {n} words, cap {CAP_WHY_NOW}"))
-            wins = [b for b in BOLD.findall("\n".join(body)) if re.search(r"\d", b)]
-            if len(wins) < 3:
-                fail("why-now-wins", "Why now", f"{len(wins)} bold wins with a number, need 3")
+            lint_why_now_shape(body, fail, trait_check)
             prose = " ".join(l.strip() for l in body if l.strip() and not HEADING.match(l)).replace("**", "")
-            for s in sentences(prose):
+            for k, s in enumerate(sentences(prose)):
+                if k == 0:
+                    if not MONTHS.search(s):
+                        fail("why-now-opener", "Why now", f"first sentence carries no month count, open with the months in level and the prior roles (D57): `{excerpt(s)}`")
+                    rc = REVIEW_COUNT.search(s)
+                    if rc:
+                        fail("why-now-opener", "Why now", f"`{rc.group(0)}` is a review count, it belongs in the review-process story, not sentence one (D57): `{excerpt(s)}`")
+                    if traits is not None and traits.search(s):
+                        fail("why-now-opener", "Why now", f"`{traits.search(s).group(0)}` is a trait word in sentence one (D57): `{excerpt(s)}`")
+                else:
+                    trait_check("Why now", s)
                 if MARKER_COLLECTED.search(s) or MARKER_CONFIRMED.search(s):
                     fail("why-now-no-markers", "Why now", f"`{excerpt(s)}` carries a marker, leave the figure out of Why now and tell it in its story (D55)")
                 d = tenure_days(s)
@@ -407,12 +618,16 @@ def lint(text):
                 else:
                     project, crit = (x.strip() for x in head.rsplit(":", 1))
                 parsed.append((project, crit, sbody))
-            marked_projects = lint_stories(parsed, fail, length_fails, warnings, counts)
+            pronoun = candidate_pronoun([p for _, _, sb in parsed for p in paragraphs(sb)])
+            marked_projects = lint_stories(parsed, fail, length_fails, warnings, counts, trait_check, name, pronoun)
 
         if title == "Best reasons not to promote":
             reasons = split_sections(body, 3)
             if not reasons:
                 fail("rntp-leadins", "Best reasons not to promote", "no `### <reason>` headings")
+            intro = prose_paragraphs(body_before_first_heading(body))
+            if not intro or not re.search(r"\b(\d+|one|two|three|four|both|all|each|every)\b.*\bprovider", " ".join(intro), re.I):
+                warnings.append("warning rntp-intro-counts Best reasons not to promote: no intro paragraph counting the providers per theme before the first reason (D69)")
             for head, rbody in reasons:
                 sec = f"reason > {excerpt(head, 40)}"
                 found = leadins(rbody, RNTP)
@@ -426,7 +641,8 @@ def lint(text):
         fallback = fallback_stories(lines)
         if fallback:
             shape = "fallback"
-            marked_projects = lint_stories(fallback, fail, length_fails, warnings, counts)
+            pronoun = candidate_pronoun([p for _, _, sb in fallback for p in paragraphs(sb)])
+            marked_projects = lint_stories(fallback, fail, length_fails, warnings, counts, trait_check, name, pronoun)
     if marked_projects and reasons:
         lint_rntp_contradiction(reasons, marked_projects, fail)
 
@@ -494,13 +710,14 @@ def review_ids(text):
     return {next(g for g in m.groups() if g) for m in REVIEW_ID.finditer(text)}
 
 
-def lint_stories(stories, fail, length_fails, warnings, counts):
+def lint_stories(stories, fail, length_fails, warnings, counts, trait_check=lambda sec, s: None, name=None, pronoun="she"):
     """Per-story rules over (project, criterion, body) triples, from the template shape or the
     fallback splitter. The body's first non-empty line is the Headline slot. Returns the projects
     named inside a marked sentence of any story, for the document-wide rntp-contradiction scan."""
     by_criterion, tellings, review_sites, marked_projects = {}, {}, {}, {}
     projects = [p for p, _, _ in stories]
     hosts, exempt = unverified_hosts(), exempt_links()
+    subject_hits, subject_total, subject_offenders = 0, 0, []
     for project, crit, sbody in stories:
         sec = f"{crit} > {project}"
         n = words(sbody)
@@ -523,12 +740,30 @@ def lint_stories(stories, fail, length_fails, warnings, counts):
         paras = paragraphs(sbody)
         if len(paras) < STORY_PARAGRAPHS:
             fail("story-paragraphs", sec, f"{len(paras)} prose paragraphs between the Headline and the quote, need {STORY_PARAGRAPHS} (situation, task, action, result, no labels)")
-        if len(paras) >= 2 and not re.search(r"Ownership: [^.]+\.?\s*$", paras[1]):
-            fail("ownership-line", sec, f"task paragraph (second) does not end with `Ownership: originated ..., executed ..., operated ...`: `{excerpt(paras[1])}`")
+        if paras:
+            lead = STORY_LEAD.match(paras[0])
+            if not lead:
+                fail("story-lead", sec, f"first paragraph does not open with a bold `**Qn YYYY, {project}:**` lead (D62): `{excerpt(paras[0])}`")
+            elif lead.group(1).strip().lower() != project.lower():
+                fail("story-lead", sec, f"lead names `{lead.group(1).strip()}`, the story is `{project}` (D62)")
+            # obstacle-first (D65, warning): an absence construction before the candidate's first sentence
+            sits = sentences(paras[0])
+            before = []
+            for s in sits:
+                if opens_on_candidate(STORY_LEAD.sub("", s).strip(), name, pronoun):
+                    break
+                before.append(s)
+            if not any(ABSENCE.search(s) for s in before):
+                warnings.append(f"warning obstacle-first {sec}: situation paragraph names no absence (no <noun>, nobody, could not, had no) before the candidate's first sentence, name the obstacle in concrete nouns first (D65): `{excerpt(paras[0])}`")
+        if len(paras) >= 2 and re.search(r"\bOwnership: ", paras[1]):
+            fail("no-star-labels", sec, f"`Ownership:` is a label the reader sees, credit shared work by function inside the sentence instead (D59)")
         for p in paras[:STORY_PARAGRAPHS]:
             m = LEADIN.match(p)
             if m and m.group(1).strip() in ("Situation", "Task", "Action", "Result"):
                 fail("no-star-labels", sec, f"`**{m.group(1).strip()}**` is a label the reader sees, STAR is the writer's skeleton only (D28)")
+        for p in paras:
+            for s in sentences(p):
+                trait_check(sec, s)
         quotes = [l for l in sbody if l.startswith(">")]
         if len(quotes) != 1:
             fail("quote-per-story", sec, f"{len(quotes)} quote lines, need exactly 1")
@@ -545,6 +780,28 @@ def lint_stories(stories, fail, length_fails, warnings, counts):
                 fail("journey-countable", sec, f"action paragraph has no journey verb (ruled out, instead of, tried, rejected, aligned, asked) and names no other person: `{excerpt(action)}`")
             for rid in review_ids(action):
                 review_sites.setdefault(rid, []).append(sec)
+            # candidate-subject-share (D64, warning, document-wide): action sentences opening on the candidate plus a verb
+            for s in sentences(action):
+                if ALTITUDE_FORM.match(s):
+                    continue
+                subject_total += 1
+                if opens_on_candidate(s, name, pronoun):
+                    subject_hits += 1
+                else:
+                    subject_offenders.append(f"{sec}: `{excerpt(s, 50)}`")
+        if len(paras) >= 4:
+            result = paras[3]
+            rsents = sentences(result)
+            # figure-has-verb (D66, warning): a result sentence with a number and no verb
+            for s in rsents:
+                if re.search(r"\d", s) and not ACTION_VERB.search(s):
+                    warnings.append(f"warning figure-has-verb {sec}: result sentence carries a number and no verb, put the figure beside the verb that produced it (D66): `{excerpt(s)}`")
+            # reuse-named (D67, warning): the last result sentence names a user or is the no-reuse sentence
+            last = MARKER_CONFIRMED.sub("", rsents[-1]).strip() if rsents else ""
+            if last and last != NO_REUSE and not (REUSE.search(last) and re.search(r"\b[A-Z][a-z]+\b|\bteams?\b", last[1:])):
+                warnings.append(f"warning reuse-named {sec}: result paragraph does not end on who uses the work now (a named team or builder) or on `{NO_REUSE}` (D67): `{excerpt(last)}`")
+            if re.search(r"\bstakeholders\b", last, re.I):
+                warnings.append(f"warning reuse-named {sec}: `stakeholders` is not a name (D67): `{excerpt(last)}`")
         # marker-direction (D38): per sentence of the story's prose
         for p in paras:
             # role-words-held (D41): a role given to another person with nothing in the paragraph to hold it
@@ -575,6 +832,12 @@ def lint_stories(stories, fail, length_fails, warnings, counts):
         full = [c for c, n in ts if n > FULL_TELLING]
         if len(full) > 1:
             fail("one-story-once", project, f"told in full ({FULL_TELLING}+ words) under {len(full)} headings: {', '.join(full)}")
+    if subject_total:
+        share = subject_hits / subject_total
+        counts.append(f"candidate-subject share: {subject_hits} of {subject_total} action sentences ({share:.0%}, warn under {CANDIDATE_SUBJECT_SHARE:.0%})")
+        if share < CANDIDATE_SUBJECT_SHARE:
+            shown = "; ".join(subject_offenders[:4]).replace(";", ",")
+            warnings.append(f"warning candidate-subject-share stories: {subject_hits} of {subject_total} action sentences ({share:.0%}) open on the candidate's name or pronoun plus a verb, target {CANDIDATE_SUBJECT_SHARE:.0%} (D64), offenders: {shown}")
     return marked_projects
 
 
