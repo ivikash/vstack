@@ -1,6 +1,6 @@
 # Dana Whitfield - Promotion Document
 
-Fictional candidate, team, projects, numbers, links and reviewers. This file is the red sample: it carries every class of mistake a reviewer marked on a real document, re-created with invented content. `scripts/promo-lint.py` must fail on it and `evals/results/` records which rule catches which class. Round 3b added a process sentence in Why now, an unmarked initiative claim in a reason against a marked story sentence, one review id in two action paragraphs, an unfetchable document link without its marker, and two bare (TO BE CONFIRMED) markers.
+Fictional candidate, team, projects, numbers, links and reviewers. This file is the red sample: it carries every class of mistake a reviewer marked on a real document, re-created with invented content. `scripts/promo-lint.py` must fail on it and `evals/results/` records which rule catches which class. Round 3b added a process sentence in Why now, an unmarked initiative claim in a reason against a marked story sentence, one review id in two action paragraphs, an unfetchable document link without its marker, and two confirmed-markers on sentences that name no artifact.
 
 - Employee Name: Dana Whitfield
 - Manager Name: Noor Haddad
