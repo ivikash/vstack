@@ -18,7 +18,11 @@ Keep every value short. The skills substitute them verbatim into prose.
 - **example_2**: `Simplicity`
 - **cite_per_statement**: `false` (`true` puts one principle in bold brackets at the end of
   the statement it supports; `false` closes each capability section with one roll-up line,
-  `<name> demonstrated: X, Y, Z`)
+  `<name> demonstrated: X, Y, Z`, only when `print_line` is `true`)
+- **print_line**: `false` (`true` prints the roll-up line `<name> demonstrated: X, Y` after the
+  last story under each criterion of a promotion document. `false`, the default since D61, prints
+  no principles line in the manager's stories, because a printed principle is a tell the
+  providers' quotes carry better)
 
 ## rating
 
