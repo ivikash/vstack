@@ -3,7 +3,7 @@
 Follow-up to `2026-11-24-promo-doc-round3-close.md`. Branch `promo-doc`, recreated from `05d5c83`
 (main). Commits `e8c9dba` (lint rules and both fixtures), `b998626504b` (SKILL and template), `730e70f`
 (checklist H, house rules, the writer skills' rule lists), `e556caa` (decision rows D49 to D55 and
-seven class rows in `decisions.md`), `b465441` (this file) and `6005d4f` (this file's commit list
+seven class rows in `decisions.md`), `b465441135c` (this file), `6005d4f` and `8afb111` (this file's commit list
 written in a form the no-org id scan accepts). Everything named here is
 fictional. Counts only, no names, no identifiers.
 
