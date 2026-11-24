@@ -145,6 +145,21 @@ reads the rows the lint's matcher skips. Conventions the lint relies on:
   other (D82). When the created date is the story (the review sat open for a quarter), the
   impact-data row records the exception in its baseline cell and the draft names it ("opened
   09/11/2026, shipped 09/25/2026") with the shipped date beside the link.
+- Every linked artifact that has a printed date within 40 characters of it has a csv row. A link
+  with no row is checked by nothing, so the lint's `dates-csv-coverage` warns `add a row for <url>
+  or move the date` (D86). The nearest link owns the date, so a neighbouring link's date does not
+  warn on a link with no row.
+- A story Headline carries the outcome and its date, never a code review, ticket or MCM
+  identifier or a link to one. The identifier sits in the action paragraph at the claim it
+  supports. The lint's `headline-no-identifier` warns, the owner decides per draft (D87).
+- A result paragraph may end on the candidate's own held figure (a row with no marker) instead of
+  a user name. The lint's `reuse-named` is silent on that ending when it reads this file, and the
+  gate's `vp-read` note decides which ending a top-ranked story takes (D67 amended by D88).
+- The bar-check record beside the draft (`bar-check-<round>.md`) copies the lint's `--counts`
+  lines and its `promo-lint: N failure(s), M warning(s)` line VERBATIM from the run's output,
+  pasted, never retyped. A figure the lint does not print (a word count summed by hand, a
+  rounded share) does not go in the record. One retyped Why now count drifted by six words from
+  the lint's and nothing caught it (D90).
 
 ## Scope of Role is about the team and the level (scope-no-candidate)
 

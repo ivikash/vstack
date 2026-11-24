@@ -211,6 +211,10 @@ A story's four prose paragraphs carry no labels (owner decision D28), so "situat
 - **headline-carries-outcome** (major): the Headline states the outcome, not the project name or
   the activity. Prints: `headline-carries-outcome -> "<Headline>" -> state what changed for whom,
   with the number and its baseline`.
+  Note (D87): a code review, ticket or MCM identifier in a Headline is the activity, not the
+  outcome. The lint's `headline-no-identifier` warns on one, the owner decides per draft whether
+  it stays. Prints: `headline-carries-outcome -> "<Headline>" carries "<identifier>" -> move the
+  identifier to the action paragraph and keep the date`.
 - **headline-baseline** (major): the Headline's number carries a baseline it beat or a comparator
   (from X to Y, N vs M, ahead of a date). Prints: `headline-baseline -> "<Headline>" -> add what the
   number is compared against`.
@@ -317,6 +321,12 @@ A story's four prose paragraphs carry no labels (owner decision D28), so "situat
   others is on record." "Stakeholders", "the business" and "customers" with no name are not a
   user. The lint warns, this rule decides. Prints: `reuse-named -> story "<heading>" ends "<last
   sentence>" -> name who uses it now, or write the no-reuse sentence`.
+  Amended (D88, amends D67): a result paragraph may also end on the candidate's own held figure,
+  one with an unmarked impact-data row. The lint is silent on that ending when it reads
+  `--impact-data`, and the `vp-read` note (D79) decides which ending a top-ranked story takes, the
+  held figure or the user name, so the two rules never pull one story's ending in opposite
+  directions. Prints: `reuse-named -> story "<heading>" ends "<last sentence>" -> name who uses
+  it now, end on the held figure, or write the no-reuse sentence`.
 - **owner-ranked-stories** (blocker): the per-candidate decisions file holds a `story-ranking`
   table (project, rank, one line on why it matters) written by the owner. The Why now order and
   the first full story under each criterion follow it. A run with no table writes `questions.md`
@@ -435,6 +445,10 @@ A story's four prose paragraphs carry no labels (owner decision D28), so "situat
   and every ordering claim kept takes a decisions-file row. A sentence that pairs a tracker task
   with a document compares the document's CREATED stamp with the task's CLOSE stamp, because "took
   the work after the task closed" is false when the document was created before the close (D81).
+  Coverage (D86): a linked artifact with a MM/DD/YYYY printed within 40 characters of it and no
+  `--dates` csv row is checked by nothing, so the lint's `dates-csv-coverage` warns `add a row for
+  <url> or move the date`. The nearest link owns the date, a neighbouring link's date does not
+  fire on a link with no row. This rule reads the stamp for the row the writer adds.
 - **subset-words** (major): a count that is a subset in its source takes a subset word ("six of
   its", "six of the eight"), never the definite article alone. Prints: `subset-words -> "<the N
   things>" where the source gives <M> in total -> write "N of its M" or "N of the M"`.
@@ -475,6 +489,12 @@ A story's four prose paragraphs carry no labels (owner decision D28), so "situat
   "she shipped the security path alongside the cache author". Prints: `credit-not-subtraction ->
   "<sentence>" -> write the credit as a widening in the same clause as the candidate's act, the
   function named before or beside her piece, never as the boundary after it`.
+  Note (D89, the house rule credit-inline): each credit clause carries its own verb. "The client,
+  key store and cross-account role on its credential path from her" passes the subtraction regex
+  and still reads as a list with a name hung off the end. The passing form gives the credit a
+  verb: "came from her", "she wrote", "the cache author built". Judgement, no lint. Prints:
+  `credit-inline -> "<clause>" credits with no verb -> write "<piece> came from <function>" or
+  "<function> wrote <piece>"`.
 - **links-kept** (major): every code review, document or ticket named in a story is a hyperlink on
   its identifier pointing at the real artifact, and a shortened story keeps every link the longer
   version had (compare `promo-lint.py --counts` before and after). Prints: `links-kept -> story

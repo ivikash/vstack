@@ -36,6 +36,8 @@ Change a string here first, then the lint, never the other way round.
 | Trait words | no word from the house `no-superlatives` banlist or trait words and no claim phrase from that line in Why now or a story paragraph. Quote lines, the Feedback section and the D24 altitude form `A strong <level> would have` are exempt (lint no-trait-words, D63, list read from house-rules.md) |
 | Ordering words | a story sentence in any of the four paragraphs with first, before, then, after or earlier links two or more artifacts only when their dates (MM/DD/YYYY in the sentence, or the run's `--dates` csv) agree with the words (lint ordering-stamped, D73, widened from the action paragraph to the whole story in D81, checklist ordering-words-stamped for stamps the lint cannot read) |
 | Printed dates beside links | the `--dates` csv holds the SHIPPED date of each artifact, and a MM/DD/YYYY printed within 40 characters of a linked artifact equals that artifact's csv date, so the reader never meets a created date beside a review link (lint dates-printed-match-csv, blocker when `--dates` is given, D82) |
+| Dated links with no csv row | every linked artifact with a MM/DD/YYYY printed within 40 characters of it has a `--dates` csv row, the nearest link owns the date. A link with no row gets a row or the date moves away from it (lint dates-csv-coverage warning, D86) |
+| Identifiers in a Headline | no code review, ticket or MCM identifier and no link to one in a story Headline. The Headline carries the outcome and its date, the identifier sits in the action paragraph at the claim it supports (lint headline-no-identifier warning, the owner decides per draft, D87) |
 | Reasons intro | `## Best reasons not to promote` opens with one paragraph that counts the providers per theme before the first `###` (lint rntp-intro-counts warning, D69) |
 
 Caps, quotes excluded: a story under 500 words (hard failure), Why now under 550 words (hard
@@ -127,7 +129,10 @@ arguments: --impact-data <impact-data.md> (marker-propagation), --dates <url,dat
      first (D51), dated. End on the candidate's own held figure or on who uses it now: a named
      team or builder, or the sentence "No reuse by others is on record." (house rule reuse-named).
      Never end on another builder's change, and when the no-reuse sentence closes the story,
-     the sentence before it carries a held figure, not a marker (D79).
+     the sentence before it carries a held figure, not a marker (D79). The lint's reuse-named is
+     silent when the last sentence carries a figure from a held impact-data row, so a top-ranked
+     story can end on its number without trading a warning, and the checklist vp-read note
+     decides which ending the story takes (D67 amended by D88).
    - No trait adjective or claim phrase from the denylist anywhere in a story paragraph.
      Adjectives belong to the providers, in quotes.
    - The quote line, verbatim with name and role, or `(TO BE COLLECTED: quote from <role>)`.

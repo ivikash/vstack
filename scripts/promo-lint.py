@@ -125,7 +125,7 @@ Round 4e rules (the round 4b review's section H, decisions D81 to D85):
                         core|design|schema (that|which) a|another|the teammate|builder|team` (D83)
     why-now-sentence-shape  floor, warning: a Why now sentence under 10 words whose only figures are
                         cross-references (`<figure> above|below|earlier`) or that has none (D85)
-Round 4 close-out rules (the round 4c review's section H, decisions D86 to D89):
+Round 4 close-out rules (the round 4c review's section H, decisions D86 to D88):
     dates-csv-coverage  warning, with `--dates`: a MM/DD/YYYY printed within 40 characters of a
                         linked artifact that has no csv row prints `add a row for <url> or move the
                         date`. The nearest link owns the date, so a neighbouring link's date does not
