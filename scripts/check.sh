@@ -115,7 +115,18 @@ echo "$flat" | head -1 | grep -q '^shape: fallback$' \
   || { say promo-lint "FAIL: evals/fixtures/promo-doc-bad.flat.md did not print 'shape: fallback' first"; fail=1; }
 echo "$flat" | grep -q '^story-length ' \
   || { say promo-lint "FAIL: the fallback did not measure the long story in promo-doc-bad.flat.md"; fail=1; }
-[ $fail -eq 0 ] && say promo-lint "ok (red fixture fails with $nbad lines, green fixture 0 failures, flattened red fixture linted through the fallback)"
+# the copy check (round 3b) reports the known 8-word run the red fixture shares with the fictional
+# feedback file, and nothing for the green fixture, whose provider words sit only in quote lines and
+# the Feedback section the check skips by rule
+fb=evals/fixtures/promo-doc-copycheck-feedback.md
+if python3 scripts/promo-copycheck.py evals/fixtures/promo-doc-bad.md "$fb" >/tmp/promo-copy-bad.$$ 2>&1; then
+  say promo-lint "FAIL: promo-copycheck.py found no run between promo-doc-bad.md and $fb"; fail=1
+fi
+nruns=$(grep -c 'word run:' /tmp/promo-copy-bad.$$ || true); rm -f /tmp/promo-copy-bad.$$
+if ! out=$(python3 scripts/promo-copycheck.py evals/fixtures/promo-doc-good.md "$fb" 2>&1); then
+  say promo-lint "FAIL: promo-copycheck.py found a run in promo-doc-good.md"; echo "$out" | sed 's/^/    /'; fail=1
+fi
+[ $fail -eq 0 ] && say promo-lint "ok (red fixture fails with $nbad lines, green fixture 0 failures, flattened red fixture linted through the fallback, copy check $nruns run(s) on red and 0 on green)"
 
 # instance -------------------------------------------------------------------------------------
 if [ -n "${VSTACK_INSTANCE:-}" ]; then
