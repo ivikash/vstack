@@ -34,7 +34,7 @@ The parser launched in [date] and is used by [N customers] today. Adoption is 0.
 
 Dana noticed that credential fetches were failing during the 10/20/2025 regional event and immediately started debugging. The fleet was large and the failure rate was high.
 
-Dana proposed and drove the shared credential cache, architected the jittered refresh, and owned the rollout to both teams, with the cache core from a second builder, under the Identity team's design. See https://example.com/reviews/4902 and https://example.com/reviews/4917. Ownership: originated the cache, executed the fix, operated the rollout.
+Dana proposed and drove the shared credential cache, architected the jittered refresh, and owned the rollout to both teams, with the cache core from a second builder, under the Identity team's design. Dana bolted the jittered refresh onto a cache core a teammate wrote to a design the team had settled. See https://example.com/reviews/4902 and https://example.com/reviews/4917. Ownership: originated the cache, executed the fix, operated the rollout.
 
 Dana did a deep investigation and was responsible for the rollout. Dana wrote the design note first and then the fix in [review 4902](https://example.com/reviews/4902). Failures dropped significantly and stakeholders were happy.
 

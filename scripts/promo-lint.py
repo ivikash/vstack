@@ -214,7 +214,7 @@ STORY_LEAD = re.compile(r"^\*\*Q[1-4] \d{4}, (.+?):\*\*")      # non-greedy to t
 BRACKETED_CRITERION = re.compile(r"\*\*\s*\(([A-Za-z][A-Za-z ]+)\)")
 
 # round 4c (the first end-to-end review's "What the gate cannot see yet", decisions D72 to D80)
-SUBTRACTION_CREDIT = re.compile(r"with the \w+ (core|design|schema|component) (from|by|authored by) (a|another|a second|the) builder|under (a|another|the) [^.]* design", re.I)   # credit-not-subtraction, D74. The instance copies this string as its contract twin
+SUBTRACTION_CREDIT = re.compile(r"with the \w+ (core|design|schema|component) (from|by|authored by) (a|another|a second|the) builder|under (a|another|the) [^.]* design|\b(onto|into|on top of) (a|an|another|the) (\w+ ){0,3}(core|design|schema) ((that|which) )?(a|another|the) (teammate|builder|team)\b", re.I)   # credit-not-subtraction, D74, the onto/into/on top of paraphrase D83. The instance copies this string as its contract twin
 ORDERING_WORD = re.compile(r"\b(first|before|then|after|earlier)\b", re.I)
 ARTIFACT_NOUN = re.compile(r"\b(reviews?|tickets?|documents?|docs?|notes?|designs?|pages?|dashboards?|analys[ie]s|commits?|pull requests?|CR|PR)\b")   # an unlinked event the one-link warning can point at
 US_DATE = re.compile(r"\b(\d{1,2})/(\d{1,2})/(\d{4})\b")

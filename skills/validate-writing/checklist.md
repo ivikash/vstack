@@ -455,11 +455,18 @@ A story's four prose paragraphs carry no labels (owner decision D28), so "situat
   count with no unit word). Prints: `marker-propagation -> "<sentence>" prints <figure> as fact,
   impact-data row <n> marks it -> end the sentence with the row's marker, or move it out of Why
   now`.
-- **credit-not-subtraction** (blocker, D74, the house rule credit-inline): no story sentence credits
-  shared work as a subtraction from the candidate's claim ("with the cache core from a second
-  builder", "under another builder's design"). The lint fails the two regex forms, this rule reads
-  the paraphrases. Prints: `credit-not-subtraction -> "<sentence>" -> write the credit as a
-  widening in the same sentence as the candidate's act`.
+- **credit-not-subtraction** (blocker, D74, D83, the house rule credit-inline): no story sentence
+  credits shared work as a subtraction from the candidate's claim ("with the cache core from a
+  second builder", "under another builder's design"). The lint fails the three regex forms (the
+  third is "onto, into or on top of a ... core, design or schema a teammate, builder or the team
+  wrote"), this rule reads the paraphrase family the regex misses: "to a design the team had
+  settled", "the cache core was another builder's", "the schema was a teammate's", any clause
+  that names the shared piece AFTER the candidate's piece as its boundary. The passing form
+  credits by function in the same clause as her own piece, with the function named before her
+  piece or beside it: "with the cache author and the design owner she shipped the security path",
+  "she shipped the security path alongside the cache author". Prints: `credit-not-subtraction ->
+  "<sentence>" -> write the credit as a widening in the same clause as the candidate's act, the
+  function named before or beside her piece, never as the boundary after it`.
 - **links-kept** (major): every code review, document or ticket named in a story is a hyperlink on
   its identifier pointing at the real artifact, and a shortened story keeps every link the longer
   version had (compare `promo-lint.py --counts` before and after). Prints: `links-kept -> story

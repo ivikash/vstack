@@ -17,7 +17,7 @@ Change a string here first, then the lint, never the other way round.
 | Headline | the first line under the story heading, `**Headline** <outcome with at least one number and its baseline or comparator>` |
 | Story body | four prose paragraphs between the Headline and the quote, in STAR order (situation, task, action, result), with NO labels. STAR is the skeleton the writer follows, never words the reader sees (owner decision D28). The lint counts the paragraphs and fails a bold `**Situation**`, `**Task**`, `**Action**` or `**Result**` lead-in, the gate checks the order |
 | Story lead | the first paragraph opens with a bold `**Qn YYYY, <Project>:**` lead naming the quarter and the story's project, then runs into prose (lint story-lead, D62). The quarter label is not a date, date-format allows it (D52). The project runs to the first `:**`, so a heading may carry a double-colon identifier or a code span with a colon (`### Dock \`Harbor::Setup\`: Execution`) and the lead names it whole (D80) |
-| Shared work | credited by function in the same sentence as the candidate's act, in the task paragraph, never as a subtraction. No printed `Ownership:` sentence (D59, the D21 audit verdicts stay the gate). The subtraction form the lint fails (credit-not-subtraction, D74), as one regex the instance copies into its `draft_contract.must_not_match` twin: `with the \w+ (core\|design\|schema\|component) (from\|by\|authored by) (a\|another\|a second\|the) builder\|under (a\|another\|the) [^.]* design` (case-insensitive) |
+| Shared work | credited by function in the same sentence as the candidate's act, in the task paragraph, never as a subtraction. No printed `Ownership:` sentence (D59, the D21 audit verdicts stay the gate). The subtraction form the lint fails (credit-not-subtraction, D74), as one regex the instance copies into its `draft_contract.must_not_match` twin: `with the \w+ (core\|design\|schema\|component) (from\|by\|authored by) (a\|another\|a second\|the) builder\|under (a\|another\|the) [^.]* design\|\b(onto\|into\|on top of) (a\|an\|another\|the) (\w+ ){0,3}(core\|design\|schema) ((that\|which) )?(a\|another\|the) (teammate\|builder\|team)\b` (case-insensitive, the third alternative is the paraphrase family of D83: \"onto a cache core a teammate wrote\", \"into a schema the team had settled\") |
 | Altitude sentence | the last sentence of the third (action) paragraph, in one of two forms: the counterfactual `A strong <current level> would have ..., not ...` or a factual contrast naming who else was engaged and what the candidate alone did, role words per D41 (D60) |
 | Quote | one blockquote line, `> "<verbatim words>", <Name>, <role>` or `> (TO BE COLLECTED: quote from <role>)` |
 | Principles line | off by default (`principles.print_line` false, D61). When on, after the quote, `<principles.name> demonstrated: X, Y` (glossary), once per criterion |
@@ -48,8 +48,8 @@ Exact strings for an instance's `draft_contract` twins (the table above escapes 
 are the regexes as the lint holds them, all case-insensitive):
 
 ```
-credit-not-subtraction (D74), must_not_match:
-with the \w+ (core|design|schema|component) (from|by|authored by) (a|another|a second|the) builder|under (a|another|the) [^.]* design
+credit-not-subtraction (D74, D83), must_not_match:
+with the \w+ (core|design|schema|component) (from|by|authored by) (a|another|a second|the) builder|under (a|another|the) [^.]* design|\b(onto|into|on top of) (a|an|another|the) (\w+ ){0,3}(core|design|schema) ((that|which) )?(a|another|the) (teammate|builder|team)\b
 
 no-process-leak phrases (D75), must_not_match:
 earlier draft|evidence pull|reviewer of the|readiness row|in the order [a-z]+, then|told once below|working copy|author field|acknowledgement names|on record is|as (hers|his|theirs) is|evidence row|stage document
