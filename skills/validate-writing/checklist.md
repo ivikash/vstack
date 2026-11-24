@@ -199,7 +199,29 @@ A story's four prose paragraphs carry no labels (owner decision D28), so "situat
   candidate-led action verbs: what was tried or ruled out, why no off-the-shelf path worked, who
   the candidate reached out to or aligned. Fail an action paragraph that lists deliverables with
   no ruled-out option and no other person. Prints: `journey-in-action -> "<action paragraph
-  excerpt>" -> name one option ruled out and why, and who the candidate aligned`.
+  excerpt>" -> name one option ruled out and why, and who the candidate aligned`. Its countable
+  twin is the lint's `journey-countable` (an action paragraph with no journey verb and no other
+  person named). The lint catches the empty paragraph, this rule judges whether the journey the
+  words claim is a real one.
+- **no-process-leak** (blocker): no sentence in the body talks about the writing of the document
+  (an earlier draft, an evidence pull, the reviewer of the previous version, a readiness row, the
+  order the wins were put in, what is told once below, a working copy). The lint fails the
+  phrases it can match, this rule reads the rest. The frontmatter, the run brief and the Sources
+  line are exempt. Prints: `no-process-leak -> "<sentence>" -> delete it, the document is the
+  document`.
+- **one-cr-once** (major): a code review id appears in the action paragraph of at most one story.
+  A second story that needs it cross-references the first by heading. Why now and the Appendix
+  are exempt. The lint counts the ids it can parse, this rule catches a review named in words.
+  Prints: `one-cr-once -> "<review id>" in "<story A>" and "<story B>" -> keep it where the claim
+  lives, cross-reference the other`.
+- **marker-direction** (major): a link to a document the writer could not fetch sits in a sentence
+  ending `(TO BE CONFIRMED)`, unless the ownership audit verified it and the sentence carries
+  `(SUPPORTED)` or the workflow config exempts the link. And `(TO BE CONFIRMED)` is the marker for
+  a figure whose artifact exists: a sentence with the marker and no link, number or document
+  title in it means the data does not exist yet, so the marker is `(TO BE COLLECTED: <artifact>)`.
+  The lint fails the first and warns on the second, this rule decides the warnings. Prints:
+  `marker-direction -> "<sentence>" -> end it (TO BE CONFIRMED) (or: replace the marker with (TO
+  BE COLLECTED: <artifact>))`.
 - **altitude-test** (major): each story's action paragraph ends with one sentence saying why a
   strong engineer one level below could not have done it. Prints: `altitude-test -> story
   "<heading>" has no altitude sentence -> add "A strong <current level> would have ..., not ..."`.
@@ -231,9 +253,26 @@ A story's four prose paragraphs carry no labels (owner decision D28), so "situat
   positive examples, Gap with one dated example of who pointed it out, Also seen by a second
   person, Does not block <level> with evidence, Next with a plan. Prints: `rntp-shape -> reason
   "<heading>" lacks <part> -> add <part> with <what it needs>`.
-- **rntp-contradiction** (blocker): no reason's stated gap is contradicted by a story. Prints:
+- **rntp-contradiction** (blocker, document-wide): no reason's stated gap is contradicted by a
+  story, and no reason states as fact a claim that any story marks `(TO BE CONFIRMED)` or `(TO BE
+  COLLECTED)`. The scan covers every reason against every story, not the reason beside the story.
+  The lint approximates the second half by project name plus an initiative phrase (without a
+  ticket, on her own, on his own, unprompted, initiative), this rule reads every claim. Prints:
   `rntp-contradiction -> gap "<gap sentence>" vs story "<story sentence>" -> narrow the gap to what
-  the stories support, or remove the contradicting claim`.
+  the stories support, or remove the contradicting claim` or `rntp-contradiction -> reason
+  "<sentence>" states as fact what story "<heading>" marks -> add the marker or narrow the claim`.
+- **asana-date-role** (blocker): every task-tracker date in a result paragraph is the task's
+  completion date, never its created or due date, and a task whose code fix is another builder's
+  change has a row in the ownership audit (a stage document beside the draft) naming that builder
+  and the verdict. Prints: `asana-date-role -> "<sentence>" carries a <created|due> date as the
+  result (or: task "<title>" fixed by another builder has no ownership-audit row) -> use the
+  completion date (or: add the audit row and qualify the verb)`.
+- **provider-gap-fallback** (blocker): when the Feedback section is a placeholder (its table rows
+  are `(TO BE COLLECTED)` markers), the provider gaps are read from the gap analysis stage
+  document's "Provider gaps first" table instead, and each row there is addressed by one reason in
+  Best reasons not to promote. `provider-gap-addressed` reads the Feedback section when it holds
+  real text, this rule reads the gap analysis when it does not. Prints: `provider-gap-fallback ->
+  gap-analysis row "<gap>" has no reason -> add a reason in the five-part shape`.
 - **aspiration-not-gap** (blocker): a reason names an observed gap, not what the manager would
   like the candidate to take on next. Prints: `aspiration-not-gap -> "<reason heading or
   sentence>" is an ask, not an observed gap -> replace with a gap a reviewer or provider has
@@ -245,8 +284,16 @@ A story's four prose paragraphs carry no labels (owner decision D28), so "situat
   part shape`.
 - **plain-headings** (major): reason headings and story headings are plain words, no bracketed
   principle tags, no abstract nouns stacked ("Cultivating proactive strategic opportunity
-  identification"). Prints: `plain-headings -> "<heading>" -> rewrite as what the candidate does
+  identification"). The lint fails a heading with a word from the house denylist (leverage, play,
+  strategic, proactive, cultivat-, drive alignment, synerg-, holistic, paradigm), this rule judges
+  the rest. Prints: `plain-headings -> "<heading>" -> rewrite as what the candidate does
   not yet do, in plain words`.
+- **copy-check** (blocker): no run of 8 or more words in the author's prose is shared with a file
+  that holds another person's words (the feedback file, reviewer rewrites, calibration samples).
+  `scripts/promo-copycheck.py <draft> <source>...` lists runs by source, the quote lines and the
+  Feedback section are exempt because they are verbatim by rule. Prints: `copy-check -> "<run>"
+  from <source> -> rewrite in the author's words or move it into a quote line with its name and
+  role`.
 - **markers-consistent** (blocker): exactly two markers, in round brackets: `(TO BE COLLECTED)`
   or `(TO BE COLLECTED: <what>)` when the data does not exist yet, `(TO BE CONFIRMED)` at the end
   of a sentence whose number or source is unconfirmed. Fail any square-bracket form, `TODO`,

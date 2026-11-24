@@ -114,6 +114,32 @@ that line and by the ownership audit's verdict (SUPPORTED, PARTIALLY SUPPORTED, 
 With shared ownership, write the qualified version: "executed the implementation and rollout
 under <name>'s direction as `roles.senior_technical_owner`". When in doubt, ask the caller.
 
+## Task-tracker dates and other builders' fixes (asana-date-role)
+
+Every task-tracker date in a result paragraph is the task's completion date. Never the created
+date, never the due date: a created date tells the reader when the work was noticed, a due date
+when it was hoped for, and only the completion date tells them when the candidate delivered. When
+a task's code fix is another builder's change, the story does not credit the candidate with the
+fix. It gets a row in the ownership audit naming that builder and the verdict, and the sentence
+says what the candidate did (found it, scoped it, reviewed it). The gate's `asana-date-role` rule
+fails the sentence otherwise.
+
+## Provider gaps when feedback is not in yet (provider-gap-fallback)
+
+When the Feedback Summary rows are still `(TO BE COLLECTED)`, the provider gaps are the rows of
+the gap analysis stage document's "Provider gaps first" table (the gaps the manager already knows
+providers will raise). Address every row there with one reason not to promote, the same way a real
+Feedback section would be addressed. The gate's `provider-gap-fallback` rule reads that table when
+the Feedback section is a placeholder.
+
+## Copy check (every file holding another person's prose)
+
+Before the gate, run `scripts/promo-copycheck.py <draft> <source>...` against every file you read
+that holds another person's words: the feedback file, reviewer rewrites, calibration samples, a
+previous version by another author. It lists every run of 8 or more shared words by source. A
+run in your own prose is rewritten in your words or moved into a quote line with its name and
+role. The quote lines and the `## Feedback` section are exempt because they are verbatim by rule.
+
 ## Generating questions for the candidate
 
 When a claim cannot be verified from supplied artifacts and the caller does not have the answer,
@@ -142,7 +168,9 @@ Follow [template.md](template.md). Its "Shapes the lint keys on" block holds the
     `Ownership: originated ..., executed ..., operated ...` sentence, not a labelled line.
   - Paragraph 3, action: the journey, candidate-led action verbs: what was tried or ruled out, why
     no off-the-shelf path worked, who they reached out to or aligned, every artifact linked on its
-    identifier at the claim it supports. Its last sentence is the altitude test: why a strong
+    identifier at the claim it supports. The lint's `journey-countable` fails a paragraph with none
+    of those verbs and no other person named, and `one-cr-once` fails a review id that already sits
+    in another story's action paragraph. Its last sentence is the altitude test: why a strong
     engineer one level below could not have done it.
   - Paragraph 4, result: dated, numbers, adoption, reuse by others.
   - One quote line, verbatim with name and role, or `(TO BE COLLECTED: quote from <role>)`.
@@ -219,3 +247,10 @@ Stop and re-read the rule when you see yourself producing any of these, on top o
 - a Why now ordered by time when `why_now.order` does not start with recency
 - a square bracket or `TODO` where a round-bracket marker belongs
 - a promotion document written with no readiness verdict, or against a `Not ready` verdict
+- a sentence about the writing (an earlier draft, the evidence pull, what is told once below)
+- a task-tracker created or due date standing in for a completion date
+- the same code review id in two stories' action paragraphs
+- a link you could not fetch in a sentence without `(TO BE CONFIRMED)`, or `(TO BE CONFIRMED)` on a
+  sentence that names no artifact (that is `(TO BE COLLECTED: <artifact>)`)
+- a heading with leverage, play, strategic, proactive, cultivating, synergy, holistic or paradigm
+- an 8-word run copied from a provider's or reviewer's text outside a quote line
