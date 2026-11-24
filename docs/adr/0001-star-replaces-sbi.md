@@ -41,3 +41,10 @@ Ownership sentence (`ownership-line`). The order of the four paragraphs is a jud
 `star-order` in checklist section H, which quotes the first sentence of the paragraph out of
 place. The reasons-not-to-promote lead-ins (`**Pattern**` to `**Next**`) are unchanged. An
 instance `draft_contract` that keyed on the four story lead-ins must drop those patterns.
+
+Amended 2026-11-24 (round 4 shape, D59, D60, D62): the task paragraph no longer ends with an
+`Ownership:` sentence, shared work is credited by function inside the paragraph and the ownership
+audit's verdicts stay the gate, so the lint `ownership-line` is retired and a printed `Ownership:`
+fails `no-star-labels`. The altitude sentence may be the counterfactual or a factual contrast naming
+who else was engaged. The first paragraph opens with a bold `**Qn YYYY, <Project>:**` lead
+(`story-lead`).
