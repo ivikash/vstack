@@ -224,8 +224,12 @@ A story's four prose paragraphs carry no labels (owner decision D28), so "situat
   words claim is a real one.
 - **no-process-leak** (blocker): no sentence in the body talks about the writing of the document
   (an earlier draft, an evidence pull, the reviewer of the previous version, a readiness row, the
-  order the wins were put in, what is told once below, a working copy). The lint fails the
-  phrases it can match, this rule reads the rest. The frontmatter, the run brief and the Sources
+  order the wins were put in, what is told once below, a working copy, a document's author field,
+  whose names an acknowledgement carries, what is or is not on record, "the diagnosis as hers is",
+  an evidence row, a stage document). The reader meets the work, never the evidence pipeline: the
+  marker form is `(TO BE CONFIRMED)` as the last token of the sentence with no clause saying what is
+  unconfirmed, the stage document holds that (D75). The lint fails the phrases it can match, this
+  rule reads the rest. The frontmatter, the run brief and the Sources
   line are exempt. Prints: `no-process-leak -> "<sentence>" -> delete it, the document is the
   document`.
 - **one-cr-once** (major): a code review id appears in the action paragraph of at most one story.
@@ -318,6 +322,19 @@ A story's four prose paragraphs carry no labels (owner decision D28), so "situat
   should have carried it. Prints: `vp-read -> after Why now and stories "<heading A>" and
   "<heading B>" no draft sentence says what only the candidate did and why it was hard -> add it
   to story "<heading>" (what nobody else was doing, and the obstacle)`.
+  Note (D79): when the first two stories both end on the sentence "No reuse by others is on
+  record.", the reviewer states in the review whether the result paragraph's last held figure is
+  strong enough to carry the ending, or moves that figure last so the VP's final line on each
+  top story is a number, not a gap. A marker in the sentence before the no-reuse sentence fails
+  this note. Prints: `vp-read -> stories "<heading A>" and "<heading B>" both end on the
+  no-reuse sentence, the sentence before it is "<sentence>" -> end on the held figure, or state
+  why the figure cannot carry the ending`.
+- **rollup-counts-held** (major, D77): every count in the closing Why now sentence (projects,
+  services, teams, regions, months, pipelines) has one impact-data row, or is a count of the
+  draft's own story headings (projects, initiatives, stories). The lint warns when a heading count
+  disagrees, this rule reads the impact-data file for the rest. Prints: `rollup-counts-held ->
+  closing sentence counts "<N noun>" -> add the impact-data row that holds it, or count what the
+  draft shows`.
 - **scope-no-candidate** (blocker): `## Scope of Role` describes the team and the proposed level
   and is the scope file's text for the level pair. The lint fails the candidate's name or alias, a
   hire or join word and a prior-team sentence, this rule reads the rest: a sentence about what the
@@ -403,6 +420,10 @@ A story's four prose paragraphs carry no labels (owner decision D28), so "situat
   disagree or sit within minutes of each other, the two events share one clause with no order.
   Prints: `ordering-words-stamped -> "<sentence>" claims <event A> before <event B>, stamps
   <stamp A> and <stamp B> -> write both in one clause ("the day she ..."), or drop the order`.
+  Countable twin (D73): the lint's `ordering-stamped` fails an action sentence whose two or more
+  linked artifacts carry dates (in the sentence or the run's `--dates` csv) that run against the
+  words, and warns on one linked artifact. This rule reads the stamps the lint cannot (a tracker's
+  created time, a page's history) and every ordering claim kept takes a decisions-file row.
 - **subset-words** (major): a count that is a subset in its source takes a subset word ("six of
   its", "six of the eight"), never the definite article alone. Prints: `subset-words -> "<the N
   things>" where the source gives <M> in total -> write "N of its M" or "N of the M"`.
@@ -421,8 +442,21 @@ A story's four prose paragraphs carry no labels (owner decision D28), so "situat
 - **markers-consistent** (blocker): exactly two markers, in round brackets: `(TO BE COLLECTED)`
   or `(TO BE COLLECTED: <what>)` when the data does not exist yet, `(TO BE CONFIRMED)` at the end
   of a sentence whose number or source is unconfirmed. Fail any square-bracket form, `TODO`,
-  `TBD`, `TBC` or `(unverified)` in a promo-doc. Prints: `markers-consistent -> "<token>" -> use
-  (TO BE COLLECTED) or (TO BE CONFIRMED)`.
+  `TBD`, `TBC` or `(unverified)` in a promo-doc. The marker is the last token of its sentence and
+  the clause after `TO BE COLLECTED:` names the artifact only (D46, D75). Prints:
+  `markers-consistent -> "<token>" -> use (TO BE COLLECTED) or (TO BE CONFIRMED)`.
+- **marker-propagation** (blocker, D72): a figure the impact-data stage document marks `(TO BE
+  CONFIRMED)` or `(TO BE COLLECTED: ...)` in its status cell sits in a story sentence ending on the
+  same marker, never as fact, and never in Why now (D55). The lint fails every match it can read
+  with `--impact-data`, this rule reads the figures the lint's matcher skips (a one or two digit
+  count with no unit word). Prints: `marker-propagation -> "<sentence>" prints <figure> as fact,
+  impact-data row <n> marks it -> end the sentence with the row's marker, or move it out of Why
+  now`.
+- **credit-not-subtraction** (blocker, D74, the house rule credit-inline): no story sentence credits
+  shared work as a subtraction from the candidate's claim ("with the cache core from a second
+  builder", "under another builder's design"). The lint fails the two regex forms, this rule reads
+  the paraphrases. Prints: `credit-not-subtraction -> "<sentence>" -> write the credit as a
+  widening in the same sentence as the candidate's act`.
 - **links-kept** (major): every code review, document or ticket named in a story is a hyperlink on
   its identifier pointing at the real artifact, and a shortened story keeps every link the longer
   version had (compare `promo-lint.py --counts` before and after). Prints: `links-kept -> story

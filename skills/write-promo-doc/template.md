@@ -16,13 +16,13 @@ Change a string here first, then the lint, never the other way round.
 | Story heading | `### <Project>: <Criterion>` (criterion name from the rubric, for example `### Lighthouse Parser: Ambiguity`) |
 | Headline | the first line under the story heading, `**Headline** <outcome with at least one number and its baseline or comparator>` |
 | Story body | four prose paragraphs between the Headline and the quote, in STAR order (situation, task, action, result), with NO labels. STAR is the skeleton the writer follows, never words the reader sees (owner decision D28). The lint counts the paragraphs and fails a bold `**Situation**`, `**Task**`, `**Action**` or `**Result**` lead-in, the gate checks the order |
-| Story lead | the first paragraph opens with a bold `**Qn YYYY, <Project>:**` lead naming the quarter and the story's project, then runs into prose (lint story-lead, D62). The quarter label is not a date, date-format allows it (D52) |
-| Shared work | credited by function in the same sentence as the candidate's act, in the task paragraph, never as a subtraction. No printed `Ownership:` sentence (D59, the D21 audit verdicts stay the gate) |
+| Story lead | the first paragraph opens with a bold `**Qn YYYY, <Project>:**` lead naming the quarter and the story's project, then runs into prose (lint story-lead, D62). The quarter label is not a date, date-format allows it (D52). The project runs to the first `:**`, so a heading may carry a double-colon identifier or a code span with a colon (`### Dock \`Harbor::Setup\`: Execution`) and the lead names it whole (D80) |
+| Shared work | credited by function in the same sentence as the candidate's act, in the task paragraph, never as a subtraction. No printed `Ownership:` sentence (D59, the D21 audit verdicts stay the gate). The subtraction form the lint fails (credit-not-subtraction, D74), as one regex the instance copies into its `draft_contract.must_not_match` twin: `with the \w+ (core\|design\|schema\|component) (from\|by\|authored by) (a\|another\|a second\|the) builder\|under (a\|another\|the) [^.]* design` (case-insensitive) |
 | Altitude sentence | the last sentence of the third (action) paragraph, in one of two forms: the counterfactual `A strong <current level> would have ..., not ...` or a factual contrast naming who else was engaged and what the candidate alone did, role words per D41 (D60) |
 | Quote | one blockquote line, `> "<verbatim words>", <Name>, <role>` or `> (TO BE COLLECTED: quote from <role>)` |
 | Principles line | off by default (`principles.print_line` false, D61). When on, after the quote, `<principles.name> demonstrated: X, Y` (glossary), once per criterion |
 | Reason not to promote | `### <plain words>` then five paragraphs with the lead-ins `**Pattern**`, `**Gap**`, `**Also seen by**`, `**Does not block**`, `**Next**`, in that order |
-| Markers | `(TO BE COLLECTED)` or `(TO BE COLLECTED: <what>)` when the data does not exist yet, `(TO BE CONFIRMED)` at the end of a sentence whose number or source is unconfirmed. No other form: no square brackets, no `TODO`, no `(unverified)` in this genre |
+| Markers | `(TO BE COLLECTED)` or `(TO BE COLLECTED: <artifact>)` when the data does not exist yet, `(TO BE CONFIRMED)` at the end of a sentence whose number or source is unconfirmed. The marker is the LAST token of its sentence, and the clause after `TO BE COLLECTED:` names the artifact only (`the adoption metric`), never why it is missing, the impact-data stage document holds the reason (D46, D75). No other form: no square brackets, no `TODO`, no `(unverified)` in this genre |
 | Sources line | `Sources used: ... Sources unavailable: ...` as the LAST line of the document, no semicolon, so the house no-semicolons rule holds on every line (D36) |
 | Heading words | no heading or reason title contains leverage, play, strategic, proactive, cultivat-, drive alignment, synerg-, holistic or paradigm (lint plain-headings, D40) |
 | Review ids | a code review id (`CR-<n>`, `PR #<n>`, a `/pull/<n>` or `/reviews/<n>` link) sits in at most one story's action paragraph. Why now and the Appendix are exempt (lint one-cr-once, D37) |
@@ -31,9 +31,10 @@ Change a string here first, then the lint, never the other way round.
 | Tenure | `Time in Current Level: <N> months`, and every tenure figure in Why now in months. Never days (lint tenure-months, D50) |
 | Relative first | a Headline or Why now sentence with a relative figure and the absolute pair writes the relative first and the absolutes in round brackets: `cut failures by 99.7% (from 4,200 a day to 11 a day)` (lint relative-first, D51, house rule quantify-impact) |
 | Dates | MM/DD/YYYY in body text, no YYYY-MM-DD outside a URL, a link target or the frontmatter. A quarter label (`Q3 2026`) in a story lead is not a date and passes (lint date-format, D52) |
-| Why now markers | none. A figure the evidence does not hold is told in its story with the marker (lint why-now-no-markers, D55) |
-| Why now shape | one prose paragraph: no bullet, no sub-heading, no link, no bracketed criterion after a bold span, no bold span longer than six words. Every bold project name sits in a sentence that carries a number and its baseline (lint why-now-one-paragraph, D56). Sentence one carries the months in level and neither a review count nor a trait word (lint why-now-opener, D57) |
+| Why now markers | none. A figure the evidence does not hold is told in its story with the marker (lint why-now-no-markers, D55). A figure whose impact-data row is marked sits in a story sentence ending on the same marker (lint marker-propagation with `--impact-data`, D72) |
+| Why now shape | one prose paragraph: no bullet, no sub-heading, no link, no bracketed criterion after a bold span, no bold span longer than six words. Every bold project name sits in a sentence that carries a number and its baseline (lint why-now-one-paragraph, D56). Sentence one carries the months in level and neither a review count nor a trait word (lint why-now-opener, D57). No sentence over 60 words, and an `On **Project**,` sentence names the candidate (pronoun or first name) within 12 words after the closing bold (lint why-now-sentence-shape, D76). A `N projects`, `N initiatives` or `N stories` count in the closing sentence agrees with the story headings (lint rollup-counts-held warning, checklist row, D77) |
 | Trait words | no word from the house `no-superlatives` banlist or trait words and no claim phrase from that line in Why now or a story paragraph. Quote lines, the Feedback section and the D24 altitude form `A strong <level> would have` are exempt (lint no-trait-words, D63, list read from house-rules.md) |
+| Ordering words | an action sentence with first, before, then, after or earlier links two or more artifacts only when their dates (MM/DD/YYYY in the sentence, or the run's `--dates` csv) agree with the words (lint ordering-stamped, D73, checklist ordering-words-stamped for stamps the lint cannot read) |
 | Reasons intro | `## Best reasons not to promote` opens with one paragraph that counts the providers per theme before the first `###` (lint rntp-intro-counts warning, D69) |
 
 Caps, quotes excluded: a story under 500 words (hard failure), Why now under 550 words (hard
@@ -41,6 +42,24 @@ failure). Per criterion: at most 2 full stories and at most 600 words together. 
 warning naming the section, its story count and word count, with the instruction to move the
 weakest story to one sentence or an appendix. Which story moves is a per-candidate decision kept
 in the instance, never in this skill.
+
+Exact strings for an instance's `draft_contract` twins (the table above escapes `|` as `\|`, these
+are the regexes as the lint holds them, all case-insensitive):
+
+```
+credit-not-subtraction (D74), must_not_match:
+with the \w+ (core|design|schema|component) (from|by|authored by) (a|another|a second|the) builder|under (a|another|the) [^.]* design
+
+no-process-leak phrases (D75), must_not_match:
+earlier draft|evidence pull|reviewer of the|readiness row|in the order [a-z]+, then|told once below|working copy|author field|acknowledgement names|on record is|as (hers|his|theirs) is|evidence row|stage document
+
+marker end (D75), the form every marker sentence ends on:
+\((TO BE CONFIRMED|TO BE COLLECTED(: [^()]+)?)\)\.?$
+
+environment the lint reads: PROMO_LINT_CANDIDATE_PRONOUN, PROMO_LINT_CANDIDATE_ALIAS,
+PROMO_LINT_HOUSE_RULES, PROMO_LINT_UNVERIFIED_HOSTS, PROMO_LINT_LINK_EXEMPT
+arguments: --impact-data <impact-data.md> (marker-propagation), --dates <url,date csv> (ordering-stamped)
+```
 
 ## The document
 
@@ -62,9 +81,10 @@ in the instance, never in this skill.
      counts, those belong in the review-process story.
    - Sentence two: how many initiatives, listed with the project name in bold, in the
      `story-ranking` order (D53, ties by `why_now.order`, D4). The writer never picks the order.
-   - One sentence per ranked project, three at most, each opening "On **Project**," with two or
-     three candidate verbs and ending on that story's Headline number with its baseline, relative
-     first (D51). Bold the number, not the sentence. No criterion in brackets.
+   - One sentence per ranked project, three at most, each opening "On **Project**," with the
+     candidate's pronoun or name within 12 words of the closing bold, two or three candidate verbs,
+     and ending on that story's Headline number with its baseline, relative first (D51). Bold the
+     number, not the sentence. No criterion in brackets. No Why now sentence over 60 words (D76).
    - One sentence on operations (incidents root-caused, on-call scopes with a gloss each), one on
      people (who the candidate onboarded or mentored), then one closing sentence that rolls up in
      counts (projects, services, teams, months), not in trait words.
@@ -103,8 +123,10 @@ in the instance, never in this skill.
      altitude sentence in either form: the D24 counterfactual, or a factual contrast naming who
      else was engaged (role words per D41) and what the candidate alone did (D60).
    - Paragraph 4, result: each figure in the sentence with the verb that produced it, relative
-     first (D51), dated. End on who uses it now: a named team or builder, or the sentence
-     "No reuse by others is on record." (house rule reuse-named).
+     first (D51), dated. End on the candidate's own held figure or on who uses it now: a named
+     team or builder, or the sentence "No reuse by others is on record." (house rule reuse-named).
+     Never end on another builder's change, and when the no-reuse sentence closes the story,
+     the sentence before it carries a held figure, not a marker (D79).
    - No trait adjective or claim phrase from the denylist anywhere in a story paragraph.
      Adjectives belong to the providers, in quotes.
    - The quote line, verbatim with name and role, or `(TO BE COLLECTED: quote from <role>)`.

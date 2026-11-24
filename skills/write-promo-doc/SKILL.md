@@ -111,6 +111,35 @@ No other form. No square brackets, no `TODO` code spans, no `TBD`, no `(unverifi
 genre. Resolve every marker you can before the section is called final, and leave the rest
 visible: a marker is a fact about the evidence, not a flaw in the writing.
 
+The marker is the last token of its sentence. Nothing follows it but the full stop, and the clause
+after `TO BE COLLECTED:` names the artifact (`the adoption metric`, `quote from the on-call lead`),
+never the reason it is missing. The reason, who was asked and what was searched live in the
+impact-data stage document (D75). The lint fails a marker followed by a clause and a collect-marker
+that explains.
+
+## The impact-data stage document (marker-propagation, rollup-counts-held)
+
+Every figure the draft prints has one row in `impact-data.md` beside the draft: the number as the
+draft states it, its baseline or comparator, its source, and a status cell last (`Evidence holds`
+or `Status`). A row whose status carries `(TO BE CONFIRMED)` or `(TO BE COLLECTED: <artifact>)` is
+a marked row, and the draft prints its figure only inside a story sentence that ends on the same
+marker, never as fact and never in Why now (D55). The run passes the file to the lint as
+`scripts/promo-lint.py --impact-data <path> <draft>`, and the gate's `marker-propagation` rule
+reads the rows the lint's matcher skips. Conventions the lint relies on:
+
+- One figure's status per row. When a row holds a held figure and an unheld one, the status cell
+  names the unheld figure in the same sentence as the marker ("60% held with its baseline. The 7
+  months claim is not in any file (TO BE CONFIRMED)"), so the held figure stays free.
+- A date whose year the writer inferred from a page that printed only the month and day carries
+  the inference in the row's baseline cell ("the page prints February 12, the year is inferred
+  from its 2026 release list"), and the draft prints the full date with no marker (D78).
+- Every count in the closing Why now sentence has a row, or is a count of the draft's own story
+  headings. The lint warns when a projects, initiatives or stories count disagrees with the
+  headings, the gate's `rollup-counts-held` rule reads the rows for the rest (D77).
+- The linked artifacts' dates go in a `url,date` csv the run passes as `--dates <path>`, so the
+  lint's `ordering-stamped` rule can check first, before, then, after and earlier against them
+  (D73). A stamp the csv does not hold stays with the checklist's `ordering-words-stamped`.
+
 ## Scope of Role is about the team and the level (scope-no-candidate)
 
 `## Scope of Role` describes the team (what it owns, its scale) and what the PROPOSED level is
