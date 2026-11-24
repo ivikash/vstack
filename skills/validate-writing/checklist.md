@@ -111,9 +111,11 @@ rules that are NOT generic voice:
   Behavior -> Impact, with Behavior (what THIS person specifically did) as the bulk and Situation
   kept short. Flag examples that are all context and no distinct individual behavior. A promo-doc
   uses STAR instead (section H, star-situation and journey-in-action).
-- **principle-citation** (promo-doc): follow `principles.cite_per_statement` in the glossary.
-  `false` (default): one roll-up line `<principles.name> demonstrated: X, Y, Z` closes each
-  capability section and no per-statement tags appear. `true`: one principle in bold brackets at
+- **principle-citation** (promo-doc): follow `principles.print_line` and
+  `principles.cite_per_statement` in the glossary. `print_line` `false` (default, D61): no
+  principles line in the manager's stories, the providers' quotes carry the principles. `print_line`
+  `true` and `cite_per_statement` `false`: one roll-up line `<principles.name> demonstrated: X, Y, Z`
+  closes each capability section and no per-statement tags appear. `true`: one principle in bold brackets at
   the end of the statement it supports, e.g. `[**principles.example_1**]`, never stacked, never
   forced onto every sentence. Fail a principle that is not in `principles.list` when a list exists. Weave role-guideline "Moving to"
   phrases as short *italic* fragments, never quoted verbatim.
@@ -180,8 +182,9 @@ For a leadership status update, in addition to the shared house rules, enforce:
 
 Judgement rules the gate applies to a promotion document, on top of sections A to F. The
 countable twins live in `scripts/promo-lint.py` (word caps, four paragraphs per story and no STAR
-label printed, a number in the Headline, one quote line per story, exact marker spelling, links
-per story, bare identifiers) and run before the gate. Each rule below names the quoted-failure
+label printed, the quarter lead, a number in the Headline, one quote line per story, exact marker
+spelling, links per story, bare identifiers, the one-paragraph Why now, the trait-word denylist
+read from the house rules) and run before the gate. Each rule below names the quoted-failure
 form the gate prints, in the shape `[severity] rule -> offending -> fix`. Vocabulary: the Headline
 is the bold first line of a story (glossary), the criterion is a dimension of the caller's rubric.
 A story's four prose paragraphs carry no labels (owner decision D28), so "situation", "task",
@@ -197,9 +200,10 @@ A story's four prose paragraphs carry no labels (owner decision D28), so "situat
   grammatical subject is the candidate. Prints: `star-situation -> "<first sentence>" -> open with
   who needed what and what was undefined, move the candidate's action to the action paragraph`.
 - **star-order** (blocker): the four paragraphs between the Headline and the quote read as
-  situation (who needed what, what was broken or undefined), task (what the candidate owned, who
-  asked, ending `Ownership: ...`), action (the journey, ending with the altitude sentence) and
-  result (dated, with numbers), in that order and with no printed label. Fail when a paragraph
+  situation (the obstacle in concrete nouns, opening with the bold quarter lead), task (what the
+  candidate owned, who handed it over, shared work credited by function in the same sentence),
+  action (the journey, ending with the altitude sentence) and result (dated, with numbers, ending
+  on who uses it now), in that order and with no printed label and no `Ownership:` sentence (D59). Fail when a paragraph
   carries another part's content, when two parts share one paragraph, or when fewer than four
   paragraphs exist. Prints: `star-order -> paragraph <n> "<first sentence of the paragraph that is
   out of place>" reads as <part>, expected <part> -> move it to position <m> (or: split it, or:
@@ -237,21 +241,28 @@ A story's four prose paragraphs carry no labels (owner decision D28), so "situat
   The lint fails the first and warns on the second, this rule decides the warnings. Prints:
   `marker-direction -> "<sentence>" -> end it (TO BE CONFIRMED) (or: replace the marker with (TO
   BE COLLECTED: <artifact>))`.
-- **altitude-test** (major): each story's action paragraph ends with one sentence saying why a
-  strong engineer one level below could not have done it. Prints: `altitude-test -> story
-  "<heading>" has no altitude sentence -> add "A strong <current level> would have ..., not ..."`.
+- **altitude-test** (major, amended by D60 altitude-two-forms): each story's action paragraph ends
+  with one altitude sentence in one of two forms: the counterfactual `A strong <current level>
+  would have ..., not ...` (D24), or a factual contrast naming who else was engaged (how many were
+  on the call, who was senior, role words backed per `role-words-held`) and what the candidate
+  alone did. A factual contrast whose role words nothing holds fails `role-words-held`, not this
+  rule. Prints: `altitude-test -> story "<heading>" has no altitude sentence -> end the action
+  paragraph with "A strong <current level> would have ..., not ..." or with who else was engaged
+  and what the candidate alone did`.
 - **criterion-fit** (blocker): the criterion in a story's heading matches the marker its situation
   paragraph carries (Ambiguity: what was undefined and from whose view. Problem Complexity: why
   the cause was not obvious or who else owned the code). Prints: `criterion-fit -> "<heading>"
   carries the marker of <other criterion> ("<sentence>") -> move the story under <other criterion>
   or rewrite the situation paragraph`.
-- **ownership-verdict** (blocker): every ownership verb in a story (led, owned, drove, architected,
-  designed, end-to-end) is backed by the story's `Ownership:` sentence and by an attribution line in
-  the ownership audit (a stage document beside the draft, `ownership-audit.md` in a run directory
-  or `<stem>.ownership.md` beside a fixture) with a verdict SUPPORTED, PARTIALLY SUPPORTED or
-  UNSUPPORTED. Prints:
-  `ownership-verdict -> "<verb>" in "<sentence>" has no Ownership: line (or: audit says
-  UNSUPPORTED) -> qualify the verb or add the attribution`.
+- **ownership-verdict** (blocker, D21 amended by D59): every ownership verb in a story (led, owned,
+  drove, architected, designed, end-to-end) is backed by an attribution line in the ownership audit
+  (a stage document beside the draft, `ownership-audit.md` in a run directory or
+  `<stem>.ownership.md` beside a fixture) with a verdict SUPPORTED, PARTIALLY SUPPORTED or
+  UNSUPPORTED. No `Ownership:` sentence is printed in the story: a PARTIALLY SUPPORTED verdict is
+  carried as an inline credit by function in the task paragraph (house rule credit-inline), never
+  as a subtraction. Prints: `ownership-verdict -> "<verb>" in "<sentence>" has no audit row (or:
+  audit says UNSUPPORTED, or: PARTIALLY SUPPORTED with no inline credit) -> qualify the verb, add
+  the attribution, or credit the other party in the sentence`.
 - **one-story-once** (major): a project is told in full (more than 80 words) under exactly one
   heading. Every other mention, in Why now, another story or the Appendix, is one sentence with a
   cross-reference. Prints: `one-story-once -> "<project>" told under "<heading A>" and "<heading
@@ -259,11 +270,41 @@ A story's four prose paragraphs carry no labels (owner decision D28), so "situat
 - **quote-per-story** (major): every story ends with one verbatim quote from a named person with
   their role, or `(TO BE COLLECTED: quote from <role>)`. Prints: `quote-per-story -> story
   "<heading>" has <0 or 2+> quotes -> add one verbatim quote with name and role, or the marker`.
-- **why-now-order** (blocker): the three Why now wins follow the owner's `story-ranking` table,
-  with `why_now.order` from the caller's config breaking ties only (D53), never the writer's
-  choice and never time, and each win's sentence carries its story's Headline number. Prints:
-  `why-now-order -> wins are ordered <observed> against ranking <order> (or: win "<sentence>"
-  carries no Headline number) -> reorder by <order>, carry the number`.
+- **why-now-order** (blocker): the "On **Project**," sentences of the Why now paragraph follow the
+  owner's `story-ranking` table, with `why_now.order` from the caller's config breaking ties only
+  (D53), never the writer's choice and never time, and each carries its story's Headline number
+  with its baseline. Prints: `why-now-order -> projects are ordered <observed> against ranking
+  <order> (or: sentence "<sentence>" carries no Headline number) -> reorder by <order>, carry the
+  number`.
+- **why-now-no-list** (major): no Why now sentence names more than three projects, and a project
+  with no story in Evidence is not named in Why now (it goes to the Appendix, D14). The lint
+  checks the one-paragraph shape, this rule reads the sentences. Prints: `why-now-no-list ->
+  "<sentence>" names <n> projects (or: names "<project>", which has no story) -> split it, or move
+  the project to the Appendix`.
+- **why-now-rollup** (major): the closing Why now sentence rolls up in at least two counts
+  (projects, services, teams, regions, months) and carries no word from the house no-superlatives
+  line. Prints: `why-now-rollup -> "<sentence>" has <n> counts (or: carries "<trait word>") ->
+  close on counts, not on a pattern word`.
+- **show-not-tell** (major): the judgement twin of the lint's `no-trait-words`: a paraphrased tell
+  the denylist misses ("went the extra mile", "raised the bar", "a safe pair of hands") in Why now
+  or a story paragraph, or a sentence that asserts a trait the surrounding sentences do not show.
+  Prints: `show-not-tell -> "<sentence>" tells <trait> -> replace with the obstacle, the fork, the
+  technique or the figure with its verb that shows it`.
+- **obstacle-first** (major): the situation paragraph names the obstacle in concrete nouns before
+  the candidate's first verb: what did not exist (no API, no document, no owner, no test path),
+  who else owned the code. The lint warns when no absence construction precedes the candidate's
+  first sentence, this rule judges whether the obstacle is specific enough that a reader could name
+  it back. Prints: `obstacle-first -> story "<heading>" situation "<first sentences>" -> name what
+  did not exist before "<candidate's first verb>"`.
+- **figure-has-verb** (major): every figure in a result paragraph sits in the sentence with the
+  verb that produced it, relative first, with its baseline. No bare results line. The lint warns
+  on a numbered sentence with no verb, this rule reads whether the verb is the one that produced
+  the figure. Prints: `figure-has-verb -> "<sentence>" -> write "<verb> ... <figure> (<baseline>)"`.
+- **reuse-named** (major): the result paragraph ends on a named user of the work (a team or a
+  builder who now runs it, extends it or plans from it) or on the exact sentence "No reuse by
+  others is on record." "Stakeholders", "the business" and "customers" with no name are not a
+  user. The lint warns, this rule decides. Prints: `reuse-named -> story "<heading>" ends "<last
+  sentence>" -> name who uses it now, or write the no-reuse sentence`.
 - **owner-ranked-stories** (blocker): the per-candidate decisions file holds a `story-ranking`
   table (project, rank, one line on why it matters) written by the owner. The Why now order and
   the first full story under each criterion follow it. A run with no table writes `questions.md`
