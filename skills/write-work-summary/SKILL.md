@@ -29,7 +29,7 @@ provided, ask for it rather than inventing any.
 ## Writing rules (MUST follow, scan output before returning)
 
 Read [leadership-writing/house-rules.md](../leadership-writing/house-rules.md) and apply EVERY rule in it:
-no-em-dash, no-semicolons, correct-grammar, define-acronyms, active-voice, zombie-test, show-dont-tell,
+no-em-dash, no-semicolons, correct-grammar, define-acronyms, date-format, active-voice, zombie-test, show-dont-tell,
 quantify-impact, plain-headings, write-for-reader, logical-progression, no-superlatives, no-hedging (with its
 banlist), story-not-bullets, honest-and-data-driven, and no-assumptions. That file is the single
 source of truth for the voice; this skill applies it, it does not restate it. Write in the voice

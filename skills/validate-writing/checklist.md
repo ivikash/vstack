@@ -21,6 +21,8 @@ Severity key: **blocker** = unfit to share, **major** = weakens the doc, **minor
 - **correct-grammar**: No grammar, spelling, punctuation, subject-verb agreement, verb
   tense, or article errors. Sentences are complete, modifiers sit next to what they modify,
   and items in a list keep parallel structure.
+- **date-format**: Dates in body text are MM/DD/YYYY. A YYYY-MM-DD outside a URL, a link target
+  or the frontmatter is a violation in every genre (the promo-doc lint fails it as `date-format`).
 - **rating-placement** (doc-type specific):
   - talent-card: the rating lives in the Background Rating / Rating History tables,
     exactly as supplied by the caller. Do NOT invent or alter rating numbers. The Rating
@@ -77,7 +79,7 @@ Severity key: **blocker** = unfit to share, **major** = weakens the doc, **minor
 All the generic writing-voice rules live in [leadership-writing/house-rules.md](../leadership-writing/house-rules.md):
 claim-has-artifact (as honest-and-data-driven), quantify-impact, no-superlatives, write-for-reader,
 logical-progression, show-dont-tell, active-voice, zombie-test, no-hedging (with its banlist),
-define-acronyms, link-artifacts, plain-headings, and story-not-bullets. Read that file and enforce every rule in it
+define-acronyms, date-format, link-artifacts, plain-headings (and quantify-impact's relative-first line), and story-not-bullets. Read that file and enforce every rule in it
 as a checker (fail a real violation). This section adds only the people-review-specific quality
 rules that are NOT generic voice:
 
@@ -244,11 +246,37 @@ A story's four prose paragraphs carry no labels (owner decision D28), so "situat
 - **quote-per-story** (major): every story ends with one verbatim quote from a named person with
   their role, or `(TO BE COLLECTED: quote from <role>)`. Prints: `quote-per-story -> story
   "<heading>" has <0 or 2+> quotes -> add one verbatim quote with name and role, or the marker`.
-- **why-now-order** (blocker): the three Why now wins follow `why_now.order` from the caller's
-  config, never the writer's choice and never time unless recency is first, and each win's
-  sentence carries its story's Headline number. Prints: `why-now-order -> wins are ordered
-  <observed> against config <order> (or: win "<sentence>" carries no Headline number) -> reorder
-  by <order>, carry the number`.
+- **why-now-order** (blocker): the three Why now wins follow the owner's `story-ranking` table,
+  with `why_now.order` from the caller's config breaking ties only (D53), never the writer's
+  choice and never time, and each win's sentence carries its story's Headline number. Prints:
+  `why-now-order -> wins are ordered <observed> against ranking <order> (or: win "<sentence>"
+  carries no Headline number) -> reorder by <order>, carry the number`.
+- **owner-ranked-stories** (blocker): the per-candidate decisions file holds a `story-ranking`
+  table (project, rank, one line on why it matters) written by the owner. The Why now order and
+  the first full story under each criterion follow it. A run with no table writes `questions.md`
+  listing every candidate project with its evidence strength (held numbers, markers, code review
+  count) and no draft. Prints: `owner-ranked-stories -> no story-ranking table in the decisions
+  file (or: story "<heading>" is first under <criterion>, the table ranks "<project>" above it) ->
+  stop and write questions.md (or: reorder to the table)`.
+- **vp-read** (blocker): after reading Why now and the first two stories, the reviewer can state
+  in one sentence, quoting the draft, what the candidate did that nobody else on the team was
+  doing and why it was hard. When no such sentence can be written, fail, naming the story that
+  should have carried it. Prints: `vp-read -> after Why now and stories "<heading A>" and
+  "<heading B>" no draft sentence says what only the candidate did and why it was hard -> add it
+  to story "<heading>" (what nobody else was doing, and the obstacle)`.
+- **scope-no-candidate** (blocker): `## Scope of Role` describes the team and the proposed level
+  and is the scope file's text for the level pair. The lint fails the candidate's name or alias, a
+  hire or join word and a prior-team sentence, this rule reads the rest: a sentence about what the
+  candidate did, or a next-level paragraph that is the current-level one with the title changed.
+  Prints: `scope-no-candidate -> "<sentence>" is about the candidate (or: the next-level paragraph
+  repeats the current-level one) -> replace with the scope file's paragraphs for <level pair>`.
+- **candidate-facts** (blocker): the header tenure, every "in N months as a <title>" clause and the
+  review-count window come from the `candidate-facts` block (prior roles with months, level start
+  date, months in level) and run from the level start, never the hire date. A fact the block does
+  not hold is a TODO row for the owner and `(TO BE CONFIRMED)` in the text, never a guess. The lint
+  fails a day count, this rule reads the source. Prints: `candidate-facts -> "<figure>" in
+  "<sentence>" is not in the candidate-facts block (or: counts from the hire date) -> take it from
+  the block, or mark it (TO BE CONFIRMED) and add the TODO row`.
 - **rntp-shape** (blocker): each reason not to promote has five parts in order: Pattern with two
   positive examples, Gap with one dated example of who pointed it out, Also seen by a second
   person, Does not block <level> with evidence, Next with a plan. Prints: `rntp-shape -> reason
