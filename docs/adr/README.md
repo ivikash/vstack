@@ -13,3 +13,4 @@ One decision, one file, written once. Status is in the frontmatter (`proposed`, 
 | [0007](0007-every-writing-workflow-loops.md) | Every writing workflow loops | accepted |
 | [0008](0008-one-record-per-run-steps-instance-no-schedule.md) | One record per run, gather steps, the instance variable, dry runs never schedule | accepted |
 | [0009](0009-readiness-mode-draft-with-readiness.md) | Readiness mode draft_with_readiness, the document declares it | accepted |
+| [0010](0010-countable-style-rules-every-writer-runs.md) | Countable style rules every writer runs | accepted |

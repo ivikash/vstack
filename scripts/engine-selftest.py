@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Engine self-test: five behaviours proven against a throwaway instance, no model call, seconds.
+"""Engine self-test: six behaviours proven against a throwaway instance, no model call, seconds.
 
   record-replace   `vstack record` twice on one run id leaves ONE runs.jsonl line and the latest verdict wins
   gather-steps     the rendered prompt carries gather.order and gather.step_0 before the sources
@@ -7,6 +7,9 @@
   no-schedule      `vstack run --harness kirocrew --no-publish` registers nothing (no command.txt, status rendered)
   extra-checklist  gate.extra_checklists renders into the GATE section, `check` fails a missing file and a writer
                    that lacks a checklist named in <instance>/gate-policy.json required_extra_checklists
+  style-rules      scripts/style-check.py self-test passes, gate-policy.json required_style_rules renders the
+                   countable-rules line into the GATE section, `check` fails a writer whose gate opts out of them,
+                   `check-run` marks a draft with a finding unmet and passes once it is fixed
 
 Exit 1 on the first failure. Run by scripts/check.sh (group `engine`).
 """
@@ -105,6 +108,41 @@ def main():
         r = sh("check", "--instance", str(inst), check=False)
         assert r.returncode == 0, f"check failed a writer that carries the required checklist:\n{r.stdout}{r.stderr}"
         print("extra-checklist ok")
+
+        # style-rules: the countable style checks the instance names apply to every writer, in the prompt, in
+        # `check` (no opt-out) and in `check-run` (a finding is unmet)
+        r = subprocess.run([sys.executable, str(HERE / "scripts" / "style-check.py"), "--selftest"], capture_output=True, text=True)
+        assert r.returncode == 0, f"style-check --selftest failed:\n{r.stdout}{r.stderr}"
+        rules = inst / "style-rules.json"
+        rules.write_text(json.dumps({"max_words_per_sentence": 40, "weasel_words": ["several"], "date_without_year": True,
+                                     "iso_dates": True, "url_as_label": True, "semicolons": True, "em_dashes": True,
+                                     "exempt_line_prefixes": ["Sources:"]}))
+        (inst / "gate-policy.json").write_text(json.dumps({"required_extra_checklists": ["${instance}/style.md"], "required_style_rules": "${instance}/style-rules.json"}))
+        r = sh("check", "--instance", str(inst), check=False)
+        assert r.returncode == 0, f"check failed with a valid required_style_rules:\n{r.stdout}{r.stderr}"
+        r = sh("render", str(wf_path), *common)
+        assert "Countable rules (every finding is a blocker" in r.stdout and "style-check" in r.stdout, "required_style_rules not rendered into the GATE section"
+        assert str(rules.resolve()) in r.stdout or str(rules) in r.stdout, "the rules path is not named in the GATE section"
+        wf = json.load(open(wf_path)); wf["gate"]["style_rules"] = False; wf_path.write_text(json.dumps(wf, indent=2))
+        r = sh("check", "--instance", str(inst), check=False)
+        assert r.returncode != 0 and "does not run the required style rules" in r.stdout + r.stderr, "check passed a writer whose gate opts out of the style rules"
+        wf["gate"].pop("style_rules"); wf_path.write_text(json.dumps(wf, indent=2))
+        (inst / "gate-policy.json").write_text(json.dumps({"required_extra_checklists": ["${instance}/style.md"], "required_style_rules": "${instance}/missing-rules.json"}))
+        r = sh("check", "--instance", str(inst), check=False)
+        assert r.returncode != 0 and "does not exist" in r.stdout + r.stderr, "check passed a required_style_rules file that does not exist"
+        (inst / "gate-policy.json").write_text(json.dumps({"required_extra_checklists": ["${instance}/style.md"], "required_style_rules": "${instance}/style-rules.json"}))
+        # check-run: a run whose draft carries a date with no year is unmet on the style rule, met once fixed
+        (rd / "draft.md").write_text("# draft\n\nSources: used a.b; unavailable none\n\nThe worker ran out of memory on 11/20 and several tasks stalled.\n")
+        (rd / "gate.md").write_text("passes: 2\n"); (rd / "brief.md").write_text("a\nb\nc\n"); (rd / "diff.md").write_text("first run\n")
+        (rd / "evidence.json").write_text(json.dumps({"sources": [], "evidence_hash": "x"}))
+        r = sh("check-run", str(rd), "--workflow", str(wf_path), "--instance", str(inst), check=False)
+        out = r.stdout + r.stderr
+        assert r.returncode != 0 and "style date-without-year" in out and "style weasel-word" in out, f"check-run did not report the style findings:\n{out}"
+        (rd / "draft.md").write_text("# draft\n\nSources: used a.b; unavailable none\n\nThe worker ran out of memory on 11/20/2026 and 3 tasks stalled.\n")
+        r = sh("check-run", str(rd), "--workflow", str(wf_path), "--instance", str(inst), check=False)
+        out = r.stdout + r.stderr
+        assert "style " not in out.replace("style rules:", ""), f"check-run still reports a style finding on the fixed draft:\n{out}"
+        print("style-rules   ok")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

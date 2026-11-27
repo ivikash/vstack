@@ -17,6 +17,7 @@ Subcommands
   gen-cron      emit crontab lines (or kirocrew cron commands) for every workflow with a trigger
   gen-mcp       emit an MCP server block for one harness from one servers file
   check-run     verify a run directory against the done-means contract (artifacts, not claims)
+  style-check   run the instance's countable style rules (scripts/style-check.py) on one markdown file
   retro         read the ledger for the last N days and write a dated retro page with per-workflow
                 scorecard trends and two-in-a-row regression flags (no model call)
   record        stage 6 for a run dir: meta.json, scorecard.json, one runs.jsonl line (idempotent, any harness)
@@ -238,6 +239,37 @@ def check(workflows_dir, private_component):
             for r in required:
                 if r not in xs:
                     fails.append(f"{cid}: writer gate lacks the required checklist {r} (gate-policy.json required_extra_checklists)")
+    # gate-policy.json required_style_rules: one rules JSON (scripts/style-check.py) every writer's gate runs and
+    # check-run enforces on draft.md. The file must exist and parse, and a writer whose gate.style_rules is false
+    # or names another file fails here: the countable style checks are never optional once the instance names them.
+    req_rules = None
+    if policy_file.exists():
+        try:
+            req_rules = load(policy_file).get("required_style_rules")
+        except Exception:
+            req_rules = None
+    if req_rules:
+        rp = Path(str(req_rules).replace("${instance}", str(inst_dir))).expanduser()
+        if not rp.exists():
+            fails.append(f"gate-policy.json: required_style_rules names a file that does not exist: {req_rules}")
+        else:
+            try:
+                rules_obj = load(rp)
+                if not isinstance(rules_obj, dict):
+                    raise ValueError("not a JSON object")
+            except Exception as e:
+                fails.append(f"gate-policy.json: required_style_rules file is not a valid rules JSON ({e}): {req_rules}")
+        for cid, (p, c) in cells.items():
+            if c.get("kind") != "writer":
+                continue
+            g = c.get("gate") if isinstance(c.get("gate"), dict) else {}
+            if "style_rules" in g and g.get("style_rules") != req_rules:
+                fails.append(f"{cid}: writer gate does not run the required style rules {req_rules} (gate.style_rules is {g.get('style_rules')!r}, gate-policy.json required_style_rules)")
+    for cid, (p, c) in cells.items():
+        g = c.get("gate") if isinstance(c.get("gate"), dict) else {}
+        sr = g.get("style_rules")
+        if isinstance(sr, str) and sr.strip() and not Path(sr.replace("${instance}", str(inst_dir))).expanduser().exists():
+            fails.append(f"{cid}: gate.style_rules names a file that does not exist: {sr}")
     return fails, cells
 
 
@@ -450,7 +482,7 @@ and zero majors{coverage}. A fix may never invent a fact; an unfixable blocker g
 `**Known Gaps**` note in draft.md. Write the last pass report to {run_dir}/gate.md with the pass
 count on its first line as `passes: N`. Verification before completion: every rule the report
 marks passed names what it checked (a quoted span or a count), and every failure quotes the
-offending text. "Verified" with nothing quoted is itself a failure.
+offending text. "Verified" with nothing quoted is itself a failure.{style_check}
 
 ## 4b. CONTRACT CHECK (before anything leaves the run directory)
 Run with your shell: `{vstack_bin} check-run {run_dir} --workflow {workflow_file}`
@@ -499,8 +531,9 @@ Reply with the single line: VSTACK_SECOND findings=<N>
 """
 
 
-def verify_contract(run_dir, cell):
-    """The done-means contract: which required artifacts are missing or malformed in a run dir."""
+def verify_contract(run_dir, cell, style_rules=None):
+    """The done-means contract: which required artifacts are missing or malformed in a run dir. style_rules is the
+    resolved rules JSON path (style_rules_for) or None: with it, every countable style finding on draft.md is unmet."""
     run_dir = Path(run_dir)
     missing = []
     writer = cell.get("writer", {}).get("skill")
@@ -551,6 +584,8 @@ def verify_contract(run_dir, cell):
         missing += check_draft_contract(draft.read_text(), cell.get("draft_contract", {}))
         if writer == "write-promo-doc":
             missing += check_promo_lint(draft)
+        if style_rules:
+            missing += check_style_rules(draft, style_rules)
     return missing
 
 
@@ -644,7 +679,8 @@ def render(cell, tools, org_profile_text, harness, dry_run, run_dir, run_id, ski
         writer_inputs=writer_inputs,
         gate_skill=gate.get("skill", "validate-writing"), doc_type=gate.get("doc_type", "passage"),
         min_passes=gate.get("min_passes", 2), max_passes=gate.get("max_passes", 5), coverage=cov,
-        extra_checklists=extra_checklists_text(gate), land=land, ledger_path=f"{ledger_root}/{cell.get('ledger', {}).get('file', cell['id'] + '.jsonl')}",
+        extra_checklists=extra_checklists_text(gate), style_check=style_check_text(cell, run_dir, workflow_file, instance_of(workflow_file)),
+        land=land, ledger_path=f"{ledger_root}/{cell.get('ledger', {}).get('file', cell['id'] + '.jsonl')}",
         ledger_fields=", ".join(cell.get("ledger", {}).get("fields", [])),
         run_id=run_id, dry_json="true" if dry_run else "false", nopub_json="true" if no_publish else "false",
     )
@@ -659,6 +695,52 @@ def extra_checklists_text(gate):
     if not xs:
         return ""
     return " Then read and apply as further checklist rules, each scored the same way: " + ", ".join(xs) + "."
+
+
+def style_rules_for(cell, inst_dir):
+    """The countable style rules JSON that applies to a workflow: gate.style_rules when set, else the instance's
+    gate-policy.json required_style_rules. None when neither names one. `${instance}` expands to inst_dir."""
+    g = cell.get("gate") if isinstance(cell.get("gate"), dict) else {}
+    sr = g.get("style_rules")
+    if sr is None and inst_dir and inst_dir != "${instance}":
+        pf = Path(inst_dir) / "gate-policy.json"
+        if pf.exists():
+            try:
+                sr = load(pf).get("required_style_rules")
+            except Exception:
+                sr = None
+    if not sr or not isinstance(sr, str):
+        return None
+    return str(Path(sr.replace("${instance}", str(inst_dir or ""))).expanduser())
+
+
+def check_style_rules(draft, rules_path):
+    """Run scripts/style-check.py (beside this file's parent) on a draft with the instance's rules JSON. Every
+    finding is one unmet line, the same way check_draft_contract reports a forbidden match: a sentence over the
+    word limit, a weasel word, an acronym with no expansion or glossary row, a date with no year, an ISO date, a
+    link labelled with its URL, a semicolon or an em-dash in prose. The mechanism is the engine's, every list
+    and limit is the instance's."""
+    script = Path(__file__).resolve().parent.parent / "scripts" / "style-check.py"
+    if not script.exists():
+        return [f"style-check.py not found at {script}, the instance requires style rules {rules_path}"]
+    if not Path(rules_path).exists():
+        return [f"style rules file not found: {rules_path}"]
+    r = subprocess.run([sys.executable, str(script), str(draft), "--rules", str(rules_path)], capture_output=True, text=True)
+    if r.returncode == 0:
+        return []
+    lines = [l for l in r.stdout.splitlines() if l and not l.startswith("style-check:")]
+    return [f"style {l}" for l in lines] or [f"style-check failed: {r.stderr.strip()[:200]}"]
+
+
+def style_check_text(cell, run_dir, workflow_file, inst_dir):
+    rules = style_rules_for(cell, inst_dir)
+    if not rules:
+        return ""
+    return (f"\nCountable rules (every finding is a blocker, fixed before the pass is written): run with your shell\n"
+            f"`{Path(__file__).resolve()} style-check {run_dir}/draft.md --workflow {workflow_file or '<workflow.json>'}`\n"
+            f"and fix every line it prints until it ends with `style-check: 0 finding(s)`. The rules file is {rules}. "
+            f"A term it flags as an acronym is expanded on first use (plain phrase first, the term in round brackets) or added "
+            f"to a glossary the rules name, never silenced in the rules.")
 
 
 def gather_preamble(g):
@@ -870,15 +952,37 @@ def check_run(args):
     if wf:
         cell = load(Path(wf).expanduser())
         cell = expand_deep(cell, {"config": cell.get("config", {}), "instance": instance_of(wf, getattr(args, "instance", None))})
+    inst_dir = instance_of(wf, getattr(args, "instance", None)) if (wf or getattr(args, "instance", None)) else None
     if cell is None:
         cell = {"gate": {"min_passes": args.min_passes}}
         print("note: no workflow resolved (pass --workflow or --instance), checking the generic contract only")
-    unmet = verify_contract(run_dir, cell)
+    rules = style_rules_for(cell, inst_dir) if inst_dir else None
+    if rules:
+        print(f"style rules: {rules}")
+    unmet = verify_contract(run_dir, cell, style_rules=rules)
     for u in unmet:
         print("  unmet:", u)
     wname = cell.get("id") or meta.get("workflow", meta.get("cell", "?"))
     print("contract:", "MET" if not unmet else f"{len(unmet)} item(s) unmet", f"(workflow {wname}, harness {meta.get('harness', run_dir.name.split('-')[0])})")
     return 1 if unmet else 0
+
+
+def style_check(args):
+    """`vstack style-check <draft.md> [--workflow wf.json | --instance dir]`: the countable style rules the
+    instance names, on one file, with the findings printed. Exit 1 on any finding. What check-run runs on draft.md,
+    callable by the writer inside the gate loop (and by anyone on any markdown file)."""
+    wf = getattr(args, "workflow", None)
+    inst_dir = instance_of(wf, getattr(args, "instance", None)) if (wf or getattr(args, "instance", None)) else None
+    cell = {}
+    if wf:
+        cell = load(Path(wf).expanduser())
+        cell = expand_deep(cell, {"config": cell.get("config", {}), "instance": inst_dir})
+    rules = getattr(args, "rules", None) or (style_rules_for(cell, inst_dir) if inst_dir else None)
+    if not rules:
+        die("style-check: no rules resolved (pass --rules, or --workflow / --instance whose gate-policy.json names required_style_rules)")
+    script = Path(__file__).resolve().parent.parent / "scripts" / "style-check.py"
+    r = subprocess.run([sys.executable, str(script), str(Path(args.draft).expanduser()), "--rules", str(rules)], text=True)
+    return r.returncode
 
 
 def retro(args):
@@ -1507,6 +1611,7 @@ def main():
     sp.add_argument("--second-opinion", choices=("claude", "codex", "kiro"), help="run an independent critic on this harness after the gate; findings are recorded, never block")
     sp.add_argument("--timeout", type=int, default=1500)
     sp = sub.add_parser("check-run"); sp.add_argument("run_dir"); sp.add_argument("--min-passes", type=int, default=2); sp.add_argument("--workflow", help="workflow JSON whose gate and draft_contract apply"); sp.add_argument("--instance", default=os.environ.get("VSTACK_INSTANCE"), help="instance directory (default: $VSTACK_INSTANCE); resolves workflows/<run parent name>.json")
+    sp = sub.add_parser("style-check"); sp.add_argument("draft"); sp.add_argument("--workflow", help="workflow JSON (its gate.style_rules or the instance policy applies)"); sp.add_argument("--instance", default=os.environ.get("VSTACK_INSTANCE")); sp.add_argument("--rules", help="rules JSON, overrides the workflow and the policy")
     sp = sub.add_parser("retro"); sp.add_argument("--days", type=int, default=7); sp.add_argument("--out"); sp.add_argument("--ledger-root", default=str(HOME / ".local/state/vstack/ledger")); sp.add_argument("--trend-runs", type=int, default=8, help="scorecards per workflow in the trend table")
     sp = sub.add_parser("record"); sp.add_argument("run_dir"); sp.add_argument("--workflow", help="workflow JSON whose contract applies"); sp.add_argument("--instance", default=os.environ.get("VSTACK_INSTANCE")); sp.add_argument("--ledger-root", default=str(HOME / ".local/state/vstack/ledger"))
     sp = sub.add_parser("reflect"); sp.add_argument("run_dir", nargs="?"); sp.add_argument("--age", choices=("24h", "7d"), default="24h"); sp.add_argument("--render", action="store_true", help="print the worker prompt that writes landed-<age>.md")
@@ -1574,6 +1679,8 @@ def main():
         return gen_mcp(args)
     if args.cmd == "check-run":
         sys.exit(check_run(args))
+    if args.cmd == "style-check":
+        sys.exit(style_check(args))
     if args.cmd == "retro":
         sys.exit(retro(args))
     if args.cmd == "record":

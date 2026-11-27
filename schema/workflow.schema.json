@@ -149,6 +149,13 @@
             "kiro"
           ],
           "description": "after the gate, an independent critic on this harness evaluates draft.md against the evidence; findings are recorded in meta.json, they never edit or block"
+        },
+        "style_rules": {
+          "type": [
+            "string",
+            "boolean"
+          ],
+          "description": "rules JSON for scripts/style-check.py (the countable style checks: sentence length, weasel words, unexpanded acronyms, dates with no year, ISO dates, URL-as-label links, semicolons, em-dashes). Default: <instance>/gate-policy.json required_style_rules. When the policy names one, a writer may not set this to false or to another file (vstack check fails it)"
         }
       }
     },
