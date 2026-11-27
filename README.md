@@ -327,7 +327,7 @@ with its `Sources:` line, `gate.md` with enough passes, a three-line `brief.md`,
 |---|---|
 | `vstack render <workflow> [--harness h]` | print the prompt, run nothing |
 | `vstack run <workflow> --harness h [--dry-run] [--no-publish] [--second-opinion h2] [--agent a] [--model m]` | pre-flight, render, execute, contract check, ledger line |
-| `vstack check [--instance d]` | invariants over the workflows |
+| `vstack check [--instance d]` | invariants over the workflows, including the document budget: a document-writing sink names `document: {kind: rolling, title}` or `{kind: per_event, event}` and the instance's `documents.json` lists it |
 | `vstack map [--instance d] [--json]` | the estate derived from the workflows: sources, writers, gates, sinks, ledgers, bots |
 | `vstack check-run <run-dir>` | contract check on an existing run directory |
 | `vstack verify-skills --dirs ... --skills ...` | every named skill present and identical in every harness dir |

@@ -38,6 +38,7 @@ class at the highest level that works, architecture first, docs last.)
 | Every run measures itself the same way | `scorecard.json` per run dir, engine-computed, schema `schema/scorecard.json`, trends and two-in-a-row flags in `vstack retro` | `vstack record`, `vstack retro` |
 | Every writer loops | a writer workflow with no gate, or a gate with min_passes under 2 or max_passes over 5, fails `vstack check` | `vstack check` |
 | Edits to a landed document feed the contract | `vstack reflect` diffs the landed document against draft.md 24 h and 7 d after landing, files wording and structure edits as proposals, fact edits as mistakes, counts deletions, auto-applies a proposal seen twice | `vstack reflect` |
+| A workflow never creates a document per run | `documents.json` in the instance lists the rolling documents and the per-event kinds (folder, template-fixed title). A document-writing sink whose `document` is neither fails `vstack check` | `vstack check` |
 
 Rows marked `skill` or `prompt` are the weakest kind: nothing fails when a model ignores them. Each
 one is a candidate for promotion to `contract` or `engine` as soon as a run shows it ignored.

@@ -177,6 +177,39 @@ def check(workflows_dir, private_component):
         mn, mx = int(g.get("min_passes", 0) or 0), int(g.get("max_passes", 0) or 0)
         if mx > 5 or mx < mn:
             fails.append(f"{cid}: gate.max_passes is {mx}, must be between min_passes and 5")
+    # document budget: a workflow that writes documents either appends to a rolling document the instance
+    # lists, or creates one document per real-world event of a kind the instance lists with a folder and a
+    # template-fixed title. A document-per-run sink outside both lists fails. The lists live in
+    # <instance>/documents.json (rolling: [{title, id?}], per_event: {kind: {folder, title_template}}).
+    budget_file = Path(workflows_dir).parent / "documents.json"
+    if budget_file.exists():
+        try:
+            budget = load(budget_file)
+        except Exception as e:
+            fails.append(f"documents.json: not valid JSON ({e})")
+            budget = {}
+        rolling = {(r.get("title") or "").strip() for r in budget.get("rolling", []) if isinstance(r, dict)}
+        rolling_ids = {(r.get("id") or "").strip() for r in budget.get("rolling", []) if isinstance(r, dict) and r.get("id")}
+        per_event = budget.get("per_event") or {}
+        for cid, (p, c) in cells.items():
+            sink = c.get("sink") or {}
+            conn = str(sink.get("connector", ""))
+            if not (conn.startswith("docs.") and conn.endswith(".write")):
+                continue
+            doc = sink.get("document")
+            if not isinstance(doc, dict) or doc.get("kind") not in ("rolling", "per_event"):
+                fails.append(f"{cid}: sink writes documents but sink.document.kind is not 'rolling' or 'per_event' (document budget)")
+                continue
+            if doc["kind"] == "rolling":
+                title = expand(str(doc.get("title", "")), {"config": c.get("config", {})}).strip()
+                if title not in rolling and str(doc.get("id", "")).strip() not in rolling_ids:
+                    fails.append(f"{cid}: rolling document {title!r} is not in documents.json rolling list (a new document per run is not allowed, document budget)")
+            else:
+                ev = per_event.get(str(doc.get("event", "")))
+                if not ev:
+                    fails.append(f"{cid}: per-event document kind {doc.get('event')!r} is not in documents.json per_event (document budget)")
+                elif not ev.get("folder") or not ev.get("title_template"):
+                    fails.append(f"{cid}: per-event kind {doc.get('event')!r} needs a folder and a title_template in documents.json")
     return fails, cells
 
 
