@@ -493,7 +493,7 @@ def lint_readiness(path, draft_text=""):
     m = READINESS.search(t)
     if not m:
         return [f"readiness-first {path}: no `Readiness: Ready | Ready with gaps | Not ready` verdict line"]
-    if not re.search(r"^\| *Criterion *\| *Evidence *\| *(Met / Partly / Not met|Status) *\| *Gap *\|", t, re.M):
+    if not re.search(r"^\| *(?:# *\| *)?Criterion *\| *Evidence *\| *(Met / Partly / Not met|Status) *\| *Gap *\|", t, re.M):   # an optional # column first (house table shape, 11/27/2026)
         return [f"readiness-first {path}: no table with columns Criterion, Evidence, Met / Partly / Not met, Gap"]
     if m.group(1) == "Not ready":
         if banner:
