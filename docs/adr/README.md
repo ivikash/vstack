@@ -20,3 +20,4 @@ One decision, one file, written once. Status is in the frontmatter (`proposed`, 
 | [0014](0014-cut-title-reads-openers-and-fragments-never-length.md) | cut-title reads openers and fragments, never length | accepted |
 | [0015](0015-style-exempt-lines-per-workflow.md) | A workflow names the lines its countable style rules skip | accepted |
 | [0016](0016-owner-review-rules-brackets-units-figure-dates-hash-column.md) | Four countable rules from an owner's document review: bracket spans, quantity units, figure dates, the # column | accepted |
+| [0017](0017-explicit-subjects-bare-terms-link-dates-span-units.md) | Explicit subjects, bare known terms, no date after an identifier link, a unit after every span | accepted |

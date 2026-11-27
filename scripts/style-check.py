@@ -129,6 +129,40 @@ def known_terms(rules, rules_path=None):
     return terms
 
 
+def bare_terms(rules, rules_path=None):
+    """The 'use bare' class of the Known terms table: {bare form: [long forms]} from every row whose `Write as` column
+    (header cell named `Write as`) is filled. The long forms are the Term and Also written entries other than the bare
+    form. A writer never expands such a term, the owner adds one with a single row (owner ruling, 11/27/2026)."""
+    src = rules.get("known_terms_source")
+    if not src or not isinstance(src, dict) or not src.get("file"):
+        return {}
+    p = pathlib.Path(str(src["file"])).expanduser()
+    if not p.is_absolute() and rules_path:
+        p = pathlib.Path(rules_path).parent / p
+    if not p.exists():
+        return {}
+    m = re.search(r"^#{1,6}\s+" + re.escape(src.get("heading", "Known terms")) + r"\b.*?(?=^#{1,6}\s|\Z)", p.read_text(), re.M | re.S)
+    if not m:
+        return {}
+    out, col = {}, None
+    for row in re.findall(r"^\|(.+)\|\s*$", m.group(0), re.M):
+        cells = [c.strip() for c in row.split("|")]
+        if cells and cells[0] == "Term":
+            col = next((i for i, c in enumerate(cells) if c.lower().startswith("write as")), None)
+            continue
+        if col is None or len(cells) <= col or not cells[col] or set(cells[0]) <= {"-", ":"}:
+            continue
+        bare = cells[col]
+        longs = []
+        for cell in cells[:2]:
+            for t in re.split(r",\s*", cell):
+                t = re.sub(r"\s*\([^)]*\)", "", t).strip()
+                if t and t != bare:
+                    longs.append(t)
+        out[bare] = longs
+    return out
+
+
 def read_rules(path):
     r = json.loads(pathlib.Path(path).read_text())
     if not isinstance(r, dict):
@@ -217,6 +251,7 @@ MARKER = re.compile(r"\(TO BE [A-Z]+\b[^)]*\)|\[TO BE [A-Z]+[^\]]*\]")
 QUOTED = re.compile(r"\"[^\"\n]*\"|\u201c[^\u201d\n]*\u201d")
 SENTENCE_END = re.compile(r"(?<=[.!?])\s+(?=[\"'(\[*A-Z0-9])")
 LIST_ITEM = re.compile(r"^\s*([-*+]|\d+[.)]|[a-z][.)])\s+")  # a bullet, a numbered or a lettered item (a) b) c)) is its own sentence
+LIST_ITEM_RX = LIST_ITEM  # the module-level name the explicit-subject rule reads (check() shadows LIST_ITEM locally)
 
 
 def _prose_units(lines, prefixes):
@@ -257,7 +292,7 @@ def _prose_units(lines, prefixes):
     yield from flush()
 
 
-def check(text, rules, glossary_texts=(), known_terms_set=()):
+def check(text, rules, glossary_texts=(), known_terms_set=(), bare_terms_map=None):
     findings = []
     prefixes = _exempt_rules(rules)
     raw_lines = _lines(text)
@@ -552,6 +587,70 @@ def check(text, rules, glossary_texts=(), known_terms_set=()):
             if FIG.search(t) and DATE.search(t):
                 add("figure-sentence-date", t[:100], lineno)
 
+    # a date never follows an identifier link (a code review, a task, a ticket) in the same bracket or clause: the link
+    # carries its own date (owner review 1, ruling 12)
+    ld = rules.get("identifier_link_no_date")
+    if ld:
+        labels = (ld.get("labels") if isinstance(ld, dict) else None) or [r"[A-Z]{1,6}-\d+", r"[A-Z]\d{6,}"]
+        LINKDATE = re.compile(r"\[(?:" + "|".join(labels) + r")\]\([^)\s]*\)(?P<tail>[^.;:)\n]*?\b\d\d/\d\d/\d{4}\b)")
+        for i, l in enumerate(lines):
+            if _exempt(l, prefixes) or l.strip().startswith("<!--") or l.lstrip().startswith("#"):
+                continue
+            for m in LINKDATE.finditer(l):
+                add("link-then-date", f"{m.group(0)[:30]}...{m.group('tail')[-40:]}: the link carries its own date, nothing after it", i + 1)
+
+    # a span inside brackets ends with its unit: (2,083 to 626 µs), never (2,083 to 626) (owner review 1, ruling 13)
+    if rules.get("bracket_span_format"):
+        unit_rx = re.compile(r"(?<![\w])(?:%|x|µs|[A-Za-z]{1,}|\$)(?![\w])")  # a unit token after the second number: µs, ms, s, %, x, RCU a day
+        SPAN = re.compile(r"~?\d[\d.,]*%?\s+to\s+~?\d[\d.,]*(?P<rest>%?[^()\n]*)")
+        BR2 = re.compile(r"\(([^()\n]*)\)")
+        for i, l in enumerate(lines):
+            if _exempt(l, prefixes) or l.strip().startswith("<!--"):
+                continue
+            t = QUOTED.sub("QUOTE", _links_replaced(_title_cells_blanked(l), keep_prose_labels=False))
+            for b in BR2.finditer(t):
+                for m in SPAN.finditer(b.group(1)):
+                    rest = m.group("rest")
+                    if rest.startswith("%") or unit_rx.search(rest):
+                        continue
+                    add("bracket-span-no-unit", f"({b.group(1)}): the span ends with its unit, (2,083 to 626 µs)", i + 1)
+
+    # explicit over implicit: a prose sentence outside a list does not open with It, This, The service, The system when
+    # the subject can be named (owner review 1, ruling 15)
+    es = rules.get("explicit_subject")
+    if es:
+        subjects = (es.get("subjects") if isinstance(es, dict) else None) or ["It", "This", "The service", "The system"]
+        SUBJ = re.compile(r"^(?:\*\*)?(?:" + "|".join(re.escape(x) for x in subjects) + r")\b")
+        para, start = [], None
+        def flush_es():
+            if para:
+                text_ = QUOTED.sub("QUOTE", _links_replaced(" ".join(para), keep_prose_labels=False, placeholder="Link"))
+                for sent in SENTENCE_END.split(text_):
+                    sent = sent.strip().lstrip("(")
+                    if SUBJ.match(sent):
+                        add("implicit-subject", f"{sent[:70]}: name the subject (The Metadata service now ...)", start)
+        for i, l in enumerate(lines):
+            bare = l.strip()
+            if not bare or bare.startswith("#") or _is_table_row(l) or LIST_ITEM_RX.match(l) or _exempt(l, prefixes) or bare.startswith("<!--") or bare.startswith("*Figure"):
+                flush_es(); para, start = [], None
+                continue
+            if start is None:
+                start = i + 1
+            para.append(bare)
+        flush_es()
+
+    # a 'use bare' Known term is never expanded: no long form in prose, no `CD (continuous deployment)` (owner ruling, 11/27/2026)
+    if bare_terms_map:
+        for bare, longs in bare_terms_map.items():
+            pats = [re.escape(bare) + r"\s*\((?!\d)[^)\n]{3,}\)"] + [re.escape(x).replace(r"\ ", r"[\s-]+") for x in longs]
+            BARE = re.compile(r"(?<![\w])(?:" + "|".join(pats) + r")(?![\w])", re.I)
+            for i, l in enumerate(lines):
+                if _exempt(l, prefixes) or l.strip().startswith("<!--"):
+                    continue
+                t = QUOTED.sub("QUOTE", _links_replaced(_title_cells_blanked(l), keep_prose_labels=False))
+                for m in BARE.finditer(t):
+                    add("bare-term-expanded", f"{m.group(0)}: write {bare}, never its expansion", i + 1)
+
     # every table starts with a # column (owner review 1)
     if rules.get("table_first_header_hash"):
         prev_table = False
@@ -594,7 +693,7 @@ def run(draft, rules, glossary_paths=(), rules_path=None):
         p = pathlib.Path(g).expanduser()
         if p.exists():
             gl.append(p.read_text())
-    return check(text, rules, gl, known_terms(rules, rules_path))
+    return check(text, rules, gl, known_terms(rules, rules_path), bare_terms(rules, rules_path))
 
 
 def selftest():
@@ -823,7 +922,24 @@ def selftest():
     assert [x[0] for x in check("# T\n\nAn item (carried from 11/20/2026) stays open.\n", r1)] == [], "a date after from inside brackets is not a span (team-retro carried-from phrase)"
     assert [x[0] for x in check("# T\n\nThe wave carried it to five more regions. Which doc names the 9 or more customers?\n", r1)] == [], "a comparative before its noun names the unit"
     assert [x[0] for x in check("# T\n\nIt costs 70% less for it.\n", r1)] == ["quantity-without-unit"] and [x[0] for x in check("# T\n\nThere are 240 more in the folder.\n", r1)] == ["quantity-without-unit"]
-    print("style-check selftest: ok (owner review 1: bracket-span-from x2, quantity-without-unit, figure-sentence-date and table-no-hash-column fire on the bad text and 0 on the good text; exempt_line_patterns scoped to the listed lines; known_terms_source: IDF and DDF from the Known terms table silent, ZZQ outside it fires, 3 fire without the table; 16 rules fire on the bad text, 0 findings on the good text, 4 fix-wave false positives stay silent and their real cases still fire, 4 pass-4 rules silent on the allowed shapes and firing on the faults, 3 pass-5 rules the same, cut-title (pass 7 shape: openers and fragments, never length) and the link-label exemption the same)")
+    # rulings 12, 13, 15 and the 'use bare' class (owner review 1, second round)
+    r2 = {"bracket_span_format": True, "identifier_link_no_date": True, "explicit_subject": True}
+    bad2 = ("# T\n\nA builder shipped it ([REV-4821](https://x.y/cr), shipped 10/28/2026). The cost fell 70% (2,083 to 626). "
+            "It removes the work. This graph shows the drop. The service now drops a manifest.\n\n- It is fine in a bullet.\n\n| # | A |\n|---|---|\n| 1 | It is fine in a cell |\n")
+    f2 = [x[0] for x in check(bad2, r2)]
+    assert f2.count("link-then-date") == 1 and f2.count("bracket-span-no-unit") == 1 and f2.count("implicit-subject") == 3, f2
+    good2 = ("# T\n\nA builder shipped it ([REV-4821](https://x.y/cr)). The cost fell 70% (2,083 to 626 µs), coverage rose (10% to 99.7%). "
+             "The Metadata service now drops a manifest outside the window. Figure 2 shows the drop.\n")
+    assert [x[0] for x in check(good2, r2)] == [], check(good2, r2)
+    bt = {"CD": ["continuous deployment"], "ADC": ["a dedicated cloud region"]}
+    fb2 = [x[0] for x in check("# T\n\nThe continuous deployment (CD) stage ran. ADC (the isolated regions) too. The CD stage is fine, so is ADC.\n", {}, bare_terms_map=bt)]
+    assert fb2.count("bare-term-expanded") == 2, fb2
+    assert [x[0] for x in check("# T\n\nThe CD stage shipped to ADC on time (CD in 2 regions).\n", {}, bare_terms_map=bt)] == []
+    with tempfile.TemporaryDirectory() as td:
+        g = pathlib.Path(td) / "G.md"
+        g.write_text("# G\n\n## Known terms\n\n| Term | Also written | Meaning | Write as |\n|---|---|---|---|\n| CD | continuous deployment | the pipeline stage | CD |\n| manifest | the manifest | the list |  |\n")
+        assert bare_terms({"known_terms_source": {"file": "G.md"}}, str(pathlib.Path(td) / "r.json")) == {"CD": ["continuous deployment"]}
+    print("style-check selftest: ok (owner review 1 round 2: link-then-date, bracket-span-no-unit, implicit-subject x3 outside lists and cells, bare-term-expanded x2 from the Write as column; owner review 1: bracket-span-from x2, quantity-without-unit, figure-sentence-date and table-no-hash-column fire on the bad text and 0 on the good text; exempt_line_patterns scoped to the listed lines; known_terms_source: IDF and DDF from the Known terms table silent, ZZQ outside it fires, 3 fire without the table; 16 rules fire on the bad text, 0 findings on the good text, 4 fix-wave false positives stay silent and their real cases still fire, 4 pass-4 rules silent on the allowed shapes and firing on the faults, 3 pass-5 rules the same, cut-title (pass 7 shape: openers and fragments, never length) and the link-label exemption the same)")
 
 
 def main():

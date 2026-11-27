@@ -13,6 +13,25 @@ any company.
 The audience is busy and senior. Write for a reader who will spend thirty seconds, not thirty
 minutes: lead with the point, back it with a fact, cut everything else.
 
+
+---
+
+## Principles
+
+The writing principles behind every rule in this file, in the words of the Zen of Python (Tim Peters, PEP 20), each
+mapped to the rule or countable check that enforces it. A reader who knows the principle can predict the rule.
+
+| Principle | What it means here | Enforced by |
+|---|---|---|
+| Explicit is better than implicit | A sentence names its subject. "The Metadata service now drops the file", never "It drops the file" or "The service drops the file" at the head of a sentence outside a list | `explicit_subject` (`implicit-subject`), active-voice, zombie-test |
+| Simple is better than complex | One idea per sentence, 30 words or fewer, a link counts as one word | `max_words_per_sentence`, one-idea-per-sentence |
+| Flat is better than nested | No clause inside a clause inside brackets. A span in brackets is `(2,083 to 626 µs)`, a link stands alone with nothing appended, a date never trails an identifier link | `bracket_span_format` (`bracket-span-from`, `bracket-span-about`, `bracket-span-no-unit`), `identifier_link_no_date` (`link-then-date`) |
+| Sparse is better than dense | A number appears once per section, the multiplier beside the percentage once, no weasel word in place of a figure | numbers-over-adjectives, the countable weasel-word check, the comparative-with-figure check |
+| Readability counts | Dates MM/DD/YYYY, no semicolons or em-dashes, every table starts with a `#` column so a reviewer can name a row, a Glossary row carries the acronym beside the term | date-format, no-semicolons, no-em-dash, `table_first_header_hash` (`table-no-hash-column`), the glossary row shape |
+| In the face of ambiguity, refuse the temptation to guess | Every claim the evidence does not prove ends with `(TO BE CONFIRMED)` in that exact form, and the sentence before it names what would settle it. A quantity verb names its unit so the reader never guesses less of what | the marker rule (`marker-form`), `quantity_unit` (`quantity-without-unit`) |
+| There should be one obvious way to do it | One form per thing: one marker, one date form, one bracket form, one way to write a known term (bare), one Glossary table shape | the Known terms table (`known_terms_source`, the `Write as` column, `bare-term-expanded`), the templates |
+| Errors should never pass silently | A rule the model ignored becomes a countable check that fails the gate, never an instruction repeated. Every finding names the text and the fix | `scripts/style-check.py`, the workflow contracts, `RULES.md` |
+
 ---
 
 ## Mechanical rules (a violation is a blocker)
