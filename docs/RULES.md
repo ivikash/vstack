@@ -34,11 +34,10 @@ class at the highest level that works, architecture first, docs last.)
 | Judgement rules on a promotion document (criterion fit, journey, altitude, ownership verdict, contradiction, provider gaps, Why now order) fail with the offending text quoted | `skills/validate-writing/checklist.md` section H, applied by the gate; `evals/results/<date>-promo-doc.md` records what each layer caught | skill |
 | A decision from a review is a code artifact, not chat | `docs/decisions/<date>-<topic>.md` (one table, enforcer per row) and `decisions.md` at the root (one row per class of mistake) | process |
 | Excuses have rebuttals | `skills/leadership-writing/rationalizations.md`, read by every writer and the validator | skill |
-
-Rows marked `skill` or `prompt` are the weakest kind: nothing fails when a model ignores them. Each
-one is a candidate for promotion to `contract` or `engine` as soon as a run shows it ignored.
 | Every run is counted, by any harness path | `vstack record` appends the `runs.jsonl` line and is the last step of the rendered prompt, idempotent by run id | `vstack record`, prompt stage 6 |
 | Every run measures itself the same way | `scorecard.json` per run dir, engine-computed, schema `schema/scorecard.json`, trends and two-in-a-row flags in `vstack retro` | `vstack record`, `vstack retro` |
 | Every writer loops | a writer workflow with no gate, or a gate with min_passes under 2 or max_passes over 5, fails `vstack check` | `vstack check` |
 | Edits to a landed document feed the contract | `vstack reflect` diffs the landed document against draft.md 24 h and 7 d after landing, files wording and structure edits as proposals, fact edits as mistakes, counts deletions, auto-applies a proposal seen twice | `vstack reflect` |
 
+Rows marked `skill` or `prompt` are the weakest kind: nothing fails when a model ignores them. Each
+one is a candidate for promotion to `contract` or `engine` as soon as a run shows it ignored.

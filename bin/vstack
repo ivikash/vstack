@@ -1046,7 +1046,12 @@ def _blocks(text):
 
 
 def _norm(b):
-    return re.sub(r"\s+", " ", re.sub(r"\[(\*\*[^*]+\*\*)\]\(([^)]+)\)", r"**[\1](\2)**", b.replace("**[", "[**").replace("]**(", "**](")).strip())
+    """Comparison form of a block: bold markers and heading depth are rendering, not content (Chorus stores
+    `**[t](u)**` as `[**t**](u)` and demotes section sub-headings), separator rows and whitespace collapse."""
+    t = b.replace("**", "")
+    t = re.sub(r"^#+\s*", "", t, flags=re.M)
+    t = re.sub(r"^\|(\s*:?-{3,}:?\s*\|)+\s*$", "|---|", t, flags=re.M)
+    return re.sub(r"\s+", " ", t).strip()
 
 
 def reflect_diff(draft_text, landed_text):
@@ -1098,15 +1103,17 @@ def reflect_diff(draft_text, landed_text):
 
 
 def _proposed_regex(before, after):
-    """A must_not_match candidate from an edit: the shortest changed span of the before text, escaped."""
+    """A must_not_match candidate from an edit: the longest run of words the owner removed or replaced,
+    as an escaped regex with flexible whitespace. None when the change is under two words and eight characters."""
     import difflib
-    sm = difflib.SequenceMatcher(None, before or "", after or "")
-    spans = [(before or "")[i1:i2] for tag, i1, i2, j1, j2 in sm.get_opcodes() if tag in ("replace", "delete") and i2 > i1]
-    spans = [s.strip() for s in spans if len(s.strip()) >= 4]
-    if not spans:
+    bw, aw = (before or "").split(), (after or "").split()
+    sm = difflib.SequenceMatcher(None, bw, aw)
+    runs = [bw[i1:i2] for tag, i1, i2, j1, j2 in sm.get_opcodes() if tag in ("replace", "delete") and i2 > i1]
+    runs = [r for r in runs if len(r) >= 2 or len(" ".join(r)) >= 8]
+    if not runs:
         return None
-    span = max(spans, key=len)[:80]
-    return re.escape(span)
+    run = max(runs, key=lambda r: len(" ".join(r)))[:12]
+    return r"\s+".join(re.escape(w) for w in run)
 
 
 REFLECT_PROMPT = """# vstack reflect ({harness}): read back a landed document, write nothing to it
@@ -1192,12 +1199,17 @@ def reflect(args):
     card["owner_edit_ratio"] = diff["owner_edit_ratio"]; card["owner_edit_ratio_at"] = age
     sc.write_text(json.dumps(card, indent=2) + "\n")
     # ledger: update the runs.jsonl line's scorecard in place is append-only, so append a reflect line to a sibling ledger
+    ledger_root.mkdir(parents=True, exist_ok=True)
     with open(ledger_root / "reflect.jsonl", "a") as f:
         f.write(json.dumps({"run_id": card.get("run_id"), "workflow": workflow, "age": age, "owner_edit_ratio": diff["owner_edit_ratio"], **out["counts"], "at": now()}) + "\n")
     # file the changes into the instance context (private)
     filed = {"proposals": 0, "mistakes": 0, "deletions": 0, "auto_applied": []}
     if inst and diff["changes"]:
         ctx = inst / "context" / workflow
+        if not ctx.exists():  # workflows that share a context folder (people-pulse-daily -> context/people-pulse)
+            cands = [d for d in (inst / "context").iterdir() if d.is_dir() and workflow.startswith(d.name)] if (inst / "context").exists() else []
+            if cands:
+                ctx = max(cands, key=lambda d: len(d.name))
         ctx.mkdir(parents=True, exist_ok=True)
         today = dt.date.today().strftime("%m/%d/%Y")
         props = ctx / "proposals.md"
@@ -1206,7 +1218,7 @@ def reflect(args):
         existing = props.read_text()
         n = len(re.findall(r"^\| \d+ \|", existing, re.M))
         regex_seen = {}
-        for m in re.finditer(r"^\| (\d+) \| [^|]+ \| [^|]+ \| [^|]+ \| [^|]+ \| `?([^|`]*)`? \| (\w+) \|$", existing, re.M):
+        for m in re.finditer(r"^\| (\d+) \| .*\| `([^`]*)` \| (\w+) \|$", existing, re.M):
             regex_seen.setdefault(m.group(2).strip(), []).append((int(m.group(1)), m.group(3)))
         rows = []
         for c in diff["changes"]:
@@ -1232,7 +1244,9 @@ def reflect(args):
             elif c["kind"] == "deletion" and c.get("before"):
                 dj = ctx / "deletions.json"
                 dels = load(dj) if dj.exists() else {}
-                key = (c["before"].splitlines()[0] if c["before"].startswith("#") else c["before"].split("|")[3].strip() if c["before"].count("|") > 3 else c["before"][:60]).strip("# ")
+                first = c["before"].splitlines()[0]
+                cells_ = [x.strip() for x in first.strip().strip("|").split("|")] if first.startswith("|") else []
+                key = (" | ".join(x for x in cells_ if x and not re.fullmatch(r"\d+|L\d", x))[:80] if cells_ else first.strip("# ")[:80])
                 dels[key] = dels.get(key, 0) + 1
                 dj.write_text(json.dumps(dels, indent=2) + "\n")
                 filed["deletions"] += 1
