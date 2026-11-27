@@ -592,7 +592,7 @@ def check(text, rules, glossary_texts=(), known_terms_set=(), bare_terms_map=Non
     ld = rules.get("identifier_link_no_date")
     if ld:
         labels = (ld.get("labels") if isinstance(ld, dict) else None) or [r"[A-Z]{1,6}-\d+", r"[A-Z]\d{6,}"]
-        LINKDATE = re.compile(r"\[(?:" + "|".join(labels) + r")\]\([^)\s]*\)(?P<tail>[^.;:)\n]*?\b\d\d/\d\d/\d{4}\b)")
+        LINKDATE = re.compile(r"\[(?:" + "|".join(labels) + r")\]\([^)\s]*\)(?P<tail>[^.;:)|\n]*?\b\d\d/\d\d/\d{4}\b)")  # a table cell boundary ends the clause
         for i, l in enumerate(lines):
             if _exempt(l, prefixes) or l.strip().startswith("<!--") or l.lstrip().startswith("#"):
                 continue
@@ -602,7 +602,7 @@ def check(text, rules, glossary_texts=(), known_terms_set=(), bare_terms_map=Non
     # a span inside brackets ends with its unit: (2,083 to 626 µs), never (2,083 to 626) (owner review 1, ruling 13)
     if rules.get("bracket_span_format"):
         unit_rx = re.compile(r"(?<![\w])(?:%|x|µs|[A-Za-z]{1,}|\$)(?![\w])")  # a unit token after the second number: µs, ms, s, %, x, RCU a day
-        SPAN = re.compile(r"~?\d[\d.,]*%?\s+to\s+~?\d[\d.,]*(?P<rest>%?[^()\n]*)")
+        SPAN = re.compile(r"(?<![\d/])~?\d[\d.,]*%?\s+to\s+~?\d[\d.,]*(?![\d/])(?P<rest>%?[^()\n]*)")  # a date window (11/01/2026 to 11/06/2026) is not a span
         BR2 = re.compile(r"\(([^()\n]*)\)")
         for i, l in enumerate(lines):
             if _exempt(l, prefixes) or l.strip().startswith("<!--"):
@@ -931,6 +931,8 @@ def selftest():
     good2 = ("# T\n\nA builder shipped it ([REV-4821](https://x.y/cr)). The cost fell 70% (2,083 to 626 µs), coverage rose (10% to 99.7%). "
              "The Metadata service now drops a manifest outside the window. Figure 2 shows the drop.\n")
     assert [x[0] for x in check(good2, r2)] == [], check(good2, r2)
+    assert [x[0] for x in check("# T\n\nThe before window (11/01/2026 to 11/06/2026) and 304 ms (11/08/2026 to 11/16/2026).\n", r2)] == [], "a date window in brackets is not a span"
+    assert [x[0] for x in check("# T\n\n| # | Item | Due |\n|---|---|---|\n| 1 | Confirm [REV-4821](https://x.y) deployed | 12/05/2026 |\n", r2)] == [], "a date in the next cell is another clause"
     bt = {"CD": ["continuous deployment"], "ADC": ["a dedicated cloud region"]}
     fb2 = [x[0] for x in check("# T\n\nThe continuous deployment (CD) stage ran. ADC (the isolated regions) too. The CD stage is fine, so is ADC.\n", {}, bare_terms_map=bt)]
     assert fb2.count("bare-term-expanded") == 2, fb2
