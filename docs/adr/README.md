@@ -21,3 +21,4 @@ One decision, one file, written once. Status is in the frontmatter (`proposed`, 
 | [0015](0015-style-exempt-lines-per-workflow.md) | A workflow names the lines its countable style rules skip | accepted |
 | [0016](0016-owner-review-rules-brackets-units-figure-dates-hash-column.md) | Four countable rules from an owner's document review: bracket spans, quantity units, figure dates, the # column | accepted |
 | [0017](0017-explicit-subjects-bare-terms-link-dates-span-units.md) | Explicit subjects, bare known terms, no date after an identifier link, a unit after every span | accepted |
+| [0018](0018-style-options-per-workflow-and-units-on-both-span-numbers.md) | A workflow switches a style rule key for its own drafts, and a bracket span carries its unit on both numbers | accepted |

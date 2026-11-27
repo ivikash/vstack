@@ -152,6 +152,13 @@ def check(workflows_dir, private_component):
                         fails.append(f"{cid}: draft_contract.style_exempt rule has no why (the owner's ruling it records): {rule}")
                 except (re.error, KeyError, TypeError) as e:
                     fails.append(f"{cid}: draft_contract.{key} rule is not a valid regex ({e}): {rule}")
+        so = dc.get("style_options")
+        if so is not None:
+            if not isinstance(so, dict) or not so.get("why"):
+                fails.append(f"{cid}: draft_contract.style_options must be an object with a why (the owner's ruling it records): {so}")
+            for k in so:
+                if k != "why" and not re.fullmatch(r"[a-z][a-z0-9_]*", str(k)):
+                    fails.append(f"{cid}: draft_contract.style_options key is not a rules JSON key: {k}")
         # invariant 5: privacy cut
         if c.get("component") == private_component:
             ws = c.get("workspace", "")
@@ -587,8 +594,16 @@ def verify_contract(run_dir, cell, style_rules=None):
         if writer == "write-promo-doc":
             missing += check_promo_lint(draft)
         if style_rules:
-            missing += check_style_rules(draft, style_rules, style_exempt_of(cell))
+            missing += check_style_rules(draft, style_rules, style_exempt_of(cell), style_options_of(cell))
     return missing
+
+
+def style_options_of(cell):
+    """draft_contract.style_options: {key: value, why} rules JSON keys this workflow's drafts are checked with (a scoped
+    switch, for example date_year_once for OpsWin bodies, owner review 1 ruling 24, 11/27/2026). The instance rules file
+    is never edited. Returns the --option key=value pairs."""
+    opts = (cell.get("draft_contract") or {}).get("style_options") or {}
+    return [f"{k}={str(v).lower() if isinstance(v, bool) else v}" for k, v in opts.items() if k != "why"]
 
 
 def style_exempt_of(cell):
@@ -683,6 +698,9 @@ def render(cell, tools, org_profile_text, harness, dry_run, run_dir, run_id, ski
             dc_lines += f"  - MUST contain /{r['pattern']}/ ({r.get('why', '')})\n"
         for r in dc.get("must_not_match", []):
             dc_lines += f"  - MUST NOT contain /{r['pattern']}/ ({r.get('why', '')})\n"
+    if dc.get("style_options"):
+        so = dc["style_options"]
+        dc_lines += "- style rule switches for this workflow's draft only: " + ", ".join(f"{k}={v}" for k, v in so.items() if k != "why") + f" ({so.get('why', '')})\n"
     if dc.get("style_exempt"):
         dc_lines += "- lines no countable style rule reads in this workflow's draft (the owner's agreed shape, every other line still follows the rules):\n"
         for r in dc.get("style_exempt", []):
@@ -732,7 +750,7 @@ def style_rules_for(cell, inst_dir):
     return str(Path(sr.replace("${instance}", str(inst_dir or ""))).expanduser())
 
 
-def check_style_rules(draft, rules_path, exempt=()):
+def check_style_rules(draft, rules_path, exempt=(), options=()):
     """Run scripts/style-check.py (beside this file's parent) on a draft with the instance's rules JSON. Every
     finding is one unmet line, the same way check_draft_contract reports a forbidden match: a sentence over the
     word limit, a weasel word, an acronym with no expansion or glossary row, a date with no year, an ISO date, a
@@ -746,6 +764,8 @@ def check_style_rules(draft, rules_path, exempt=()):
     argv = [sys.executable, str(script), str(draft), "--rules", str(rules_path)]
     for pat in exempt or ():
         argv += ["--exempt", pat]
+    for kv in options or ():
+        argv += ["--option", kv]
     r = subprocess.run(argv, capture_output=True, text=True)
     if r.returncode == 0:
         return []
@@ -1005,6 +1025,8 @@ def style_check(args):
     argv = [sys.executable, str(script), str(Path(args.draft).expanduser()), "--rules", str(rules)]
     for pat in style_exempt_of(cell):
         argv += ["--exempt", pat]
+    for kv in style_options_of(cell):
+        argv += ["--option", kv]
     r = subprocess.run(argv, text=True)
     return r.returncode
 

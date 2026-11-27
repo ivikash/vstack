@@ -393,15 +393,24 @@ def check(text, rules, glossary_texts=(), known_terms_set=(), bare_terms_map=Non
 
     # dates
     if rules.get("date_without_year"):
+        # date_year_once (a workflow option, owner review 1 ruling 24, 11/27/2026): once a line has carried a full
+        # MM/DD/YYYY, later MM/DD dates in the same document are read as that year and are not findings. Off by default,
+        # the house rule stays MM/DD/YYYY everywhere; a kind switches it on through draft_contract.style_options
+        year_once = bool(rules.get("date_year_once"))
+        year_seen = False
         for i, l in enumerate(lines):
             if _exempt(l, prefixes):
                 continue
             t = _links_replaced(l)
             t = re.sub(r"https?://\S+", "URL", t)
+            if year_once and year_seen:
+                continue
             for m in re.finditer(r"(?<![\d/])(\d{1,2})/(\d{1,2})(?![\d/])", t):
                 mo, d = int(m.group(1)), int(m.group(2))
                 if 1 <= mo <= 12 and 1 <= d <= 31:
                     add("date-without-year", f"{m.group(0)}: {t[max(0, m.start() - 30):m.end() + 20]}", i + 1)
+            if year_once and re.search(r"(?<![\d/])\d\d/\d\d/\d{4}(?![\d/])", t):
+                year_seen = True
     if rules.get("iso_dates"):
         for i, l in enumerate(lines):
             if _exempt(l, prefixes):
@@ -602,7 +611,9 @@ def check(text, rules, glossary_texts=(), known_terms_set=(), bare_terms_map=Non
     # a span inside brackets ends with its unit: (2,083 to 626 µs), never (2,083 to 626) (owner review 1, ruling 13)
     if rules.get("bracket_span_format"):
         unit_rx = re.compile(r"(?<![\w])(?:%|x|µs|[A-Za-z]{1,}|\$)(?![\w])")  # a unit token after the second number: µs, ms, s, %, x, RCU a day
-        SPAN = re.compile(r"(?<![\d/])~?\d[\d.,]*%?\s+to\s+~?\d[\d.,]*(?![\d/])(?P<rest>%?[^()\n]*)")  # a date window (11/01/2026 to 11/06/2026) is not a span
+        # the unit sits on BOTH numbers, (2,083 µs to 626 µs), (14% to 7%) (owner review 1, ruling 19): group first holds what
+        # follows the first number before `to`, empty when the first number is bare
+        SPAN = re.compile(r"(?<![\d/])~?\d[\d.,]*(?P<first>%|\s?[A-Za-z$][\w/]*(?:\s+[a-z][\w/]*){0,2}|\s?µs)?\s+to\s+~?\d[\d.,]*(?![\d/])(?P<rest>%?[^()\n]*)")  # a date window (11/01/2026 to 11/06/2026) is not a span
         BR2 = re.compile(r"\(([^()\n]*)\)")
         for i, l in enumerate(lines):
             if _exempt(l, prefixes) or l.strip().startswith("<!--"):
@@ -616,7 +627,16 @@ def check(text, rules, glossary_texts=(), known_terms_set=(), bare_terms_map=Non
                     lead = re.search(r"([A-Za-z0-9]+)\s*$", b.group(1)[:m.start()])
                     if lead and (lead.group(1)[0].isupper() or lead.group(1)[-1].isdigit() or (lead.group(1).endswith("s") and len(lead.group(1)) > 3)):
                         continue  # a label range, (Stream 1 to 3), (G1 to G12), (action items 5 to 9): the numbers name things, not a quantity
-                    add("bracket-span-no-unit", f"({b.group(1)}): the span ends with its unit, (2,083 to 626 µs)", i + 1)
+                    add("bracket-span-no-unit", f"({b.group(1)}): the span ends with its unit, (2,083 µs to 626 µs)", i + 1)
+                for m in SPAN.finditer(b.group(1)):
+                    rest = m.group("rest")
+                    if not (rest.startswith("%") or unit_rx.search(rest)):
+                        continue  # no unit at all: bracket-span-no-unit above already names it
+                    lead = re.search(r"([A-Za-z0-9]+)\s*$", b.group(1)[:m.start()])
+                    if lead and (lead.group(1)[0].isupper() or lead.group(1)[-1].isdigit() or (lead.group(1).endswith("s") and len(lead.group(1)) > 3)):
+                        continue
+                    if not (m.group("first") or "").strip():
+                        add("bracket-span-first-unit", f"({b.group(1)}): the unit sits on both numbers, (2,083 µs to 626 µs), (14% to 7%)", i + 1)
 
     # explicit over implicit: a prose sentence outside a list does not open with It, This, The service, The system when
     # the subject can be named (owner review 1, ruling 15)
@@ -915,9 +935,9 @@ def selftest():
           "figure_sentence_no_date": True, "table_first_header_hash": True}
     bad = ("# T\n\nThe cost fell 70% (from about 2,080 to about 630). A query pays 70% less for it. The drop in Figure 1 ran on 11/07/2026.\n\n"
            "| Metric | Before |\n|---|---|\n| a | (from 1 to 2) |\n")
-    good = ("# T\n\nThe cost fell 70% (~2,080 to ~630 µs). A query spends 70% less time on it. The drop in Figure 1 is at the change line.\n\n"
+    good = ("# T\n\nThe cost fell 70% (~2,080 µs to ~630 µs). A query spends 70% less time on it. The drop in Figure 1 is at the change line.\n\n"
             "*Figure 1: metric, 10/28/2026 to 11/17/2026, [src](https://x.y)*\n\nThe window runs 10/28/2026 to 11/17/2026, 10 days before the 11/07/2026 change.\n\n"
-            "| # | Metric | Before |\n|---|---|---|\n| 1 | a | (1 to 2 ms) |\n")
+            "| # | Metric | Before |\n|---|---|---|\n| 1 | a | (1 ms to 2 ms) |\n")
     fb = [x[0] for x in check(bad, r1)]
     assert fb.count("bracket-span-from") == 2 and "quantity-without-unit" in fb and "figure-sentence-date" in fb and "table-no-hash-column" in fb, fb
     assert [x[0] for x in check(good, r1)] == [], check(good, r1)
@@ -931,10 +951,18 @@ def selftest():
             "It removes the work. This graph shows the drop. The service now drops a manifest.\n\n- It is fine in a bullet.\n\n| # | A |\n|---|---|\n| 1 | It is fine in a cell |\n")
     f2 = [x[0] for x in check(bad2, r2)]
     assert f2.count("link-then-date") == 1 and f2.count("bracket-span-no-unit") == 1 and f2.count("implicit-subject") == 3, f2
-    good2 = ("# T\n\nA builder shipped it ([REV-4821](https://x.y/cr)). The cost fell 70% (2,083 to 626 µs), coverage rose (10% to 99.7%). "
+    good2 = ("# T\n\nA builder shipped it ([REV-4821](https://x.y/cr)). The cost fell 70% (2,083 µs to 626 µs), coverage rose (10% to 99.7%). "
              "The Metadata service now drops a manifest outside the window. Figure 2 shows the drop.\n")
     assert [x[0] for x in check(good2, r2)] == [], check(good2, r2)
     assert [x[0] for x in check("# T\n\nThe before window (11/01/2026 to 11/06/2026) and 304 ms (11/08/2026 to 11/16/2026).\n", r2)] == [], "a date window in brackets is not a span"
+    # ruling 19: the unit on both numbers
+    assert [x[0] for x in check("# T\n\nThe cost fell 70% (2,083 to 626 µs) and the share (14 to 7%).\n", r2)] == ["bracket-span-first-unit", "bracket-span-first-unit"]
+    assert [x[0] for x in check("# T\n\nThe cost fell 70% (2,083 µs to 626 µs), the share (14% to 7%), reads (54.8 million to 1.8 million RCU a day).\n", r2)] == [], "a unit on both numbers passes"
+    # ruling 24: date_year_once, a workflow option
+    dy = {"date_without_year": True}
+    assert [x[0] for x in check("# T\n\nTracker row 1, read 11/27/2026.\n\nOn 10/28 we released it. On 11/07 it reached prod.\n", dy)] == ["date-without-year", "date-without-year"]
+    assert [x[0] for x in check("# T\n\nTracker row 1, read 11/27/2026.\n\nOn 10/28 we released it. On 11/07 it reached prod.\n", dict(dy, date_year_once=True))] == [], "after a full date the short dates are that year"
+    assert [x[0] for x in check("# T\n\nOn 10/28 we released it.\n", dict(dy, date_year_once=True))] == ["date-without-year"], "no full date above: the short date still counts"
     assert [x[0] for x in check("# T\n\n| # | Item | Due |\n|---|---|---|\n| 1 | Confirm [REV-4821](https://x.y) deployed | 12/05/2026 |\n", r2)] == [], "a date in the next cell is another clause"
     assert [x[0] for x in check("# T\n\nThe plan (Stream 1 to 3) and the items (G1 to G12) stay.\n", r2)] == [], "a label range is not a quantity span"
     bt = {"CD": ["continuous deployment"], "ADC": ["a dedicated cloud region"]}
@@ -956,12 +984,16 @@ def main():
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--selftest", action="store_true")
     ap.add_argument("--exempt", action="append", default=[], help="regex: a line that matches is read by no check (a workflow's agreed shape, added to the rules' exempt_line_patterns)")
+    ap.add_argument("--option", action="append", default=[], help="key=value: a rules JSON key this run sets (a workflow's draft_contract.style_options, for example date_year_once=true), scoped to the run, never the instance file")
     a = ap.parse_args()
     if a.selftest:
         selftest(); return 0
     if not a.draft or not a.rules:
         ap.error("draft and --rules are required")
     rules = read_rules(a.rules)
+    for kv in a.option or []:
+        k, _, v = kv.partition("=")
+        rules[k.strip()] = {"true": True, "false": False, "1": True, "0": False}.get(v.strip().lower(), v.strip())
     if a.exempt:
         for pat in a.exempt:
             re.compile(pat)
