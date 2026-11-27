@@ -67,6 +67,12 @@ Rules JSON keys (all optional, a missing key turns that check off):
                            <1hr query`), not an opener. A title's length is never read: a whole title can be any
                            length, and a generator that caps a title is refused at its own source
   exempt_line_prefixes     list of line prefixes no check reads (the engine's own `Sources:` header line)
+  exempt_line_patterns     list of regexes: a line that matches one is read by no check, the same as a prefix. For a
+                           shape one workflow agreed with its owner that a house rule would otherwise count (a table
+                           header `Last week (Fri 10/30 to Fri 11/06)`, an Obsidian Tasks line `- [ ] ... 📅 2026-12-03`).
+                           A workflow passes its own through `--exempt <regex>` (vstack reads them from the workflow's
+                           draft_contract.style_exempt), scoped to that workflow's drafts, so the instance rules stay
+                           the house rules
 
 A title-like link label is one that opens with `[` (a bracketed tag, the label quotes a document title), a
 link wrapped in `**` or a label wrapped in `**` (a bold title). The instance decides whether a title may keep its punctuation, the
@@ -182,8 +188,17 @@ def _title_cells_blanked(line, placeholder="title"):
 
 
 def _exempt(line, prefixes):
+    """A line no check reads: its prefix is listed, or it matches a listed pattern (compiled regex objects)."""
     s = line.lstrip()
-    return any(s.startswith(p) for p in prefixes)
+    return any(s.startswith(p) for p in prefixes if isinstance(p, str)) or any(p.search(line) for p in prefixes if not isinstance(p, str))
+
+
+def _exempt_rules(rules):
+    """exempt_line_prefixes (strings) plus exempt_line_patterns (compiled), one list for _exempt."""
+    out = list(rules.get("exempt_line_prefixes", []) or [])
+    for pat in rules.get("exempt_line_patterns", []) or []:
+        out.append(re.compile(pat))
+    return out
 
 
 # an unproven-claim marker in brackets, any marker word: (TO BE CONFIRMED), [TO BE COLLECTED: text]
@@ -233,7 +248,7 @@ def _prose_units(lines, prefixes):
 
 def check(text, rules, glossary_texts=(), known_terms_set=()):
     findings = []
-    prefixes = list(rules.get("exempt_line_prefixes", []))
+    prefixes = _exempt_rules(rules)
     raw_lines = _lines(text)
     code_free = _strip_code(text)
     lines = _lines(code_free)
@@ -710,7 +725,15 @@ def selftest():
         f_no = [x for x in check(txt, kt_rules, (), ()) if x[0] == "acronym-unexpanded"]
         assert len(f_no) == 3, f_no
         assert known_terms({}, None) == set() and known_terms({"known_terms_source": {"file": "nope.md"}}, str(pathlib.Path(td) / "r.json")) == set()
-    print("style-check selftest: ok (known_terms_source: IDF and DDF from the Known terms table silent, ZZQ outside it fires, 3 fire without the table; 16 rules fire on the bad text, 0 findings on the good text, 4 fix-wave false positives stay silent and their real cases still fire, 4 pass-4 rules silent on the allowed shapes and firing on the faults, 3 pass-5 rules the same, cut-title (pass 7 shape: openers and fragments, never length) and the link-label exemption the same)")
+    # exempt_line_patterns: a line matching a listed regex is read by no check, every other line still is
+    ex = dict(rules); ex["exempt_line_patterns"] = [r"^\| # \| Category \| Metric \| Last week \(Fri \d\d/\d\d to Fri \d\d/\d\d\)", "^- \\[[ x]\\] .*\U0001F4C5 \\d{4}-\\d\\d-\\d\\d"]
+    ex_text = "\n".join(["# T", "", "| # | Category | Metric | Last week (Fri 10/30 to Fri 11/06) | This week (Fri 11/06 to Fri 11/12) | Delta |", "|---|---|---|---|---|---|",
+                         "| 1 | Metadata | p99 | 282 ms on 11/20 | 280 ms | -2 |", "", "- [ ] #todo Prep note for Kraken Weekly Sync 12/03/2026 \U0001F4C5 2026-12-01", "Body date 11/23 and ISO 2026-11-23 still count."])
+    f = [x for x in check(ex_text, ex) if x[0] in ("date-without-year", "iso-date")]
+    assert len(f) == 3 and {q.split(":")[0] for _, q, _ in f} == {"11/20", "11/23", "2026-11-23"}, f"the two exempt lines are not read, the table body and the prose still are: {f}"
+    f = [x for x in check(ex_text, rules) if x[0] in ("date-without-year", "iso-date")]
+    assert len(f) == 8, f"without the patterns every date counts: {f}"
+    print("style-check selftest: ok (exempt_line_patterns scoped to the listed lines; known_terms_source: IDF and DDF from the Known terms table silent, ZZQ outside it fires, 3 fire without the table; 16 rules fire on the bad text, 0 findings on the good text, 4 fix-wave false positives stay silent and their real cases still fire, 4 pass-4 rules silent on the allowed shapes and firing on the faults, 3 pass-5 rules the same, cut-title (pass 7 shape: openers and fragments, never length) and the link-label exemption the same)")
 
 
 def main():
@@ -720,12 +743,17 @@ def main():
     ap.add_argument("--glossary", action="append", default=[])
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--selftest", action="store_true")
+    ap.add_argument("--exempt", action="append", default=[], help="regex: a line that matches is read by no check (a workflow's agreed shape, added to the rules' exempt_line_patterns)")
     a = ap.parse_args()
     if a.selftest:
         selftest(); return 0
     if not a.draft or not a.rules:
         ap.error("draft and --rules are required")
     rules = read_rules(a.rules)
+    if a.exempt:
+        for pat in a.exempt:
+            re.compile(pat)
+        rules["exempt_line_patterns"] = list(rules.get("exempt_line_patterns", []) or []) + a.exempt
     gl = list(a.glossary) + [str(pathlib.Path(a.rules).parent / g) if not g.startswith(("/", "~")) else g for g in rules.get("glossary_files", [])]
     f = run(a.draft, rules, gl, a.rules)
     if a.json:

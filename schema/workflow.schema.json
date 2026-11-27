@@ -254,7 +254,9 @@
               "why": {"type": "string"}
             }
           }
-        }
+        },
+        "style_exempt": {"type": "array", "description": "regexes for lines of this workflow's drafts that no countable style rule reads (scripts/style-check.py --exempt): a shape the owner agreed that a house rule would otherwise count, such as a table header carrying month/day dates or a task line in another tool's date form. Scoped to this workflow, never the instance rules JSON. must_match and must_not_match still read every line", "items": {"type": "object", "required": ["pattern", "why"], "properties": {"pattern": {"type": "string", "description": "Python regex, matched against each line of draft.md"}, "why": {"type": "string", "description": "the owner's ruling this exemption records, with its date and the decision row"}}}},
+        "style_exempt": {"type": "array", "description": "regexes for lines of this workflow's drafts that no countable style rule reads (scripts/style-check.py --exempt): a shape the owner agreed that a house rule would otherwise count, such as a table header carrying month/day dates or a task line in another tool's date form. Scoped to this workflow, never the instance rules JSON. must_match and must_not_match still read every line", "items": {"type": "object", "required": ["pattern", "why"], "properties": {"pattern": {"type": "string", "description": "Python regex, matched against each line of draft.md"}, "why": {"type": "string", "description": "the owner's ruling this exemption records, with its date and the decision row"}}}}
       }
     },
     "bot": {

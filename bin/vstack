@@ -144,10 +144,12 @@ def check(workflows_dir, private_component):
             fails.append(f"{cid}: ledger.fields is empty (invariant 4: every landing records an outcome)")
         # draft_contract: every pattern must be a valid regex, so a typo cannot silently disable a rule
         dc = c.get("draft_contract", {})
-        for key in ("must_match", "must_not_match"):
+        for key in ("must_match", "must_not_match", "style_exempt"):
             for rule in dc.get(key, []):
                 try:
                     re.compile(rule["pattern"])
+                    if key == "style_exempt" and not rule.get("why"):
+                        fails.append(f"{cid}: draft_contract.style_exempt rule has no why (the owner's ruling it records): {rule}")
                 except (re.error, KeyError, TypeError) as e:
                     fails.append(f"{cid}: draft_contract.{key} rule is not a valid regex ({e}): {rule}")
         # invariant 5: privacy cut
@@ -585,8 +587,20 @@ def verify_contract(run_dir, cell, style_rules=None):
         if writer == "write-promo-doc":
             missing += check_promo_lint(draft)
         if style_rules:
-            missing += check_style_rules(draft, style_rules)
+            missing += check_style_rules(draft, style_rules, style_exempt_of(cell))
     return missing
+
+
+def style_exempt_of(cell):
+    """draft_contract.style_exempt: regexes for lines of this workflow's drafts no style rule reads (a shape the owner
+    agreed that a house rule would otherwise count). Each is {pattern, why}, scoped to this workflow, never the
+    instance rules. Returns the patterns."""
+    out = []
+    for r in (cell.get("draft_contract") or {}).get("style_exempt", []) or []:
+        pat = r.get("pattern") if isinstance(r, dict) else r
+        if isinstance(pat, str) and pat:
+            out.append(pat)
+    return out
 
 
 def check_promo_lint(draft):
@@ -669,6 +683,10 @@ def render(cell, tools, org_profile_text, harness, dry_run, run_dir, run_id, ski
             dc_lines += f"  - MUST contain /{r['pattern']}/ ({r.get('why', '')})\n"
         for r in dc.get("must_not_match", []):
             dc_lines += f"  - MUST NOT contain /{r['pattern']}/ ({r.get('why', '')})\n"
+    if dc.get("style_exempt"):
+        dc_lines += "- lines no countable style rule reads in this workflow's draft (the owner's agreed shape, every other line still follows the rules):\n"
+        for r in dc.get("style_exempt", []):
+            dc_lines += f"  - /{r['pattern']}/ ({r.get('why', '')})\n"
     return PROMPT.format(
         id=cell["id"], kind=cell["kind"], harness=harness, dry=" [DRY RUN]" if dry_run else (" [NO-PUBLISH]" if no_publish else ""),
         run_dir=run_dir, gather_mode=gather_mode, gather=gather, draft_contract_lines=dc_lines,
@@ -714,7 +732,7 @@ def style_rules_for(cell, inst_dir):
     return str(Path(sr.replace("${instance}", str(inst_dir or ""))).expanduser())
 
 
-def check_style_rules(draft, rules_path):
+def check_style_rules(draft, rules_path, exempt=()):
     """Run scripts/style-check.py (beside this file's parent) on a draft with the instance's rules JSON. Every
     finding is one unmet line, the same way check_draft_contract reports a forbidden match: a sentence over the
     word limit, a weasel word, an acronym with no expansion or glossary row, a date with no year, an ISO date, a
@@ -725,7 +743,10 @@ def check_style_rules(draft, rules_path):
         return [f"style-check.py not found at {script}, the instance requires style rules {rules_path}"]
     if not Path(rules_path).exists():
         return [f"style rules file not found: {rules_path}"]
-    r = subprocess.run([sys.executable, str(script), str(draft), "--rules", str(rules_path)], capture_output=True, text=True)
+    argv = [sys.executable, str(script), str(draft), "--rules", str(rules_path)]
+    for pat in exempt or ():
+        argv += ["--exempt", pat]
+    r = subprocess.run(argv, capture_output=True, text=True)
     if r.returncode == 0:
         return []
     lines = [l for l in r.stdout.splitlines() if l and not l.startswith("style-check:")]
@@ -981,7 +1002,10 @@ def style_check(args):
     if not rules:
         die("style-check: no rules resolved (pass --rules, or --workflow / --instance whose gate-policy.json names required_style_rules)")
     script = Path(__file__).resolve().parent.parent / "scripts" / "style-check.py"
-    r = subprocess.run([sys.executable, str(script), str(Path(args.draft).expanduser()), "--rules", str(rules)], text=True)
+    argv = [sys.executable, str(script), str(Path(args.draft).expanduser()), "--rules", str(rules)]
+    for pat in style_exempt_of(cell):
+        argv += ["--exempt", pat]
+    r = subprocess.run(argv, text=True)
     return r.returncode
 
 
