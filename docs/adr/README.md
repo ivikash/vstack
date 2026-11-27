@@ -19,3 +19,4 @@ One decision, one file, written once. Status is in the frontmatter (`proposed`, 
 | [0013](0013-cut-title-rule-and-link-labels-keep-their-spacing.md) | A cut title in a title cell is a finding, and a link label keeps its source's spacing | accepted |
 | [0014](0014-cut-title-reads-openers-and-fragments-never-length.md) | cut-title reads openers and fragments, never length | accepted |
 | [0015](0015-style-exempt-lines-per-workflow.md) | A workflow names the lines its countable style rules skip | accepted |
+| [0016](0016-owner-review-rules-brackets-units-figure-dates-hash-column.md) | Four countable rules from an owner's document review: bracket spans, quantity units, figure dates, the # column | accepted |

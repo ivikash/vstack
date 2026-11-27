@@ -66,6 +66,17 @@ Rules JSON keys (all optional, a missing key turns that check off):
                            finding, once per cell. A `<` followed by a digit, a space or `=` is a comparison (`last
                            <1hr query`), not an opener. A title's length is never read: a whole title can be any
                            length, and a generator that caps a title is refused at its own source
+  bracket_span_format      true: inside round brackets a number span is written `(~2,080 to ~630 µs)`: `from` before a
+                           number inside brackets, or `about`/`around`/`roughly` before a number inside brackets, is a
+                           finding (owner review 1, 11/27/2026: `(from about X to about Y)` never)
+  quantity_unit            {"verbs": [...], "units": [...]}: a sentence carrying a quantity word from `verbs` (less, more,
+                           fewer, cheaper, costs, pays, saves) and a digit must also carry a unit word from `units` (time,
+                           seconds, ms, µs, dollars, bytes, GiB, calls, requests, memory, RCU ...) so `pays 70% less` says
+                           less of what
+  figure_sentence_no_date  true or {"exempt_prefixes": [...]}: a prose sentence that cites `Figure N` and carries a
+                           MM/DD/YYYY date is a finding, the figure draws the date (its caption and the window sentence
+                           keep it, so a line opening with `*Figure` or a listed prefix is not read)
+  table_first_header_hash  true: every table's first header cell is `#` (a table without a row number column is a finding)
   exempt_line_prefixes     list of line prefixes no check reads (the engine's own `Sources:` header line)
   exempt_line_patterns     list of regexes: a line that matches one is read by no check, the same as a prefix. For a
                            shape one workflow agreed with its owner that a house rule would otherwise count (a table
@@ -489,6 +500,58 @@ def check(text, rules, glossary_texts=(), known_terms_set=()):
             for m in sp.finditer(t):
                 add("space-before-punctuation", t[max(0, m.start() - 30):m.end() + 10], i + 1)
 
+    # number spans inside brackets: "(~2,080 to ~630 µs)", never "(from about 2,080 to about 630)" (owner review 1)
+    if rules.get("bracket_span_format"):
+        BR = re.compile(r"\(([^()\n]*)\)")
+        BAD_FROM = re.compile(r"\bfrom\s+(?:about\s+|around\s+|roughly\s+|~)?\d", re.I)
+        BAD_ABOUT = re.compile(r"\b(?:about|around|roughly)\s+\d", re.I)
+        for i, l in enumerate(lines):
+            if _exempt(l, prefixes) or l.strip().startswith("<!--"):
+                continue
+            t = _links_replaced(_title_cells_blanked(l), keep_prose_labels=False)
+            t = QUOTED.sub("QUOTE", t)
+            for m in BR.finditer(t):
+                inner = m.group(1)
+                if BAD_FROM.search(inner):
+                    add("bracket-span-from", f"({inner}): no from inside brackets, write (A to B unit)", i + 1)
+                elif BAD_ABOUT.search(inner):
+                    add("bracket-span-about", f"({inner}): write ~ instead of about", i + 1)
+
+    # a quantity word names its unit in the same sentence: "pays 70% less" says less of what (owner review 1)
+    qu = rules.get("quantity_unit")
+    if isinstance(qu, dict) and qu.get("verbs"):
+        verbs = re.compile(r"\b(?:" + "|".join(re.escape(v) for v in qu["verbs"]) + r")\b", re.I)
+        units = re.compile(r"(?<![\w])(?:" + "|".join(re.escape(u) for u in (qu.get("units") or [])) + r")(?![\w])", re.I)
+        for unit, lineno in _prose_units(lines, prefixes):
+            t = _links_replaced(unit, keep_prose_labels=False)
+            m = verbs.search(t)
+            if m and re.search(r"\d", t) and not units.search(t):
+                add("quantity-without-unit", f"{m.group(0)}: {t[max(0, m.start() - 40):m.end() + 40]}", lineno)
+
+    # a sentence that cites a figure does not repeat the date the figure draws (owner review 1)
+    fs = rules.get("figure_sentence_no_date")
+    if fs:
+        ex = (fs.get("exempt_prefixes") if isinstance(fs, dict) else None) or ["*Figure", "The window runs", "Same window as"]
+        FIG = re.compile(r"\bFigures?\s+\d")
+        DATE = re.compile(r"\b\d\d/\d\d/\d{4}\b")
+        for unit, lineno in _prose_units(lines, prefixes):
+            line = lines[lineno - 1] if 0 < lineno <= len(lines) else ""
+            if any(line.lstrip().startswith(p) for p in ex):
+                continue
+            t = _links_replaced(unit, keep_prose_labels=False)
+            if FIG.search(t) and DATE.search(t):
+                add("figure-sentence-date", t[:100], lineno)
+
+    # every table starts with a # column (owner review 1)
+    if rules.get("table_first_header_hash"):
+        prev_table = False
+        for i, l in enumerate(raw_lines):
+            if _is_table_row(l) and not prev_table and not _exempt(l, prefixes):
+                first = re.split(r"(?<!\\)\|", l.strip().strip("|"))[0].strip()
+                if first != "#":
+                    add("table-no-hash-column", f"first header cell is {first[:30]!r}, not #", i + 1)
+            prev_table = _is_table_row(l)
+
     # a cut title in a title cell: the shapes a cap leaves behind that a whole title never has. An opener last, a
     # fragment marker last (hyphen, comma), or a `<` that opens a word and never closes. Length is not read: a whole
     # title of exactly 60 or 80 characters is common (validation pass 5, 11/27/2026, four false positives)
@@ -735,7 +798,19 @@ def selftest():
     assert len(f) == 3 and {q.split(":")[0] for _, q, _ in f} == {"11/20", "11/23", "2026-11-23"}, f"the two exempt lines are not read, the table body and the prose still are: {f}"
     f = [x for x in check(ex_text, rules) if x[0] in ("date-without-year", "iso-date")]
     assert len(f) == 8, f"without the patterns every date counts: {f}"
-    print("style-check selftest: ok (exempt_line_patterns scoped to the listed lines; known_terms_source: IDF and DDF from the Known terms table silent, ZZQ outside it fires, 3 fire without the table; 16 rules fire on the bad text, 0 findings on the good text, 4 fix-wave false positives stay silent and their real cases still fire, 4 pass-4 rules silent on the allowed shapes and firing on the faults, 3 pass-5 rules the same, cut-title (pass 7 shape: openers and fragments, never length) and the link-label exemption the same)")
+    # owner review 1 rules
+    r1 = {"bracket_span_format": True, "quantity_unit": {"verbs": ["less", "more", "cheaper", "costs", "pays"], "units": ["time", "ms", "µs", "seconds", "dollars", "bytes", "calls", "memory", "RCU"]},
+          "figure_sentence_no_date": True, "table_first_header_hash": True}
+    bad = ("# T\n\nThe cost fell 70% (from about 2,080 to about 630). A query pays 70% less for it. The drop in Figure 1 ran on 11/07/2026.\n\n"
+           "| Metric | Before |\n|---|---|\n| a | (from 1 to 2) |\n")
+    good = ("# T\n\nThe cost fell 70% (~2,080 to ~630 µs). A query spends 70% less time on it. The drop in Figure 1 is at the change line.\n\n"
+            "*Figure 1: metric, 10/28/2026 to 11/17/2026, [src](https://x.y)*\n\nThe window runs 10/28/2026 to 11/17/2026, 10 days before the 11/07/2026 change.\n\n"
+            "| # | Metric | Before |\n|---|---|---|\n| 1 | a | (1 to 2 ms) |\n")
+    fb = [x[0] for x in check(bad, r1)]
+    assert fb.count("bracket-span-from") == 2 and "quantity-without-unit" in fb and "figure-sentence-date" in fb and "table-no-hash-column" in fb, fb
+    assert [x[0] for x in check(good, r1)] == [], check(good, r1)
+    assert [x[0] for x in check("# T\n\nIt fell 7% (about 300 ms before).\n", r1)] == ["bracket-span-about"]
+    print("style-check selftest: ok (owner review 1: bracket-span-from x2, quantity-without-unit, figure-sentence-date and table-no-hash-column fire on the bad text and 0 on the good text; exempt_line_patterns scoped to the listed lines; known_terms_source: IDF and DDF from the Known terms table silent, ZZQ outside it fires, 3 fire without the table; 16 rules fire on the bad text, 0 findings on the good text, 4 fix-wave false positives stay silent and their real cases still fire, 4 pass-4 rules silent on the allowed shapes and firing on the faults, 3 pass-5 rules the same, cut-title (pass 7 shape: openers and fragments, never length) and the link-label exemption the same)")
 
 
 def main():
