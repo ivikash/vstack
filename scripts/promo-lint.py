@@ -151,7 +151,11 @@ never enters the fallback, so its output is unchanged.
 
 The readiness table (owner decision D25) is a stage document beside the draft, `<stem>.readiness.md`
 for a fixture or `gap-analysis.md` in a run directory, ending `Readiness: Ready | Ready with gaps |
-Not ready`. A missing table or a `Not ready` verdict fails `readiness-first`.
+Not ready`. A missing table or a `Not ready` verdict fails `readiness-first`, unless the document
+declares the readiness mode `draft_with_readiness` itself: a line opening `**Not ready for
+submission**` in the body (the owner asked for a draft over a Not ready verdict). Then a Not ready
+verdict passes with a warning, the document must also carry a `## Readiness` section, and a banner
+over a Ready verdict fails (`readiness-banner`): banner and verdict always agree.
 
 Only countable rules live here. Judgement rules (wrong criterion, STAR order of the four
 paragraphs, journey, altitude, ownership verdict, contradiction, provider gaps, jargon) are in
@@ -473,7 +477,12 @@ def readiness_path(draft_path):
     return None
 
 
-def lint_readiness(path):
+NOT_READY_BANNER = re.compile(r"^\*\*Not ready for submission\*\*", re.M)
+
+
+def lint_readiness(path, draft_text=""):
+    """readiness-first. draft_text lets the document declare the draft_with_readiness mode with its banner."""
+    banner = bool(NOT_READY_BANNER.search(draft_text or ""))
     if path is None:
         return ["readiness-first document: no readiness table beside the draft (<stem>.readiness.md or gap-analysis.md) with a `Readiness: Ready | Ready with gaps | Not ready` verdict"]
     with open(path, encoding="utf-8") as fh:
@@ -484,7 +493,14 @@ def lint_readiness(path):
     if not re.search(r"^\| *Criterion *\| *Evidence *\| *(Met / Partly / Not met|Status) *\| *Gap *\|", t, re.M):
         return [f"readiness-first {path}: no table with columns Criterion, Evidence, Met / Partly / Not met, Gap"]
     if m.group(1) == "Not ready":
-        return [f"readiness-first {path}: verdict is Not ready, the writer returns the table and gap list instead of a document"]
+        if banner:
+            out = []
+            if not re.search(r"^## Readiness$", draft_text, re.M):
+                out.append(f"readiness-first {path}: verdict is Not ready and the document carries the Not ready banner, but no `## Readiness` section copies the verdict and table into the document")
+            return out
+        return [f"readiness-first {path}: verdict is Not ready, the writer returns the table and gap list instead of a document (or the document declares readiness mode draft_with_readiness with a `**Not ready for submission**` banner and a `## Readiness` section)"]
+    if banner:
+        return [f"readiness-banner {path}: the document carries the `**Not ready for submission**` banner but the verdict is {m.group(1)}, banner and verdict must agree"]
     return []
 
 
@@ -1269,7 +1285,13 @@ def main(argv):
     for path in paths:
         with open(path, encoding="utf-8") as fh:
             out, warnings, counts, shape = lint(fh.read(), impact, dates, held)
-        out += lint_readiness(readiness_path(path))
+        with open(path, encoding="utf-8") as fh:
+            draft_text = fh.read()
+        rd = readiness_path(path)
+        out_r = lint_readiness(rd, draft_text)
+        out += out_r
+        if not out_r and rd and NOT_READY_BANNER.search(draft_text):
+            warnings.append("warning readiness-first: verdict is Not ready, document declares readiness mode draft_with_readiness with its banner, not for submission")
         prefix = f"{path}: " if len(paths) > 1 else ""
         if shape != "template":
             print(f"{prefix}shape: {shape}")

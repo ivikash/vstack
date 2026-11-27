@@ -101,6 +101,17 @@ done
 [ $fail -eq 0 ] && say rules "ok ($(grep -c '^| ' docs/RULES.md) rows, every enforcer exists)"
 
 # promo-lint -----------------------------------------------------------------------------------
+# readiness mode draft_with_readiness: the green fixture with a Not ready verdict fails readiness-first,
+# passes once the document carries the Not ready banner and a ## Readiness section, and a banner over a
+# Ready verdict fails readiness-banner (banner and verdict always agree).
+rd=$(mktemp -d); cp evals/fixtures/promo-doc-good.md "$rd/doc.md"; sed 's/^Readiness: .*/Readiness: Not ready/' evals/fixtures/promo-doc-good.readiness.md > "$rd/doc.readiness.md"
+{ python3 scripts/promo-lint.py "$rd/doc.md" >"$rd/out1" 2>&1 || true; }; grep -q '^readiness-first .*Not ready' "$rd/out1" || { say promo-lint "FAIL: a Not ready verdict without the banner no longer fails readiness-first"; fail=1; }
+{ sed -n '1p' evals/fixtures/promo-doc-good.md; printf '\n**Not ready for submission**: declared draft.\n\n## Readiness\n\nReadiness: Not ready\n'; sed -n '2,$p' evals/fixtures/promo-doc-good.md; } > "$rd/doc.md"
+{ python3 scripts/promo-lint.py "$rd/doc.md" >"$rd/out" 2>&1 || true; }; if grep -q '^readiness-first' "$rd/out"; then say promo-lint "FAIL: the Not ready banner with a ## Readiness section still fails readiness-first"; fail=1; fi
+grep -q 'warning readiness-first' "$rd/out" || { say promo-lint "FAIL: the declared draft mode prints no readiness warning"; fail=1; }
+cp evals/fixtures/promo-doc-good.readiness.md "$rd/doc.readiness.md"
+{ python3 scripts/promo-lint.py "$rd/doc.md" >"$rd/out3" 2>&1 || true; }; grep -q '^readiness-banner' "$rd/out3" || { say promo-lint "FAIL: a Not ready banner over a Ready verdict does not fail readiness-banner"; fail=1; }
+rm -rf "$rd"
 # the red fixture must fail (exit 1, every lint-side class named in evals/results), the green must pass
 # both run with their stage documents (round 4c): --impact-data turns on marker-propagation, --dates
 # gives ordering-stamped the artifact dates. The red stage files must add failures (the three
