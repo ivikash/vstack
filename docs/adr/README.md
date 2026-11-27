@@ -17,3 +17,4 @@ One decision, one file, written once. Status is in the frontmatter (`proposed`, 
 | [0011](0011-four-more-countable-style-rules.md) | Four more countable style rules: hedges, marker form, comparatives, spans | accepted |
 | [0012](0012-three-more-countable-style-rules.md) | Three more countable style rules: the marker as a verb, unclosed brackets, a space before punctuation | accepted |
 | [0013](0013-cut-title-rule-and-link-labels-keep-their-spacing.md) | A cut title in a title cell is a finding, and a link label keeps its source's spacing | accepted |
+| [0014](0014-cut-title-reads-openers-and-fragments-never-length.md) | cut-title reads openers and fragments, never length | accepted |

@@ -55,12 +55,12 @@ Rules JSON keys (all optional, a missing key turns that check off):
                            labels (a label quotes a source's title verbatim, the link points at the source) and the
                            table alignment row are not read, a title cell that is not a link is (its spacing is the
                            writer's to normalise)
-  cut_title_lengths        list of integers ([60, 75, 80]): a title cell (wholly bold, wholly a link, or a bold link)
-                           whose title text is exactly one of those lengths and ends in a letter or digit is a
-                           generator's cap cut (`**0194 Markers are bare, comparatives carry a figure, changes are
-                           active and relat**`), and so is a title text that ends in an open `[`, `(` or `<`
-                           or leaves a `<` or a backtick unclosed. One finding per cell. A title ending in
-                           a closing bracket, a quote or a period at a listed length is complete
+  cut_titles               true: a title cell (wholly bold, wholly a link, or a bold link) whose title text ends in
+                           an open `[`, `(` or `<`, leaves a backtick unclosed, ends in a hyphen or a comma (a word or clause fragment),
+                           or holds a `<` followed by a letter with no `>` after it (`(TO BE COLLECTED: <ar`), is a
+                           finding, once per cell. A `<` followed by a digit, a space or `=` is a comparison (`last
+                           <1hr query`), not an opener. A title's length is never read: a whole title can be any
+                           length, and a generator that caps a title is refused at its own source
   exempt_line_prefixes     list of line prefixes no check reads (the engine's own `Sources:` header line)
 
 A title-like link label is one that opens with `[` (a bracketed tag, the label quotes a document title), a
@@ -436,9 +436,11 @@ def check(text, rules, glossary_texts=()):
             for m in sp.finditer(t):
                 add("space-before-punctuation", t[max(0, m.start() - 30):m.end() + 10], i + 1)
 
-    # a cut title in a title cell: exactly a generator's cap long and ending mid-word, or ending in an opener
-    caps = {int(n) for n in rules.get("cut_title_lengths", []) or [] if str(n).strip().isdigit()}
-    if caps:
+    # a cut title in a title cell: the shapes a cap leaves behind that a whole title never has. An opener last, a
+    # fragment marker last (hyphen, comma), or a `<` that opens a word and never closes. Length is not read: a whole
+    # title of exactly 60 or 80 characters is common (validation pass 5, 11/27/2026, four false positives)
+    if rules.get("cut_titles"):
+        opener_lt = re.compile(r"<(?=[A-Za-z])[^>]*$")
         for i, l in enumerate(raw_lines):
             if not _is_table_row(l) or _exempt(l, prefixes) or re.match(r"^\s*\|?\s*:?-{3,}", l):
                 continue
@@ -453,8 +455,7 @@ def check(text, rules, glossary_texts=()):
                     title = title[2:-2].strip()
                 if not title:
                     continue
-                cut = (len(title) in caps and title[-1:].isalnum()) or title[-1:] in "[(<" \
-                    or title.count("`") % 2 == 1 or title.count("<") > title.count(">")
+                cut = title[-1:] in "[(<-,\u2010\u2011\u2013" or title.count("`") % 2 == 1 or bool(opener_lt.search(title))
                 if cut:
                     add("cut-title", title, i + 1)
     return findings
@@ -477,7 +478,7 @@ def selftest():
              "hedge_words": ["likely", "may be", "seems"], "marker_exact": ["TO BE CONFIRMED"],
              "comparatives": ["faster", "fewer", "more"], "numeric_span_needs_relative": True,
              "marker_not_after": ["is", "are", "remains"], "unclosed_brackets": True,
-             "space_before_punctuation": [".", ",", ";", ":", "!", "?"], "cut_title_lengths": [60, 75, 80],
+             "space_before_punctuation": [".", ",", ";", ":", "!", "?"], "cut_titles": True,
              "exempt_line_prefixes": ["Sources:"]}
     bad = "\n".join([
         "# Title", "Sources: used a.b; unavailable c.d", "",
@@ -492,7 +493,7 @@ def selftest():
         "The new path is faster with fewer calls. Latency fell from 1,700 ms to 600 ms.",
         "Last week's counts were not fetched, so every delta is TO BE CONFIRMED.",
         "| 22 | Metadata & Storage : Kraken | Output below baseline on Bloom Rebuild[Prod Manifest has no size boun, planned? |",
-        "| 11/27/2026 | **0194 Markers are bare, comparatives carry a figure, changes are active and relat** | accepted |",
+        "| 11/27/2026 | **0189 A placeholder marker is bare: `(TO BE CONFIRMED)` or `(TO BE COLLECTED: <ar** | accepted |",
     ])
     f = check(bad, rules)
     rules_hit = {r for r, _, _ in f}
@@ -623,32 +624,41 @@ def selftest():
     assert not f, f"a space before punctuation inside a link label (plain or bold) must not count: {f}"
     f = [x for x in check("| 7 | [Sync] Metadata & Storage : Kraken | [a title](https://e.com/t) : the note |\n|---|---|---|\nSee [a title](https://e.com/s) , then the rest.", rules) if x[0] == "space-before-punctuation"]
     assert len(f) == 3, f"a title cell that is not a link, and a space after a link before : or , must still count: {f}"
-    # pass 6: a cut title in a title cell. Exactly a listed cap long and ending in a letter, or ending in an opener or with
-    # an unclosed < or backtick, counts once per cell. A whole title at a cap length ending in ) ] . or a quote does not
+    # pass 6 and 7: a cut title in a title cell. An opener last, a hyphen or comma last, or a `<` opening a word with no
+    # `>` after it counts once per cell. Length is never read (pass 7: four whole titles of exactly 60 or 80 characters
+    # fired, and `<1hr` was read as an opener)
     cap80 = "0194 Markers are bare, comparatives carry a figure, changes are active and relat"
     assert len(cap80) == 80, len(cap80)
     cut = "\n".join([
         "| Date | ADR | File |", "|---|---|---|",
-        f"| 11/27/2026 | **{cap80}** | `a.md` |",
-        f"| 11/27/2026 | [**{cap80}**](https://e.com/a) | `a.md` |",
         "| 11/27/2026 | **0189 A placeholder marker is bare: `(TO BE CONFIRMED)` or `(TO BE COLLECTED: <ar** | `b.md` |",
         "| 11/27/2026 | [0173 Readiness mode `draft_with_readiness` (owner instruction (](https://e.com/c) | `c.md` |",
-        "| 11/27/2026 | **Bloom Rebuild[Prod] Manifest bloom aggregate has no size bound at ~2.3 GiB rebui** | `d.md` |",
+        "| 11/27/2026 | **Bloom Rebuild[Prod] Manifest bloom aggregate has no size bound at ~2.3 GiB rebuild [** | `d.md` |",
+        "| 11/27/2026 | [**Markers are bare, comparatives carry a figure, changes are active and**](https://e.com/e) | `e.md` |",
+        "| 11/27/2026 | **Markers are bare, comparatives carry a figure, changes are active and relat-** | `f.md` |",
+        "| 11/27/2026 | **Markers are bare, comparatives carry a figure,** | `g.md` |",
+        "| 11/27/2026 | **A placeholder marker is bare: `(TO BE CONFIRMED)` or `(TO BE** | `h.md` |",
     ])
     f = [x for x in check(cut, rules) if x[0] == "cut-title"]
-    assert len(f) == 5, f"a bold or linked title at exactly a cap length ending mid-word, or ending in an opener, or with an unclosed backtick or <, counts once per cell: {f}"
-    assert len([x for x in check(cut, rules) if x[0] == "unclosed-bracket"]) == 2, "the open brackets still count under unclosed-bracket"
+    assert len(f) == 6 and [x[2] for x in f] == [3, 4, 5, 7, 8, 9], f"a title ending in an opener, a hyphen or a comma, holding a < that opens a word with no >, or an unclosed backtick counts once per cell. A title ending in a whole word ('and') is not provably cut: {f}"
+    assert len([x for x in check(cut, rules) if x[0] == "unclosed-bracket"]) == 4, "the open brackets still count under unclosed-bracket"
     whole = "\n".join([
         "| Date | ADR | Note |", "|---|---|---|",
-        f"| 11/27/2026 | **{cap80[:-6]} (v2)** | prose of exactly eighty characters that is not a title cell never counts, so |",
+        f"| 11/27/2026 | **{cap80}** | prose of exactly eighty characters that is not a title cell never counts, so |",
+        "| 11/27/2026 | **Customer-facing API for proactive partition and bloom fields** | 60 characters, whole |",
+        "| 11/27/2026 | **COE 415043 - CWL silently skipped Log Processing during infrastructure migration** | 80 characters, whole |",
+        "| 11/27/2026 | **AWSLogsProcessingControlPlaneServiceCanaryTests-prod-Warning** | 60 characters, whole |",
+        "| 11/27/2026 | [**DDF perf improvements for last <1hr query: time range early pruning**](https://e.com/a) | < before a digit |",
         "| 11/27/2026 | [**0189 A placeholder marker is bare: `(TO BE CONFIRMED)` or `(TO BE COLLECTED: <artifact>)`**](https://e.com/b) | a < b |",
-        f"| 11/27/2026 | **{cap80[:-1]}** | x |",
+        "| 11/27/2026 | **Latency p99 < 50 ms and p100 <= 1 s** | comparisons |",
         f"| 11/27/2026 | [{cap80}.](https://e.com/d) | x |",
+        "| 11/27/2026 | [**0193 Relative first in TL;DR and Results, and the voice rules are contract rules**](https://e.com/e) | x |",
+        f"| 11/27/2026 | [**{cap80[:70].rsplit(' ', 1)[0]}\u2026**](https://e.com/f) | x |",
     ])
     f = [x for x in check(whole, rules) if x[0] == "cut-title"]
-    assert not f, f"a whole title at a cap length ending in ) or a period, a title with its brackets and backticks closed, a title of 79 characters and a prose cell must not count: {f}"
-    assert not [x for x in check(cut, dict((k, v) for k, v in rules.items() if k != "cut_title_lengths")) if x[0] == "cut-title"], "without cut_title_lengths the rule is off"
-    print("style-check selftest: ok (16 rules fire on the bad text, 0 findings on the good text, 4 fix-wave false positives stay silent and their real cases still fire, 4 pass-4 rules silent on the allowed shapes and firing on the faults, 3 pass-5 rules the same, cut-title and the link-label exemption of pass 6 the same)")
+    assert not f, f"a whole title of exactly 60 or 80 characters, a < before a digit, a space or =, closed brackets and backticks, a title ending in a period or an ellipsis, and a prose cell must not count: {f}"
+    assert not [x for x in check(cut, dict((k, v) for k, v in rules.items() if k != "cut_titles")) if x[0] == "cut-title"], "without cut_titles the rule is off"
+    print("style-check selftest: ok (16 rules fire on the bad text, 0 findings on the good text, 4 fix-wave false positives stay silent and their real cases still fire, 4 pass-4 rules silent on the allowed shapes and firing on the faults, 3 pass-5 rules the same, cut-title (pass 7 shape: openers and fragments, never length) and the link-label exemption the same)")
 
 
 def main():
