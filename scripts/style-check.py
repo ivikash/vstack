@@ -205,7 +205,7 @@ def _exempt_rules(rules):
 MARKER = re.compile(r"\(TO BE [A-Z]+\b[^)]*\)|\[TO BE [A-Z]+[^\]]*\]")
 QUOTED = re.compile(r"\"[^\"\n]*\"|\u201c[^\u201d\n]*\u201d")
 SENTENCE_END = re.compile(r"(?<=[.!?])\s+(?=[\"'(\[*A-Z0-9])")
-LIST_ITEM = re.compile(r"^\s*([-*+]|\d+[.)])\s+")
+LIST_ITEM = re.compile(r"^\s*([-*+]|\d+[.)]|[a-z][.)])\s+")  # a bullet, a numbered or a lettered item (a) b) c)) is its own sentence
 
 
 def _prose_units(lines, prefixes):
@@ -272,7 +272,7 @@ def check(text, rules, glossary_texts=(), known_terms_set=()):
                 n = len(s.split())
                 if n > int(limit):
                     add("sentence-length", f"{n} words: {s[:70]}", start)
-        LIST_ITEM = re.compile(r"^\s*([-*+]|\d+[.)])\s+")
+        LIST_ITEM = re.compile(r"^\s*([-*+]|\d+[.)]|[a-z][.)])\s+")  # a bullet, a numbered or a lettered item (a) b) c)) is its own sentence
         for i, l in enumerate(lines):
             bare = l.strip()
             if not bare or _is_table_row(l) or bare.startswith("#") or _exempt(l, prefixes) or bare.startswith("<!--"):
@@ -587,6 +587,8 @@ def selftest():
     f = [x for x in check("Short one ends here. [Next link](https://e.com/n) opens the next sentence that stays under the limit.", r12) if x[0] == "sentence-length"]
     assert not f, f"(2) the link placeholder merged two sentences: {f}"
     assert [x for x in check("- " + " ".join(["word"] * 13), r12) if x[0] == "sentence-length"], "(1) a 13-word bullet must still count"
+    f = [x for x in check("Can you reply with status and blockers on:\na) Fair scheduling, shadow mode in IAD [11/26/2026]\nb) Rollout plan [12/03/2026]\nCall out if there are inaccuracies.", r12) if x[0] == "sentence-length"]
+    assert not f, f"(1) lettered items a) b) are their own sentences, never joined with the line before: {f}"
     acr = "\n".join([
         "# Doc", "",
         "See [DP: FieldStats for map-key fields (ZQX usage analysis)](https://e.com/a) and \"the QQW service said so\".",
