@@ -416,9 +416,9 @@ dry_run={dry_json}, no_publish={nopub_json}, landed_at (ISO time), gate_passes (
 Then write {run_dir}/result.json: {{"status": "ok" | "known_gaps" | "failed", "gate_passes": N,
 "draft": "{run_dir}/draft.md", "brief": "{run_dir}/brief.md", "landed": <where the draft went>}}.
 Then run with your shell: `{vstack_bin} record {run_dir} --workflow {workflow_file}`
-It writes meta.json and scorecard.json in the run directory and appends this run's line to the shared
-runs ledger. A run that skips this line is invisible to `vstack retro`. If a `post_record` command is
-printed by it, run that too.
+It writes meta.json and scorecard.json in the run directory, appends this run's line to the shared
+runs ledger and runs the workflow's record.post_record command (the dashboard render). A run that
+skips this line is invisible to `vstack retro` and the dashboard.
 Reply with the single line: VSTACK_RESULT <status> passes=<N>
 """
 
@@ -945,9 +945,23 @@ def record_run(run_dir, cell, ledger_root, harness=None, post_record=None):
     if appended:
         with open(ledger, "a") as f:
             f.write(json.dumps(meta) + "\n")
-    if post_record:
-        print("post_record:", post_record)
+    run_post_record(post_record, run_dir)
     return meta, appended
+
+
+def run_post_record(cmd, run_dir):
+    """workflow.record.post_record: an instance command the engine runs after record and after reflect (a
+    dashboard render, a mirror copy). Shell-free argv split, 180 s cap, output to post-record.log, never fatal."""
+    if not cmd:
+        return
+    try:
+        argv = shlex.split(cmd)
+        with open(Path(run_dir) / "post-record.log", "a") as log:
+            log.write(f"\n# {now()} {cmd}\n")
+            proc = subprocess.run(argv, stdout=log, stderr=subprocess.STDOUT, text=True, timeout=180)
+        print(f"post_record: exit {proc.returncode} ({cmd})")
+    except Exception as e:
+        print(f"post_record: failed to run ({e})", file=sys.stderr)
 
 
 def record(args):
@@ -996,7 +1010,7 @@ def trend_and_flags(rows):
         sc = Path(m.get("run_dir", "")) / "scorecard.json"
         card = load(sc) if sc.exists() else m.get("scorecard")  # the file is newer than the ledger line (reflect fills owner_edit_ratio later)
         if card:
-            by.setdefault(m.get("workflow", "?"), []).append((m["_started"], card))
+            by.setdefault(m.get("workflow") or m.get("cell") or "?", []).append((m["_started"], card))
     flags = []
     for wf, cards in by.items():
         cards.sort(key=lambda t: t[0])
@@ -1280,8 +1294,7 @@ def reflect(args):
         wf_file = inst / "workflows" / f"{workflow}.json"
         if wf_file.exists():
             post = (load(wf_file).get("record") or {}).get("post_record")
-    if post:
-        print("post_record:", post)
+    run_post_record(post, run_dir)
     return 0
 
 
