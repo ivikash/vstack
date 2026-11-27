@@ -60,7 +60,8 @@ def _strip_code(text):
     return re.sub(r"`[^`\n]*`", "`code`", text)
 
 
-LINK = re.compile(r"(\*\*)?\[((?:[^\[\]]|\[[^\]]*\])*)\]\(([^)\s]*)\)(\*\*)?")
+# a link never spans lines: a stray `[` on one line must not pair with a `](url)` lines later and swallow the prose between
+LINK = re.compile(r"(\*\*)?\[((?:[^\[\]\n]|\[[^\]\n]*\])*)\]\(([^)\s]*)\)(\*\*)?")
 
 
 def _links_replaced(text, keep_prose_labels=True, placeholder="link"):
@@ -244,6 +245,7 @@ def selftest():
         "An em-dash — here. The ZAZ (zero allocation zone) is fine, and QQQ is in the glossary.",
         "| col | 11/23 | a; b |", "|---|---|---|", "| [[Draft] Title (11/06-11/13)](https://e.com) | **[Task — title](https://e.com)** | [**[Tag] Task — 11/13 title**](https://e.com) |",
         "", "## Glossary", "| Term | Means |", "|---|---|", "| QQQ | a glossary term |",
+        "", "A stray [bracket opens here and the date 10/09 must still count,", "then a link [CR-9](https://e.com/9) closes a bracket on another line.",
     ])
     f = check(bad, rules)
     rules_hit = {r for r, _, _ in f}
@@ -255,7 +257,7 @@ def selftest():
     assert any(q.startswith("PMDB") for r, q, _ in f if r == "acronym-unexpanded"), f
     assert not any(q.startswith(("ZAZ", "QQQ", "CR", "LINK", "link")) for r, q, _ in f if r == "acronym-unexpanded"), f
     assert sum(1 for r, _, _ in f if r == "acronym-unexpanded") == 1, f
-    assert sum(1 for r, _, _ in f if r == "date-without-year") == 2, f"table cell 11/23 counts, the title-like labels do not: {f}"
+    assert sum(1 for r, _, _ in f if r == "date-without-year") == 3, f"table cell 11/23 and the date after a stray bracket count, the title-like labels do not: {f}"
     assert sum(1 for r, _, _ in f if r == "semicolon") == 1, f"only the prose semicolon counts (Sources line, table row exempt): {f}"
     assert sum(1 for r, _, _ in f if r == "em-dash") == 1, f"the em-dash in the bold title label is exempt: {f}"
     good = "\n".join([
