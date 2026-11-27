@@ -168,19 +168,15 @@ def check(workflows_dir, private_component):
                 if s.get("connector", s.get("role", "")).startswith("ledger.") and s.get("component") == private_component \
                         and c.get("component") != private_component:
                     pass  # ledger lines are field-checked at write time; reading them is allowed
-    # every writer loops: a gate with 2 <= min_passes <= max_passes <= 5 (factory decision 19)
+    # every writer loops (factory decision 19): invariant 3 above already fails a missing gate or min_passes
+    # under 2, this adds the upper bound so a gate cannot loop without end
     for cid, (p, c) in cells.items():
-        if c.get("kind", "writer") != "writer" and not c.get("writer"):
-            continue
         g = c.get("gate")
         if not isinstance(g, dict) or not g.get("skill"):
-            fails.append(f"{c.get('id')}: writer has no gate (every writing workflow loops draft, validate, rewrite)")
             continue
         mn, mx = int(g.get("min_passes", 0) or 0), int(g.get("max_passes", 0) or 0)
-        if mn < 2:
-            fails.append(f"{c.get('id')}: gate.min_passes is {mn}, must be at least 2")
         if mx > 5 or mx < mn:
-            fails.append(f"{c.get('id')}: gate.max_passes is {mx}, must be between min_passes and 5")
+            fails.append(f"{cid}: gate.max_passes is {mx}, must be between min_passes and 5")
     return fails, cells
 
 
