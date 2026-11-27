@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ivikash/vstack/schema/scorecard.json",
+  "title": "Run scorecard",
+  "description": "scorecard.json in every run directory, computed by the engine at record time (vstack record) with no model call, the same fields for every workflow so runs compare across workflows and across time. owner_edit_ratio is null until vstack reflect reads the landed document back. credits is null unless the harness wrote it into meta.json, never 0.",
+  "type": "object",
+  "required": ["run_id", "workflow", "harness", "computed_at", "minutes_elapsed", "tool_calls", "credits", "tbc_count", "known_gaps", "contract_unmet", "link_coverage", "owner_edit_ratio"],
+  "properties": {
+    "run_id": {"type": "string"},
+    "workflow": {"type": "string"},
+    "harness": {"enum": ["claude", "codex", "kiro", "kirocrew", "print"]},
+    "computed_at": {"type": "string", "format": "date-time"},
+    "minutes_elapsed": {"type": ["number", "null"], "description": "harness wall time from meta.json, else prompt.md to result.json file times"},
+    "tool_calls": {"type": ["integer", "null"], "description": "from meta.json or result.json when the harness or worker reported it"},
+    "credits": {"type": ["number", "null"], "description": "from meta.json when the harness wrote it, else null, never 0"},
+    "tbc_count": {"type": "integer", "description": "occurrences of (TO BE CONFIRMED) in draft.md, the per-document status row excluded"},
+    "known_gaps": {"type": "integer", "description": "bullets under the last Known Gaps heading in draft.md"},
+    "contract_unmet": {"type": "integer", "description": "items the done-means contract found unmet"},
+    "link_coverage": {"type": ["number", "null"], "minimum": 0, "maximum": 1, "description": "table data rows carrying a markdown link, a plain-text meeting citation or roster.json, over all table data rows"},
+    "table_rows": {"type": "integer"},
+    "owner_edit_ratio": {"type": ["number", "null"], "minimum": 0, "maximum": 1, "description": "characters the owner changed in the landed document over characters landed, from the reflect diff"},
+    "owner_edit_ratio_at": {"enum": ["24h", "7d", null]}
+  },
+  "additionalProperties": true
+}

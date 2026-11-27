@@ -17,7 +17,11 @@ Subcommands
   gen-cron      emit crontab lines (or kirocrew cron commands) for every workflow with a trigger
   gen-mcp       emit an MCP server block for one harness from one servers file
   check-run     verify a run directory against the done-means contract (artifacts, not claims)
-  retro         read the ledger for the last N days and write a dated retro page (no model call)
+  retro         read the ledger for the last N days and write a dated retro page with per-workflow
+                scorecard trends and two-in-a-row regression flags (no model call)
+  record        stage 6 for a run dir: meta.json, scorecard.json, one runs.jsonl line (idempotent, any harness)
+  reflect       stage 7: diff the landed document against draft.md 24 h and 7 d after landing, file
+                proposals, mistakes and deletions, fill owner_edit_ratio (--render prints the worker prompt)
 
 Most commands take --instance DIR (or $VSTACK_INSTANCE): the private directory holding
 connectors.json, glossary.md, workflows/ and vstack.lock. With it, --connectors, --glossary and
@@ -164,6 +168,19 @@ def check(workflows_dir, private_component):
                 if s.get("connector", s.get("role", "")).startswith("ledger.") and s.get("component") == private_component \
                         and c.get("component") != private_component:
                     pass  # ledger lines are field-checked at write time; reading them is allowed
+    # every writer loops: a gate with 2 <= min_passes <= max_passes <= 5 (factory decision 19)
+    for cid, (p, c) in cells.items():
+        if c.get("kind", "writer") != "writer" and not c.get("writer"):
+            continue
+        g = c.get("gate")
+        if not isinstance(g, dict) or not g.get("skill"):
+            fails.append(f"{c.get('id')}: writer has no gate (every writing workflow loops draft, validate, rewrite)")
+            continue
+        mn, mx = int(g.get("min_passes", 0) or 0), int(g.get("max_passes", 0) or 0)
+        if mn < 2:
+            fails.append(f"{c.get('id')}: gate.min_passes is {mn}, must be at least 2")
+        if mx > 5 or mx < mn:
+            fails.append(f"{c.get('id')}: gate.max_passes is {mx}, must be between min_passes and 5")
     return fails, cells
 
 
@@ -398,6 +415,10 @@ this run: {ledger_fields}, plus run_id="{run_id}", workflow="{id}", harness="{ha
 dry_run={dry_json}, no_publish={nopub_json}, landed_at (ISO time), gate_passes (from gate.md).
 Then write {run_dir}/result.json: {{"status": "ok" | "known_gaps" | "failed", "gate_passes": N,
 "draft": "{run_dir}/draft.md", "brief": "{run_dir}/brief.md", "landed": <where the draft went>}}.
+Then run with your shell: `{vstack_bin} record {run_dir} --workflow {workflow_file}`
+It writes meta.json and scorecard.json in the run directory and appends this run's line to the shared
+runs ledger. A run that skips this line is invisible to `vstack retro`. If a `post_record` command is
+printed by it, run that too.
 Reply with the single line: VSTACK_RESULT <status> passes=<N>
 """
 
@@ -718,8 +739,11 @@ def run(args):
         meta["second_opinion"] = {"harness": second, "exit": sproc.returncode,
                                   "findings": int(m2.group(1)) if m2 else None, "report": str(g2) if g2.exists() else None}
     (run_dir / "meta.json").write_text(json.dumps(meta, indent=2))
-    with open(Path(ledger_root) / "runs.jsonl", "a") as f:
-        f.write(json.dumps(meta) + "\n")
+    if args.harness != "kirocrew":
+        meta, _ = record_run(run_dir, cell, ledger_root, harness=args.harness, post_record=(cell.get("record") or {}).get("post_record"))
+    else:
+        # the worker appends the runs.jsonl line itself at stage 6 (`vstack record`), so an async run is not counted twice
+        pass
     print(json.dumps(meta, indent=2))
     return 0 if meta["result"].get("status") in ("ok", "known_gaps", "scheduled") else 2
 
@@ -753,21 +777,7 @@ def retro(args):
     """Read the ledger for the last N days and write a dated retro page: per cell, runs, failures,
     contract misses, gate passes, second-opinion findings, and recurring Known Gaps. No model call.
     This is the /correct discipline applied to the estate: a class that recurs gets an enforcer."""
-    ledger = Path(args.ledger_root).expanduser() / "runs.jsonl"
-    since = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=args.days)
-    rows = []
-    if ledger.exists():
-        for line in ledger.read_text().splitlines():
-            try:
-                m = json.loads(line)
-            except Exception:
-                continue
-            try:
-                started = dt.datetime.fromisoformat(m.get("started", "").replace("Z", "+00:00"))
-            except Exception:
-                continue
-            if started >= since:
-                rows.append(m)
+    rows = runs_from_ledger(args.ledger_root, days=args.days)
     by_cell = {}
     for m in rows:
         by_cell.setdefault(m.get("workflow", m.get("cell", "?")), []).append(m)
@@ -777,7 +787,7 @@ def retro(args):
         if d.exists():
             text = d.read_text()
             if "**Known Gaps**" in text or "Known Gaps" in text:
-                tail = text.split("Known Gaps", 1)[1]
+                tail = text.rsplit("Known Gaps", 1)[1]
                 for l in tail.splitlines()[1:8]:
                     l = l.strip(" -*")
                     if len(l) > 12:
@@ -792,6 +802,17 @@ def retro(args):
         out.append(f"| {cell} | {len(ms)} | {st.count('ok')} | {st.count('known_gaps')} | {sum(1 for s in st if s not in ('ok', 'known_gaps', 'scheduled'))} | {unmet} | "
                    f"{(sum(passes) / len(passes)):.1f} | {sum(f2) if f2 else '-'} |" if passes else
                    f"| {cell} | {len(ms)} | {st.count('ok')} | {st.count('known_gaps')} | {sum(1 for s in st if s not in ('ok', 'known_gaps', 'scheduled'))} | {unmet} | - | {sum(f2) if f2 else '-'} |")
+    by_wf, flags = trend_and_flags(rows)
+    out += ["", f"## Scorecard trend (last {args.days} days, oldest to newest per workflow)", "",
+            "| Workflow | Run | min | tool calls | credits | TBC | gaps | unmet | link cov | owner edit |", "|---|---|---|---|---|---|---|---|---|---|"]
+    for wf, cards in sorted(by_wf.items()):
+        for started, c in cards[-args.trend_runs:]:
+            v = lambda k: "-" if c.get(k) is None else c.get(k)
+            out.append(f"| {wf} | {started.strftime('%m/%d %H:%M')} | {v('minutes_elapsed')} | {v('tool_calls')} | {v('credits')} | {v('tbc_count')} | {v('known_gaps')} | {v('contract_unmet')} | {v('link_coverage')} | {v('owner_edit_ratio')} |")
+    if not by_wf:
+        out.append("| - | no scorecards in the window | | | | | | | | |")
+    out += ["", "## Flags (a field worse two runs in a row)", ""]
+    out += [f"- {f}" for f in flags] or ["- none"]
     out += ["", "## Recurring Known Gaps (seen twice or more)", ""]
     rec = [(k, v) for k, v in gaps.items() if v >= 2]
     out += [f"- {v}x: {k}" for k, v in sorted(rec, key=lambda kv: -kv[1])] or ["- none"]
@@ -804,6 +825,449 @@ def retro(args):
     dest.write_text("\n".join(out) + "\n")
     print("\n".join(out))
     print(f"\nwritten: {dest}", file=sys.stderr)
+    return 0
+
+
+# ----------------------------------------------------------------------------- record, scorecard, reflect
+
+SCORECARD_FIELDS = ("minutes_elapsed", "tool_calls", "credits", "tbc_count", "known_gaps", "contract_unmet", "link_coverage", "owner_edit_ratio")
+LOWER_IS_BETTER = {"minutes_elapsed", "tool_calls", "credits", "tbc_count", "known_gaps", "contract_unmet", "owner_edit_ratio"}
+
+
+def _table_rows(text):
+    """Data rows of every markdown table in text (header and separator rows excluded)."""
+    rows = []
+    for line in text.splitlines():
+        if not line.startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if all(re.fullmatch(r":?-{3,}:?", c) for c in cells if c) and any(cells):
+            continue
+        rows.append(line)
+    # drop header rows: the row right before a separator
+    out, lines = [], text.splitlines()
+    for i, line in enumerate(lines):
+        if not line.startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if all(re.fullmatch(r":?-{3,}:?", c) for c in cells if c) and any(cells):
+            continue
+        nxt = lines[i + 1] if i + 1 < len(lines) else ""
+        ncells = [c.strip() for c in nxt.strip().strip("|").split("|")] if nxt.startswith("|") else []
+        if ncells and all(re.fullmatch(r":?-{3,}:?", c) for c in ncells if c):
+            continue  # header
+        out.append(line)
+    return out
+
+
+def scorecard(run_dir, cell=None, meta=None):
+    """Engine-computed numbers for one run, the same fields for every workflow (factory decision 2).
+    No model call. credits is read from meta.json when a harness wrote it, else null, never 0."""
+    run_dir = Path(run_dir)
+    meta = meta or (load(run_dir / "meta.json") if (run_dir / "meta.json").exists() else {})
+    result = load(run_dir / "result.json") if (run_dir / "result.json").exists() else {}
+    draft = (run_dir / "draft.md").read_text() if (run_dir / "draft.md").exists() else ""
+    minutes = None
+    if meta.get("seconds") is not None:
+        minutes = round(float(meta["seconds"]) / 60, 1)
+    elif isinstance(result.get("minutes_elapsed"), (int, float)):
+        minutes = result["minutes_elapsed"]
+    else:
+        try:
+            files = [f for f in run_dir.iterdir() if f.is_file()]
+            t0 = min(f.stat().st_mtime for f in files if f.name == "prompt.md") if (run_dir / "prompt.md").exists() else min(f.stat().st_mtime for f in files)
+            t1 = (run_dir / "result.json").stat().st_mtime if (run_dir / "result.json").exists() else max(f.stat().st_mtime for f in files)
+            minutes = round(max(0.0, (t1 - t0) / 60), 1)
+        except ValueError:
+            minutes = None
+    tool_calls = meta.get("tool_calls") if isinstance(meta.get("tool_calls"), int) else (result.get("tool_calls") if isinstance(result.get("tool_calls"), int) else None)
+    credits = meta.get("credits") if isinstance(meta.get("credits"), (int, float)) else None
+    body = "\n".join(l for l in draft.splitlines() if not re.match(r"^\| \d\d/\d\d/\d{4} \d\d:\d\d", l))  # the per-doc status row is not part of the run's section
+    tbc = body.count("(TO BE CONFIRMED)")
+    gaps = 0
+    if "Known Gaps" in body:
+        tail = body.rsplit("Known Gaps", 1)[1]
+        for l in tail.splitlines()[1:]:
+            if l.startswith("- "):
+                gaps += 1
+            elif l.strip() and not l.startswith("- "):
+                break
+    unmet = len(verify_contract(run_dir, cell)) if cell else len((meta.get("contract") or {}).get("unmet") or [])
+    rows = _table_rows(draft)
+    linked = [r for r in rows if re.search(r"\]\(https?://", r) or "roster.json" in r or re.search(r"(standup|review|sync|meeting|notes) \d\d/\d\d", r)]
+    coverage = round(len(linked) / len(rows), 3) if rows else None
+    prev = load(run_dir / "scorecard.json") if (run_dir / "scorecard.json").exists() else {}
+    card = {"run_id": meta.get("run_id") or run_dir.name.split("-", 1)[-1], "workflow": meta.get("workflow") or run_dir.parent.name,
+            "harness": meta.get("harness") or run_dir.name.split("-")[0], "computed_at": now(),
+            "minutes_elapsed": minutes, "tool_calls": tool_calls, "credits": credits, "tbc_count": tbc, "known_gaps": gaps,
+            "contract_unmet": unmet, "link_coverage": coverage, "table_rows": len(rows),
+            "owner_edit_ratio": prev.get("owner_edit_ratio"), "owner_edit_ratio_at": prev.get("owner_edit_ratio_at")}
+    (run_dir / "scorecard.json").write_text(json.dumps(card, indent=2) + "\n")
+    return card
+
+
+def record_run(run_dir, cell, ledger_root, harness=None, post_record=None):
+    """Stage 6 for any harness path. Writes meta.json when the engine did not (a worker followed a rendered
+    prompt), computes scorecard.json, appends one runs.jsonl line unless that run_id is already there."""
+    run_dir = Path(run_dir).expanduser()
+    ledger = Path(ledger_root).expanduser() / "runs.jsonl"
+    ledger.parent.mkdir(parents=True, exist_ok=True)
+    meta_file = run_dir / "meta.json"
+    meta = load(meta_file) if meta_file.exists() else {}
+    run_id = meta.get("run_id") or run_dir.name.split("-", 1)[-1]
+    harness = meta.get("harness") or harness or run_dir.name.split("-")[0]
+    result = load(run_dir / "result.json") if (run_dir / "result.json").exists() else {"status": "failed", "note": "no result.json written"}
+    unmet = verify_contract(run_dir, cell) if cell else []
+    if unmet and result.get("status") in ("ok", "known_gaps"):
+        result["claimed_status"] = result["status"]
+        result["status"] = "contract_unmet"
+    started = meta.get("started")
+    if not started:
+        try:
+            started = dt.datetime.strptime(run_id[:15], "%Y%m%d-%H%M%S").astimezone(dt.timezone.utc).isoformat().replace("+00:00", "Z")
+        except ValueError:
+            started = dt.datetime.fromtimestamp(min(f.stat().st_mtime for f in run_dir.iterdir()), dt.timezone.utc).isoformat().replace("+00:00", "Z")
+    meta.update({"run_id": run_id, "workflow": (cell or {}).get("id") or meta.get("workflow") or run_dir.parent.name, "harness": harness,
+                 "dry_run": meta.get("dry_run", bool(result.get("dry_run", False))), "no_publish": meta.get("no_publish", result.get("mode") == "no-publish"),
+                 "started": started, "finished": meta.get("finished") or now(), "run_dir": str(run_dir), "prompt": meta.get("prompt") or str(run_dir / "prompt.md"),
+                 "result": result, "contract": {"met": not unmet, "unmet": unmet}, "recorded_by": "vstack record"})
+    card = scorecard(run_dir, cell, meta)
+    meta["scorecard"] = {k: card.get(k) for k in SCORECARD_FIELDS}
+    meta_file.write_text(json.dumps(meta, indent=2))
+    seen = set()
+    if ledger.exists():
+        for line in ledger.read_text().splitlines():
+            try:
+                seen.add(json.loads(line).get("run_id"))
+            except Exception:
+                pass
+    appended = run_id not in seen
+    if appended:
+        with open(ledger, "a") as f:
+            f.write(json.dumps(meta) + "\n")
+    if post_record:
+        print("post_record:", post_record)
+    return meta, appended
+
+
+def record(args):
+    run_dir = Path(args.run_dir).expanduser()
+    cell = None
+    wf = getattr(args, "workflow", None)
+    if not wf and getattr(args, "instance", None):
+        cand = Path(args.instance).expanduser() / "workflows" / f"{run_dir.parent.name}.json"
+        if cand.exists():
+            wf = str(cand)
+    if wf:
+        cell = load(Path(wf).expanduser())
+        cell = expand_deep(cell, {"config": cell.get("config", {})})
+    post = (cell or {}).get("record", {}).get("post_record") if cell else None
+    meta, appended = record_run(run_dir, cell, args.ledger_root, post_record=post)
+    print(f"record: {meta['workflow']} {meta['run_id']} status={meta['result'].get('status')} contract={'MET' if meta['contract']['met'] else 'UNMET'} "
+          f"runs.jsonl={'appended' if appended else 'already present'} scorecard={json.dumps(meta['scorecard'])}")
+    return 0
+
+
+def runs_from_ledger(ledger_root, days=None):
+    ledger = Path(ledger_root).expanduser() / "runs.jsonl"
+    rows = []
+    if not ledger.exists():
+        return rows
+    since = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=days) if days else None
+    for line in ledger.read_text().splitlines():
+        try:
+            m = json.loads(line)
+            started = dt.datetime.fromisoformat(m.get("started", "").replace("Z", "+00:00"))
+        except Exception:
+            continue
+        if started.tzinfo is None:
+            started = started.replace(tzinfo=dt.timezone.utc)
+        if since is None or started >= since:
+            m["_started"] = started
+            rows.append(m)
+    rows.sort(key=lambda m: m["_started"])
+    return rows
+
+
+def trend_and_flags(rows):
+    """Per workflow: the scorecard of the last N runs, and a flag for every field worse two runs in a row."""
+    by = {}
+    for m in rows:
+        sc = Path(m.get("run_dir", "")) / "scorecard.json"
+        card = load(sc) if sc.exists() else m.get("scorecard")  # the file is newer than the ledger line (reflect fills owner_edit_ratio later)
+        if card:
+            by.setdefault(m.get("workflow", "?"), []).append((m["_started"], card))
+    flags = []
+    for wf, cards in by.items():
+        cards.sort(key=lambda t: t[0])
+        for field in SCORECARD_FIELDS:
+            vals = [c.get(field) for _, c in cards if isinstance(c.get(field), (int, float))]
+            if len(vals) < 3:
+                continue
+            a, b, c = vals[-3], vals[-2], vals[-1]
+            worse = (lambda x, y: y > x) if field in LOWER_IS_BETTER else (lambda x, y: y < x)
+            if worse(a, b) and worse(b, c):
+                flags.append(f"{wf}: {field} regressed two runs in a row ({a} -> {b} -> {c})")
+    return by, flags
+
+
+def classify_block(before, after):
+    """wording | fact | structure | deletion, from two block texts (factory decision 1)."""
+    if after is None or not after.strip():
+        return "deletion"
+    if before is None:
+        return "structure"
+    nums = lambda t: re.findall(r"\(https?://[^)]+\)|\[CR-\d+\]|\d[\d,./%:-]*", t)  # link targets, CR ids, numbers and dates are facts
+    if nums(before) != nums(after):
+        return "fact"
+    bt, at = before.strip(), after.strip()
+    if bt.startswith("|") != at.startswith("|") or bt.startswith("#") != at.startswith("#") or bt.count("\n") != at.count("\n") or len(bt.split("|")) != len(at.split("|")):
+        return "structure"
+    return "wording"
+
+
+def _blocks(text):
+    """Markdown text to a list of blocks: a table is one block, a heading one block, a list one block, a paragraph one block."""
+    blocks, cur, kind = [], [], None
+    for line in text.splitlines():
+        k = "table" if line.startswith("|") else "list" if re.match(r"^\s*[-*] ", line) else "heading" if line.startswith("#") else "blank" if not line.strip() else "para"
+        if k == "blank" or (cur and k != kind) or k == "heading":
+            if cur:
+                blocks.append("\n".join(cur))
+            cur = [] if k == "blank" else [line]
+            kind = None if k == "blank" else k
+            if k == "heading":
+                blocks.append(line); cur = []; kind = None
+            continue
+        cur.append(line); kind = k
+    if cur:
+        blocks.append("\n".join(cur))
+    return [b for b in blocks if b.strip() and not b.startswith("Sources:")]
+
+
+def _norm(b):
+    return re.sub(r"\s+", " ", re.sub(r"\[(\*\*[^*]+\*\*)\]\(([^)]+)\)", r"**[\1](\2)**", b.replace("**[", "[**").replace("]**(", "**](")).strip())
+
+
+def reflect_diff(draft_text, landed_text):
+    """Pair draft blocks with landed blocks (same normalised text, else best match by table-row key or position) and classify."""
+    import difflib
+    d, l = _blocks(draft_text), _blocks(landed_text)
+    dn, ln = [_norm(b) for b in d], [_norm(b) for b in l]
+    changes, matched_l = [], set()
+    for i, (b, nb) in enumerate(zip(d, dn)):
+        if nb in ln:
+            j = ln.index(nb)
+            matched_l.add(j)
+            continue
+        # a table: compare row by row on the first two cells
+        if b.startswith("|"):
+            cand = [j for j, lb in enumerate(l) if lb.startswith("|") and j not in matched_l]
+            best = max(cand, key=lambda j: difflib.SequenceMatcher(None, nb, ln[j]).ratio(), default=None)
+            if best is not None and difflib.SequenceMatcher(None, nb, ln[best]).ratio() > 0.5:
+                matched_l.add(best)
+                drows = {r.split("|")[1].strip() + "|" + (r.split("|")[2].strip() if r.count("|") > 2 else ""): r for r in _table_rows(b)}
+                lrows = {r.split("|")[1].strip() + "|" + (r.split("|")[2].strip() if r.count("|") > 2 else ""): r for r in _table_rows(l[best])}
+                for key, dr in drows.items():
+                    lr = lrows.get(key)
+                    if lr is None:
+                        changes.append({"block": i, "kind": "deletion", "before": dr, "after": None})
+                    elif _norm(lr) != _norm(dr):
+                        changes.append({"block": i, "kind": classify_block(dr, lr), "before": dr, "after": lr})
+                for key, lr in lrows.items():
+                    if key not in drows:
+                        changes.append({"block": i, "kind": "structure", "before": None, "after": lr})
+                continue
+        cand = [j for j in range(len(l)) if j not in matched_l]
+        best = max(cand, key=lambda j: difflib.SequenceMatcher(None, nb, ln[j]).ratio(), default=None)
+        if best is not None and difflib.SequenceMatcher(None, nb, ln[best]).ratio() > 0.6:
+            matched_l.add(best)
+            changes.append({"block": i, "kind": classify_block(b, l[best]), "before": b, "after": l[best]})
+        else:
+            changes.append({"block": i, "kind": "deletion", "before": b, "after": None})
+    for j, lb in enumerate(l):
+        if j not in matched_l:
+            changes.append({"block": None, "kind": "structure", "before": None, "after": lb})
+    draft_chars = sum(len(b) for b in d) or 1
+    changed_chars = 0
+    for c in changes:
+        a, b = c.get("before") or "", c.get("after") or ""
+        sm = difflib.SequenceMatcher(None, a, b)
+        changed_chars += sum(max(i2 - i1, j2 - j1) for tag, i1, i2, j1, j2 in sm.get_opcodes() if tag != "equal")
+    return {"draft_blocks": len(d), "landed_blocks": len(l), "changes": changes, "owner_edit_ratio": round(min(1.0, changed_chars / draft_chars), 4)}
+
+
+def _proposed_regex(before, after):
+    """A must_not_match candidate from an edit: the shortest changed span of the before text, escaped."""
+    import difflib
+    sm = difflib.SequenceMatcher(None, before or "", after or "")
+    spans = [(before or "")[i1:i2] for tag, i1, i2, j1, j2 in sm.get_opcodes() if tag in ("replace", "delete") and i2 > i1]
+    spans = [s.strip() for s in spans if len(s.strip()) >= 4]
+    if not spans:
+        return None
+    span = max(spans, key=len)[:80]
+    return re.escape(span)
+
+
+REFLECT_PROMPT = """# vstack reflect ({harness}): read back a landed document, write nothing to it
+
+Run directory: {run_dir}. The run landed its draft in a Chorus document. Read it back with the
+chorus-mcp read tool (ChorusDocRead action=read, doc_id below) and write the landed SECTION, not the
+whole doc, as markdown to {landed_file}: every block in document order, tables as markdown tables with
+one line per row, lists as `- ` lines, headings as `#` lines, one blank line between blocks. Keep the
+block ids and hashes as HTML comments on the line before each block, exactly as the read returns them.
+The section starts at the heading whose text equals the draft's section heading (the first `## ` line in
+{run_dir}/draft.md) and ends before the next heading of the same level or the About heading.
+
+Doc id: {doc_id}
+Section heading to find: {heading}
+
+Never edit, comment on, share or delete anything. When the doc cannot be read (no chorus-mcp, stale
+token), write {landed_file} with the single line `UNREADABLE: <reason>` and stop.
+Then run with your shell: `{vstack_bin} reflect {run_dir} --age {age} --instance {instance}`
+Reply with the single line: VSTACK_REFLECT {age} done
+"""
+
+
+def reflect(args):
+    """Stage 7. --render prints the worker prompt that writes landed-<age>.md. Without it, diff
+    landed-<age>.md against draft.md, write reflect-<age>.json, fill owner_edit_ratio, file proposals."""
+    inst = Path(args.instance).expanduser() if args.instance else None
+    ledger_root = Path(args.ledger_root).expanduser()
+    if args.due:
+        due = []
+        nowt = dt.datetime.now(dt.timezone.utc)
+        for m in runs_from_ledger(ledger_root, days=10):
+            rd = Path(m.get("run_dir", ""))
+            if not rd.exists() or m.get("dry_run") or m.get("no_publish"):
+                continue
+            landed = (m.get("result") or {}).get("landed")
+            if not (isinstance(landed, dict) and (landed.get("chorus") or landed.get("doc_id"))):
+                continue
+            age_h = (nowt - m["_started"]).total_seconds() / 3600
+            for age, lo, hi in (("24h", 24, 7 * 24), ("7d", 7 * 24, 10 * 24)):
+                if lo <= age_h < hi and not (rd / f"reflect-{age}.json").exists():
+                    due.append((str(rd), age))
+        for rd, age in due:
+            print(f"{rd} --age {age}")
+        if not due:
+            print("reflect --due: nothing due", file=sys.stderr)
+        return 0
+    run_dir = Path(args.run_dir).expanduser()
+    age = args.age
+    landed_file = run_dir / f"landed-{age}.md"
+    result = load(run_dir / "result.json") if (run_dir / "result.json").exists() else {}
+    landed = result.get("landed") or {}
+    doc_id = (landed.get("chorus") or {}).get("doc_id") if isinstance(landed, dict) else None
+    doc_id = doc_id or (landed.get("doc_id") if isinstance(landed, dict) else None) or args.doc_id
+    draft = (run_dir / "draft.md").read_text() if (run_dir / "draft.md").exists() else ""
+    heading = next((l for l in draft.splitlines() if l.startswith("## ")), "")
+    workflow = run_dir.parent.name
+    if args.render:
+        if not doc_id:
+            die(f"{run_dir}: no Chorus doc id in result.json landed, pass --doc-id")
+        prompt = REFLECT_PROMPT.format(harness=args.harness, run_dir=run_dir, landed_file=landed_file, doc_id=doc_id, heading=heading,
+                                       vstack_bin=str(HERE / "bin/vstack"), age=age, instance=inst or "")
+        (run_dir / f"prompt-reflect-{age}.md").write_text(prompt)
+        print(prompt)
+        return 0
+    if not landed_file.exists():
+        die(f"{landed_file} missing: run `vstack reflect {run_dir} --age {age} --render` and hand the prompt to a worker first")
+    landed_text = landed_file.read_text()
+    if landed_text.startswith("UNREADABLE"):
+        out = {"age": age, "doc_id": doc_id, "status": "unreadable", "note": landed_text.strip(), "computed_at": now()}
+        (run_dir / f"reflect-{age}.json").write_text(json.dumps(out, indent=2) + "\n")
+        print(json.dumps(out)); return 0
+    # the draft section: from the first ## heading to Known Gaps inclusive (the status table is per doc, not per run)
+    sec = draft.split(heading, 1)[1] if heading and heading in draft else draft
+    sec = heading + sec
+    landed_clean = "\n".join(l for l in landed_text.splitlines() if not l.startswith("<!--"))
+    diff = reflect_diff(sec, landed_clean)
+    out = {"age": age, "doc_id": doc_id, "status": "ok", "computed_at": now(), "heading": heading, **diff,
+           "counts": {k: sum(1 for c in diff["changes"] if c["kind"] == k) for k in ("wording", "fact", "structure", "deletion")}}
+    (run_dir / f"reflect-{age}.json").write_text(json.dumps(out, indent=2) + "\n")
+    # scorecard: owner_edit_ratio
+    sc = run_dir / "scorecard.json"
+    card = load(sc) if sc.exists() else scorecard(run_dir)
+    card["owner_edit_ratio"] = diff["owner_edit_ratio"]; card["owner_edit_ratio_at"] = age
+    sc.write_text(json.dumps(card, indent=2) + "\n")
+    # ledger: update the runs.jsonl line's scorecard in place is append-only, so append a reflect line to a sibling ledger
+    with open(ledger_root / "reflect.jsonl", "a") as f:
+        f.write(json.dumps({"run_id": card.get("run_id"), "workflow": workflow, "age": age, "owner_edit_ratio": diff["owner_edit_ratio"], **out["counts"], "at": now()}) + "\n")
+    # file the changes into the instance context (private)
+    filed = {"proposals": 0, "mistakes": 0, "deletions": 0, "auto_applied": []}
+    if inst and diff["changes"]:
+        ctx = inst / "context" / workflow
+        ctx.mkdir(parents=True, exist_ok=True)
+        today = dt.date.today().strftime("%m/%d/%Y")
+        props = ctx / "proposals.md"
+        if not props.exists():
+            props.write_text(f"# {workflow}: proposed contract rules from reflect\n\nOne row per wording or structure change found in a landed document (factory decision 1). Status proposed until Vikash accepts it or the same regex appears twice, then applied.\n\n| # | Date | Run | Before | After | Proposed regex | Status |\n|---|---|---|---|---|---|---|\n")
+        existing = props.read_text()
+        n = len(re.findall(r"^\| \d+ \|", existing, re.M))
+        regex_seen = {}
+        for m in re.finditer(r"^\| (\d+) \| [^|]+ \| [^|]+ \| [^|]+ \| [^|]+ \| `?([^|`]*)`? \| (\w+) \|$", existing, re.M):
+            regex_seen.setdefault(m.group(2).strip(), []).append((int(m.group(1)), m.group(3)))
+        rows = []
+        for c in diff["changes"]:
+            cell_ = lambda t: (t or "").replace("|", "\\|").replace("\n", " ")[:140]
+            if c["kind"] in ("wording", "structure") and c.get("before"):
+                rx = _proposed_regex(c["before"], c["after"]) or ""
+                n += 1
+                status = "proposed"
+                prior = [p for p in regex_seen.get(rx, []) if p[1] == "proposed"]
+                if rx and prior:
+                    status = "applied"
+                    filed["auto_applied"].append((rx, n, prior[0][0]))
+                rows.append(f"| {n} | {today} | {card.get('run_id')} {age} | {cell_(c['before'])} | {cell_(c['after'])} | `{rx}` | {status} |")
+                regex_seen.setdefault(rx, []).append((n, status))
+                filed["proposals"] += 1
+            elif c["kind"] == "fact":
+                mist = ctx / "mistakes.md"
+                if not mist.exists():
+                    mist.write_text(f"# {workflow}: mistakes log\n\n| Date | Source | What was wrong | Rule now |\n|---|---|---|---|\n")
+                with open(mist, "a") as f:
+                    f.write(f"| {today} | reflect {age} on run {card.get('run_id')} | landed text changed a fact: {cell_(c['before'])} became {cell_(c['after'])} | every number, date and link is read from evidence.json, never typed. Check the source this one came from |\n")
+                filed["mistakes"] += 1
+            elif c["kind"] == "deletion" and c.get("before"):
+                dj = ctx / "deletions.json"
+                dels = load(dj) if dj.exists() else {}
+                key = (c["before"].splitlines()[0] if c["before"].startswith("#") else c["before"].split("|")[3].strip() if c["before"].count("|") > 3 else c["before"][:60]).strip("# ")
+                dels[key] = dels.get(key, 0) + 1
+                dj.write_text(json.dumps(dels, indent=2) + "\n")
+                filed["deletions"] += 1
+                if dels[key] == 3:
+                    wf_file = inst / "workflows" / f"{workflow}.json"
+                    if wf_file.exists():
+                        w = load(wf_file)
+                        w.setdefault("writer", {}).setdefault("extra_inputs", []).append(f"do not write section {key} (deleted by the owner in three landed documents, reflect {today})")
+                        wf_file.write_text(json.dumps(w, indent=2, ensure_ascii=False) + "\n")
+        if rows:
+            with open(props, "a") as f:
+                f.write("\n".join(rows) + "\n")
+        # auto-apply: the identical regex proposed twice goes into draft_contract.must_not_match
+        if filed["auto_applied"]:
+            wf_file = inst / "workflows" / f"{workflow}.json"
+            if wf_file.exists():
+                w = load(wf_file)
+                mnm = w.setdefault("draft_contract", {}).setdefault("must_not_match", [])
+                for rx, n_new, n_old in filed["auto_applied"]:
+                    if not any(r.get("pattern") == rx for r in mnm):
+                        mnm.append({"pattern": rx, "why": f"auto-applied after 2 repeats, proposals.md #{n_old} and #{n_new}"})
+                wf_file.write_text(json.dumps(w, indent=2, ensure_ascii=False) + "\n")
+                text = props.read_text()
+                for rx, n_new, n_old in filed["auto_applied"]:
+                    text = re.sub(rf"^(\| {n_old} \| .*\| `{re.escape(rx)}` \| )proposed \|$", r"\1applied |", text, flags=re.M)
+                props.write_text(text)
+    out["filed"] = filed
+    print(json.dumps({k: out[k] for k in ("age", "status", "draft_blocks", "landed_blocks", "owner_edit_ratio", "counts", "filed")}))
+    post = None
+    if inst:
+        wf_file = inst / "workflows" / f"{workflow}.json"
+        if wf_file.exists():
+            post = (load(wf_file).get("record") or {}).get("post_record")
+    if post:
+        print("post_record:", post)
     return 0
 
 
@@ -896,7 +1360,11 @@ def main():
     sp.add_argument("--second-opinion", choices=("claude", "codex", "kiro"), help="run an independent critic on this harness after the gate; findings are recorded, never block")
     sp.add_argument("--timeout", type=int, default=1500)
     sp = sub.add_parser("check-run"); sp.add_argument("run_dir"); sp.add_argument("--min-passes", type=int, default=2); sp.add_argument("--workflow", help="workflow JSON whose gate and draft_contract apply"); sp.add_argument("--instance", default=os.environ.get("VSTACK_INSTANCE"), help="instance directory (default: $VSTACK_INSTANCE); resolves workflows/<run parent name>.json")
-    sp = sub.add_parser("retro"); sp.add_argument("--days", type=int, default=7); sp.add_argument("--out"); sp.add_argument("--ledger-root", default=str(HOME / ".local/state/vstack/ledger"))
+    sp = sub.add_parser("retro"); sp.add_argument("--days", type=int, default=7); sp.add_argument("--out"); sp.add_argument("--ledger-root", default=str(HOME / ".local/state/vstack/ledger")); sp.add_argument("--trend-runs", type=int, default=8, help="scorecards per workflow in the trend table")
+    sp = sub.add_parser("record"); sp.add_argument("run_dir"); sp.add_argument("--workflow", help="workflow JSON whose contract applies"); sp.add_argument("--instance", default=os.environ.get("VSTACK_INSTANCE")); sp.add_argument("--ledger-root", default=str(HOME / ".local/state/vstack/ledger"))
+    sp = sub.add_parser("reflect"); sp.add_argument("run_dir", nargs="?"); sp.add_argument("--age", choices=("24h", "7d"), default="24h"); sp.add_argument("--render", action="store_true", help="print the worker prompt that writes landed-<age>.md")
+    sp.add_argument("--due", action="store_true", help="list `<run_dir> --age <age>` for every landed run 24 h or 7 d old without that reflect"); sp.add_argument("--doc-id"); sp.add_argument("--harness", choices=HARNESSES, default="kirocrew")
+    sp.add_argument("--instance", default=os.environ.get("VSTACK_INSTANCE")); sp.add_argument("--ledger-root", default=str(HOME / ".local/state/vstack/ledger"))
     sp = sub.add_parser("check"); sp.add_argument("--instance", help="instance directory (default: $VSTACK_INSTANCE); fills --workflows"); sp.add_argument("--workflows", "--cells", dest="workflows"); sp.add_argument("--private-component", default=PRIVATE_COMPONENT_DEFAULT)
     sp = sub.add_parser("map"); sp.add_argument("--instance", help="instance directory (default: $VSTACK_INSTANCE)"); sp.add_argument("--workflows", "--cells", dest="workflows"); sp.add_argument("--json", action="store_true")
     sp = sub.add_parser("gen-agent"); sp.add_argument("--instance", help="instance directory (default: $VSTACK_INSTANCE)"); sp.add_argument("--connectors", "--tools", dest="tools"); sp.add_argument("--harness", choices=("kiro",), required=True); sp.add_argument("--name", default="vstack-runner")
@@ -961,6 +1429,12 @@ def main():
         sys.exit(check_run(args))
     if args.cmd == "retro":
         sys.exit(retro(args))
+    if args.cmd == "record":
+        sys.exit(record(args))
+    if args.cmd == "reflect":
+        if not args.due and not args.run_dir:
+            die("reflect needs a run_dir or --due")
+        sys.exit(reflect(args))
     if args.cmd in ("render", "run"):
         if args.cmd == "render":
             args.agent = None; args.model = None; args.timeout = 0; args.second_opinion = None

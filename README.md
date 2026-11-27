@@ -95,7 +95,8 @@ The prompt the harness runs has eight stages. Every workflow is this loop:
 | 4 gate | `validate-writing` scores the draft, the writer fixes every quoted failure, at least 2 and at most 5 passes | `gate.md`, first line `passes: N` |
 | 5 land | the draft goes to the sink: a compose box, a `[Draft]` document. Never sent | the landed path or id |
 | 5b brief | three lines a busy reader decides from without opening the draft | `brief.md` |
-| 6 record | one ledger line, one result file | `result.json`, a line in `runs.jsonl` |
+| 6 record | `vstack record`: one result file, one scorecard, one ledger line | `result.json`, `scorecard.json`, a line in `runs.jsonl` |
+| 7 reflect | 24 h and 7 d later, `vstack reflect` reads the landed document back and diffs it against the draft. Wording and structure edits become proposed contract rules, fact edits become mistakes rows, a section deleted three times stops being written. The same proposal twice is applied | `reflect-24h.json`, `reflect-7d.json`, `owner_edit_ratio` in the scorecard |
 | contract | the engine reads the run directory back. Anything missing or malformed marks the run `contract_unmet`, whatever the model claimed | `meta.json` |
 
 Two optional extras: `--second-opinion <harness>` runs an independent critic on another agent and
@@ -334,7 +335,10 @@ with its `Sources:` line, `gate.md` with enough passes, a three-line `brief.md`,
 | `vstack gen-cron --harness h [--instance d]` | crontab lines, or `kirocrew cron add` commands with the bot to bind to |
 | `vstack gen-agent --harness kiro [--instance d]` | a Kiro CLI agent template whose tool surface is exactly `connectors.json` |
 | `vstack gen-mcp --servers f --target h` | the MCP server block for one harness |
-| `vstack retro [--days n]` | per-workflow runs, contract misses, gate passes, recurring Known Gaps |
+| `vstack retro [--days n] [--trend-runs k]` | per-workflow runs, contract misses, gate passes, a scorecard trend table, flags for a field worse two runs in a row, recurring Known Gaps |
+| `vstack record <run-dir> [--workflow f]` | stage 6 for any harness path: meta.json, `scorecard.json`, one `runs.jsonl` line (idempotent by run id). The rendered prompt tells the worker to run it, so an asynchronous run is counted too |
+| `vstack reflect <run-dir> --age 24h\|7d [--render]` | stage 7: `--render` prints the worker prompt that reads the landed document back into `landed-<age>.md`, then the engine diffs it against draft.md by block, classifies each change (wording, fact, structure, deletion), writes `reflect-<age>.json`, fills `owner_edit_ratio`, and files proposals, mistakes and deletion counts in the instance context |
+| `vstack reflect --due` | every landed run 24 h or 7 d old that has no reflect of that age yet, one `<run-dir> --age <age>` per line |
 
 Every command accepts `--instance DIR` or reads `$VSTACK_INSTANCE` and fills `--connectors`,
 `--glossary` and `--workflows` from it. State lives under `~/.local/state/vstack`.
