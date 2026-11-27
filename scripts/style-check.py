@@ -28,8 +28,8 @@ Rules JSON keys (all optional, a missing key turns that check off):
   em_dashes                true: an em-dash (U+2014) outside code and title-like link labels
   exempt_line_prefixes     list of line prefixes no check reads (the engine's own `Sources:` header line)
 
-A title-like link label is one that opens with `[` (a bracketed tag, the label quotes a document title) or a
-link wrapped in `**` (a bold title). The instance decides whether a title may keep its punctuation, the
+A title-like link label is one that opens with `[` (a bracketed tag, the label quotes a document title), a
+link wrapped in `**` or a label wrapped in `**` (a bold title). The instance decides whether a title may keep its punctuation, the
 engine only refrains from counting a quote as the writer's own prose.
 
 Output: one line per finding `<rule> -> "<quote>" (line N)`, then `style-check: N finding(s)`. Exit 1 on
@@ -50,7 +50,9 @@ def read_rules(path):
 
 
 def _title_like(label, bold):
-    return bold or label.startswith("[")
+    """A label that quotes a title verbatim: the whole link is bold, the label itself is bold, or it opens with a
+    bracketed tag such as [Draft]."""
+    return bold or label.startswith("[") or (label.startswith("**") and label.rstrip().endswith("**"))
 
 
 def _strip_code(text):
@@ -240,7 +242,7 @@ def selftest():
         "Several teams saw a significant change on 11/23 and the long date 2026-11-27 stayed.",
         "The PMDB alarm fired, see [https://example.com/x](https://example.com/x) and the review ended; it closed.",
         "An em-dash — here. The ZAZ (zero allocation zone) is fine, and QQQ is in the glossary.",
-        "| col | 11/23 | a; b |", "|---|---|---|", "| [[Draft] Title (11/06-11/13)](https://e.com) | **[Task — title](https://e.com)** | x |",
+        "| col | 11/23 | a; b |", "|---|---|---|", "| [[Draft] Title (11/06-11/13)](https://e.com) | **[Task — title](https://e.com)** | [**[Tag] Task — 11/13 title**](https://e.com) |",
         "", "## Glossary", "| Term | Means |", "|---|---|", "| QQQ | a glossary term |",
     ])
     f = check(bad, rules)
