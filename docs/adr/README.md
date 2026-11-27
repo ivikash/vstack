@@ -15,3 +15,4 @@ One decision, one file, written once. Status is in the frontmatter (`proposed`, 
 | [0009](0009-readiness-mode-draft-with-readiness.md) | Readiness mode draft_with_readiness, the document declares it | accepted |
 | [0010](0010-countable-style-rules-every-writer-runs.md) | Countable style rules every writer runs | accepted |
 | [0011](0011-four-more-countable-style-rules.md) | Four more countable style rules: hedges, marker form, comparatives, spans | accepted |
+| [0012](0012-three-more-countable-style-rules.md) | Three more countable style rules: the marker as a verb, unclosed brackets, a space before punctuation | accepted |

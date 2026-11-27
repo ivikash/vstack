@@ -155,7 +155,7 @@
             "string",
             "boolean"
           ],
-          "description": "rules JSON for scripts/style-check.py (the countable style checks: sentence length, weasel words, unexpanded acronyms, dates with no year, ISO dates, URL-as-label links, semicolons, em-dashes, hedge words, marker form, comparatives without a number, from-X-to-Y spans without the relative change). Default: <instance>/gate-policy.json required_style_rules. When the policy names one, a writer may not set this to false or to another file (vstack check fails it)"
+          "description": "rules JSON for scripts/style-check.py (the countable style checks: sentence length, weasel words, unexpanded acronyms, dates with no year, ISO dates, URL-as-label links, semicolons, em-dashes, hedge words, marker form, comparatives without a number, from-X-to-Y spans without the relative change, a marker used as a verb or bare, unclosed brackets in a cell, a space before punctuation). Default: <instance>/gate-policy.json required_style_rules. When the policy names one, a writer may not set this to false or to another file (vstack check fails it)"
         }
       }
     },

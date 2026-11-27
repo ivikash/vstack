@@ -44,6 +44,15 @@ Rules JSON keys (all optional, a missing key turns that check off):
                            or a clock range) whose sentence carries no relative change before it is a finding. The
                            relative change comes first, the absolutes follow in brackets: `cut 50% (from 14 to 7)`.
                            Default relative patterns: a percentage (`\d%`) and a multiplier (`\dx`)
+  marker_not_after         list of words ("is", "are", "remains"): a bracketed marker_exact marker whose preceding word is
+                           one of them (`every delta is (TO BE CONFIRMED)`) is a finding, the marker is a tag after a
+                           statement, never its verb. The same rule also counts a marker_exact text that stands outside
+                           brackets (`every delta is TO BE CONFIRMED.`, `(organiser x, TO BE CONFIRMED still recurring)`)
+  unclosed_brackets        true: a table cell with more `[` than `]` or more `(` than `)` (a link label or a title cut
+                           short, `Bloom Rebuild[Prod Manifest bloom aggregate has no size boun`) is a finding
+  space_before_punctuation list of marks ([".", ",", ";", ":", "!", "?"]): a space between a word and one of them, in a
+                           table cell or in prose (`Metadata & Storage : Kraken`), is a finding. Code, URLs and the
+                           table alignment row are not read, a verbatim title is (its spacing is the writer's to normalise)
   exempt_line_prefixes     list of line prefixes no check reads (the engine's own `Sources:` header line)
 
 A title-like link label is one that opens with `[` (a bracketed tag, the label quotes a document title), a
@@ -372,6 +381,48 @@ def check(text, rules, glossary_texts=()):
                 before = unit[:m.start()]
                 if not any(p.search(before) for p in rel_pats):
                     add("span-without-relative", f"{m.group(0)}: {unit[max(0, m.start() - 40):m.end() + 20]}", lineno)
+    # marker as a predicate: the marker is a tag after a statement ("every delta was not fetched (TO BE CONFIRMED)"),
+    # never the verb ("every delta is TO BE CONFIRMED", "is (TO BE CONFIRMED)") and never bare outside its brackets
+    not_after = [w for w in rules.get("marker_not_after", []) or [] if str(w).strip()]
+    markers = [str(m).strip() for m in rules.get("marker_exact", []) or [] if str(m).strip()]
+    if markers and not_after:
+        after_pat = re.compile(r"(?<![\w-])(" + "|".join(re.escape(w) for w in not_after) + r")\s*[(\[]\s*(" + "|".join(re.escape(m) for m in markers) + r")\b", re.I)
+        bare_pat = re.compile(r"\b(" + "|".join(re.escape(m) for m in markers) + r")\b")
+        for i, l in enumerate(lines):
+            if _exempt(l, prefixes) or l.strip().startswith("<!--"):
+                continue
+            t = _links_replaced(_title_cells_blanked(l), keep_prose_labels=False)
+            t = QUOTED.sub("QUOTE", t)
+            for m in after_pat.finditer(t):
+                add("marker-as-predicate", f"{m.group(1)}: {t[max(0, m.start() - 30):m.end() + 12]}", i + 1)
+            for m in bare_pat.finditer(t):
+                if re.search(r"[(\[]\s*$", t[:m.start()]) and re.match(r"[^)\]\n]*[)\]]", t[m.end():]):
+                    continue  # inside its own brackets, marker-not-exact judges what else is in there
+                add("marker-as-predicate", f"bare: {t[max(0, m.start() - 30):m.end() + 20]}", i + 1)
+
+    # unclosed brackets in a table cell: a link label or a title cut short reads as garbled text
+    if rules.get("unclosed_brackets"):
+        for i, l in enumerate(lines):
+            if not _is_table_row(l) or _exempt(l, prefixes) or re.match(r"^\s*\|?\s*:?-{3,}", l):
+                continue
+            for c in re.split(r"(?<!\\)\|", l):
+                c = c.strip()
+                if not c:
+                    continue
+                if c.count("[") > c.count("]") or c.count("(") > c.count(")"):
+                    add("unclosed-bracket", c, i + 1)
+
+    # a space before punctuation: "Storage : Kraken", "landed , on"
+    marks = [str(m) for m in rules.get("space_before_punctuation", []) or [] if str(m)]
+    if marks:
+        sp = re.compile(r"[^\s|]([ \t]+)[" + re.escape("".join(marks)) + r"](?=[\s|]|$)")
+        for i, l in enumerate(lines):
+            if _exempt(l, prefixes) or l.strip().startswith("<!--") or re.match(r"^\s*\|?\s*:?-{3,}", l):
+                continue
+            t = LINK.sub(lambda m: (m.group(1) or "") + "[" + m.group(2) + "](URL)" + (m.group(4) or ""), l)
+            t = QUOTED.sub("QUOTE", re.sub(r"https?://\S+", "URL", t))
+            for m in sp.finditer(t):
+                add("space-before-punctuation", t[max(0, m.start() - 30):m.end() + 10], i + 1)
     return findings
 
 
@@ -391,6 +442,8 @@ def selftest():
              "date_without_year": True, "iso_dates": True, "url_as_label": True, "semicolons": True, "em_dashes": True,
              "hedge_words": ["likely", "may be", "seems"], "marker_exact": ["TO BE CONFIRMED"],
              "comparatives": ["faster", "fewer", "more"], "numeric_span_needs_relative": True,
+             "marker_not_after": ["is", "are", "remains"], "unclosed_brackets": True,
+             "space_before_punctuation": [".", ",", ";", ":", "!", "?"],
              "exempt_line_prefixes": ["Sources:"]}
     bad = "\n".join([
         "# Title", "Sources: used a.b; unavailable c.d", "",
@@ -403,11 +456,14 @@ def selftest():
         "", "A stray [bracket opens here and the date 10/09 must still count,", "then a link [CR-9](https://e.com/9) closes a bracket on another line.",
         "", "No activity since 11/11/2026, likely leave (roster status). Written 11/27/2026 (TO BE CONFIRMED which date).",
         "The new path is faster with fewer calls. Latency fell from 1,700 ms to 600 ms.",
+        "Last week's counts were not fetched, so every delta is TO BE CONFIRMED.",
+        "| 22 | Metadata & Storage : Kraken | Output below baseline on Bloom Rebuild[Prod Manifest has no size boun, planned? |",
     ])
     f = check(bad, rules)
     rules_hit = {r for r, _, _ in f}
     want = {"sentence-length", "weasel-word", "acronym-unexpanded", "date-without-year", "iso-date", "url-as-label", "semicolon", "em-dash",
-            "hedge-word", "marker-not-exact", "comparative-without-number", "span-without-relative"}
+            "hedge-word", "marker-not-exact", "comparative-without-number", "span-without-relative",
+            "marker-as-predicate", "unclosed-bracket", "space-before-punctuation"}
     missing = want - rules_hit
     assert not missing, f"selftest: rules that did not fire on the bad text: {sorted(missing)}\n{f}"
     quotes = [q for r, q, _ in f]
@@ -509,7 +565,24 @@ def selftest():
     r_rel = dict(rules); r_rel["numeric_span_needs_relative"] = {"relative": [r"\d\s*%", r"\bhalved\b"]}
     f = [x for x in check("Sev2s halved (from 14 to 7 a week). Latency went from 9 ms to 3 ms (3x).", r_rel) if x[0] == "span-without-relative"]
     assert len(f) == 1 and f[0][1].startswith("from 9 ms to 3"), f"the instance's relative patterns replace the default: {f}"
-    print("style-check selftest: ok (12 rules fire on the bad text, 0 findings on the good text, 4 fix-wave false positives stay silent and their real cases still fire, 4 pass-4 rules silent on the allowed shapes and firing on the faults)")
+    # the three rules of the 11/27/2026 fix wave pass 5 (validation pass 3): a silent case and a still-fires case each
+    # marker as a predicate: the marker is a tag after a statement, never its verb and never bare
+    f = [x for x in check("Every delta was not fetched (TO BE CONFIRMED). Count 0 (TO BE CONFIRMED), 4 gaps. See [Is TO BE CONFIRMED a verb](https://e.com/v).\n| a | b |\n|---|---|\n| (TO BE CONFIRMED) | \"it is TO BE CONFIRMED\" |", rules) if x[0] == "marker-as-predicate"]
+    assert not f, f"a marker after a statement, alone in a cell, inside a link label or a quote must not count: {f}"
+    f = [x for x in check("Every delta is TO BE CONFIRMED. The root causes are (TO BE CONFIRMED). Prepared (organiser x, TO BE CONFIRMED still recurring). The owner remains [TO BE CONFIRMED].", rules) if x[0] == "marker-as-predicate"]
+    assert len(f) == 4 and sorted(q.split(":")[0] for _, q, _ in f) == ["are", "bare", "bare", "remains"], f"a bare marker and a marker after is/are/remains count each time: {f}"
+    assert not [x for x in check("Every delta is TO BE CONFIRMED.", {"marker_exact": ["TO BE CONFIRMED"]}) if x[0] == "marker-as-predicate"], "without marker_not_after the predicate rule is off"
+    # unclosed brackets: a cut title in a cell counts, paired brackets, a closing bracket alone (a) b) list) and prose do not
+    f = [x for x in check("| t | n |\n|---|---|\n| [**[Tag][Prod] Title (V1)**](https://e.com/a) | a) first, b) second [1] (TO BE CONFIRMED) |\nProse with a [stray bracket is not a cell.", rules) if x[0] == "unclosed-bracket"]
+    assert not f, f"paired brackets, a closing bracket alone and prose must not count: {f}"
+    f = [x for x in check("| t | n |\n|---|---|\n| Bloom Rebuild[Prod Manifest has no size boun, planned? | fired (ECS memory over 85% |", rules) if x[0] == "unclosed-bracket"]
+    assert len(f) == 2, f"a cell with an open [ or ( and no close counts once per cell: {f}"
+    # a space before punctuation: in a cell or in prose it counts, inside code, a URL, a quote or the alignment row it does not
+    f = [x for x in check("| 22 | [Sync] Storage: Kraken | 13:00 |\n|:---|---:|:---:|\nSee [a title: here](https://e.com/x?a=1 ) and `code : here`. The owner wrote \"done .\" there.", rules) if x[0] == "space-before-punctuation"]
+    assert not f, f"a colon with no space before it, code, a URL, a quote and the alignment row must not count: {f}"
+    f = [x for x in check("| 22 | [Sync] Metadata & Storage : Kraken | x |\n|---|---|---|\nA space before a comma , and a period .", rules) if x[0] == "space-before-punctuation"]
+    assert len(f) == 3, f"a space before : , . counts each time, in a cell and in prose: {f}"
+    print("style-check selftest: ok (15 rules fire on the bad text, 0 findings on the good text, 4 fix-wave false positives stay silent and their real cases still fire, 4 pass-4 rules silent on the allowed shapes and firing on the faults, 3 pass-5 rules the same)")
 
 
 def main():
