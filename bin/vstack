@@ -1374,6 +1374,40 @@ Reply with the single line: VSTACK_REFLECT {age} done
 """
 
 
+GLOSS_RX = re.compile(r"(?:(?P<phrase>[a-z][^()\n]{3,80}?) \((?P<term>[A-Za-z][\w' -]{1,40})\)|(?P<term2>[A-Za-z][\w' -]{1,40}) \((?P<phrase2>[a-z][^()\n]{3,80}?)\))")
+
+
+def gloss_removed(before, after):
+    """The term whose gloss the owner removed: before carries `plain phrase (Term)` or `Term (plain phrase)` and after
+    carries the bare Term with the bracket gone. None when no such pair exists. Shape only, no judgement."""
+    for m in GLOSS_RX.finditer(before or ""):
+        term = (m.group("term") or m.group("term2") or "").strip()
+        if not term or term.upper().startswith("TO BE "):
+            continue
+        if term in (after or "") and m.group(0) not in (after or ""):
+            return term
+    return None
+
+
+def file_known_term_proposal(inst, workflow, run_id, term, before, after, today):
+    """One row per removed gloss in <instance>/context/factory/known-terms-proposals.md. The same term from a second
+    document is marked repeat: the owner adds it to the Known terms table of the glossary, the engine never writes
+    that table. Returns the status written."""
+    props = inst / "context" / "factory" / "known-terms-proposals.md"
+    props.parent.mkdir(parents=True, exist_ok=True)
+    if not props.exists():
+        props.write_text("# Known term proposals from reflect\n\nOne row per gloss the owner removed from a landed document (the plain phrase beside a term the readers already know). A term proposed from two documents is marked repeat: add it to the Known terms table in GLOSSARY.md and the writers stop glossing it on the next run. The engine never edits that table.\n\n| # | Date | Workflow, run | Term | Before | After | Status |\n|---|---|---|---|---|---|---|\n")
+    existing = props.read_text()
+    n = len(re.findall(r"^\| \d+ \|", existing, re.M))
+    seen_docs = set(re.findall(r"^\| \d+ \| [^|]* \| ([^|]*) \| " + re.escape(term) + r" \|", existing, re.M))
+    where = f"{workflow}, {run_id}"
+    status = "repeat" if seen_docs and where not in seen_docs else "proposed"
+    cell_ = lambda t: (t or "").replace("|", "\\|").replace("\n", " ")[:140]
+    with open(props, "a") as f:
+        f.write(f"| {n + 1} | {today} | {where} | {term} | {cell_(before)} | {cell_(after)} | {status} |\n")
+    return status
+
+
 def reflect(args):
     """Stage 7. --render prints the worker prompt that writes landed-<age>.md. Without it, diff
     landed-<age>.md against draft.md, write reflect-<age>.json, fill owner_edit_ratio, file proposals."""
@@ -1462,6 +1496,9 @@ def reflect(args):
         for c in diff["changes"]:
             cell_ = lambda t: (t or "").replace("|", "\\|").replace("\n", " ")[:140]
             if c["kind"] in ("wording", "structure") and c.get("before"):
+                term = gloss_removed(c["before"], c.get("after"))
+                if term:
+                    filed.setdefault("known_terms", []).append((term, file_known_term_proposal(inst, workflow, card.get("run_id"), term, c["before"], c["after"], today)))
                 rx = _proposed_regex(c["before"], c["after"]) or ""
                 n += 1
                 status = "proposed"

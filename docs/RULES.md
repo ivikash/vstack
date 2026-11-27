@@ -49,3 +49,4 @@ class at the highest level that works, architecture first, docs last.)
 
 Rows marked `skill` or `prompt` are the weakest kind: nothing fails when a model ignores them. Each
 one is a candidate for promotion to `contract` or `engine` as soon as a run shows it ignored.
+| A term in the instance's Known terms table (`known_terms_source` in the style rules JSON: file and heading) is known to the acronym check as a glossary row is, so a reader-known acronym never needs an expansion. Reflect files a known-term proposal when the owner removes a gloss from a landed document, the same term from a second document is marked repeat; the engine never edits the owner's table | `scripts/style-check.py` (`--selftest`, known_terms), `bin/vstack reflect` (gloss_removed, file_known_term_proposal) | check, engine, reflect |

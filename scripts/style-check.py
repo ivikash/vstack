@@ -17,6 +17,11 @@ Rules JSON keys (all optional, a missing key turns that check off):
                            item is its own sentence even without a terminal period, items are never joined
   weasel_words             list of words or phrases, each occurrence outside tables headers, quoted speech,
                            code and title-like link labels is a finding
+  known_terms_source       {"file": "GLOSSARY.md", "heading": "Known terms"}: a markdown table under that heading
+                           (file relative to the rules JSON) whose first two columns name terms the instance's
+                           readers already know. Every term, and every acronym written in those two columns, is
+                           known to the acronym check exactly as a glossary row is, so it never needs an expansion.
+                           The owner edits that table, the engine only reads it
   acronyms                 {"min": 2, "max": 6, "allow": [...], "glossary_headings": ["Glossary", "References"]}:
                            a run of capitals of that length whose first use is neither followed by " (" nor
                            inside round brackets, and which no glossary file and no section of the doc under one
@@ -75,6 +80,36 @@ import argparse, json, pathlib, re, sys
 ROMAN = {"II", "III", "IV", "VI", "VII", "VIII", "IX", "XI", "XII", "XIII", "XIV", "XV", "XX"}
 # units, time words and the engine's own tokens: never an acronym a reader needs expanded
 ENGINE_ALLOW = {"MM", "DD", "YYYY", "HH", "TL", "DR", "TBD", "URL", "ID", "OK", "AM", "PM", "UTC", "KB", "MB", "GB", "TB", "PB", "MS", "NS", "US", "GMT"}
+
+
+def known_terms(rules, rules_path=None):
+    """The terms of the instance's Known terms table: {term, ...} from the first two columns of the markdown table under
+    rules["known_terms_source"]["heading"] in rules["known_terms_source"]["file"]. Empty when the key, file or
+    heading is missing. The table is the owner's, this function only reads it."""
+    src = rules.get("known_terms_source")
+    if not src or not isinstance(src, dict) or not src.get("file"):
+        return set()
+    p = pathlib.Path(str(src["file"])).expanduser()
+    if not p.is_absolute() and rules_path:
+        p = pathlib.Path(rules_path).parent / p
+    if not p.exists():
+        return set()
+    text = p.read_text()
+    heading = src.get("heading", "Known terms")
+    m = re.search(r"^#{1,6}\s+" + re.escape(heading) + r"\b.*?(?=^#{1,6}\s|\Z)", text, re.M | re.S)
+    if not m:
+        return set()
+    terms = set()
+    for row in re.findall(r"^\|(.+)\|\s*$", m.group(0), re.M):
+        cells = [c.strip() for c in row.split("|")]
+        if not cells or cells[0] in ("Term", "---") or set(cells[0]) <= {"-", ":"}:
+            continue
+        for cell in cells[:2]:
+            for t in re.split(r",\s*", cell):
+                t = re.sub(r"\s*\([^)]*\)", "", t).strip()
+                if t:
+                    terms.add(t)
+    return terms
 
 
 def read_rules(path):
@@ -196,7 +231,7 @@ def _prose_units(lines, prefixes):
     yield from flush()
 
 
-def check(text, rules, glossary_texts=()):
+def check(text, rules, glossary_texts=(), known_terms_set=()):
     findings = []
     prefixes = list(rules.get("exempt_line_prefixes", []))
     raw_lines = _lines(text)
@@ -266,6 +301,9 @@ def check(text, rules, glossary_texts=()):
             for own in re.finditer(r"^(#{1,6})\s+" + re.escape(heading) + r"\b.*?(?=^#{1,6}\s|\Z)", code_free, re.M | re.S):
                 gl_text += "\n" + own.group(0)
         known = set(re.findall(r"(?<![A-Za-z0-9])([A-Z]{2}[A-Z0-9]{0,8})s?(?![A-Za-z0-9])", gl_text))
+        # the instance's Known terms table (known_terms_source): a term there is known like a glossary row
+        for kt in known_terms_set:
+            known |= set(re.findall(r"(?<![A-Za-z0-9])([A-Z]{2}[A-Z0-9]{0,8})s?(?![A-Za-z0-9])", kt))
         tok = re.compile(r"(?<![A-Za-z0-9/&-])([A-Z]{%d}[A-Z0-9]{0,%d})s?(?![A-Za-z0-9/-])" % (lo, max(0, hi - lo)))
         seen = set()
         for i, l in enumerate(lines):
@@ -461,14 +499,14 @@ def check(text, rules, glossary_texts=()):
     return findings
 
 
-def run(draft, rules, glossary_paths=()):
+def run(draft, rules, glossary_paths=(), rules_path=None):
     text = pathlib.Path(draft).read_text()
     gl = []
     for g in glossary_paths:
         p = pathlib.Path(g).expanduser()
         if p.exists():
             gl.append(p.read_text())
-    return check(text, rules, gl)
+    return check(text, rules, gl, known_terms(rules, rules_path))
 
 
 def selftest():
@@ -658,7 +696,21 @@ def selftest():
     f = [x for x in check(whole, rules) if x[0] == "cut-title"]
     assert not f, f"a whole title of exactly 60 or 80 characters, a < before a digit, a space or =, closed brackets and backticks, a title ending in a period or an ellipsis, and a prose cell must not count: {f}"
     assert not [x for x in check(cut, dict((k, v) for k, v in rules.items() if k != "cut_titles")) if x[0] == "cut-title"], "without cut_titles the rule is off"
-    print("style-check selftest: ok (16 rules fire on the bad text, 0 findings on the good text, 4 fix-wave false positives stay silent and their real cases still fire, 4 pass-4 rules silent on the allowed shapes and firing on the faults, 3 pass-5 rules the same, cut-title (pass 7 shape: openers and fragments, never length) and the link-label exemption the same)")
+    # known_terms_source: an acronym named in the first two columns of the Known terms table is known like a glossary row
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        g = pathlib.Path(td) / "GLOSSARY.md"
+        g.write_text("# G\n\n## Known terms\n\n| Term | Also written | Meaning | Known since |\n|---|---|---|---|\n| index data file | IDF, IndexDataFile | the registration call | 11/27/2026 |\n| DiscoverDataFiles | DDF | the lookup call | 11/27/2026 |\n\n## Other\n\n| ZZQ | not a known term |\n")
+        kt_rules = {"acronyms": {"min": 2, "max": 6, "allow": []}, "known_terms_source": {"file": "GLOSSARY.md", "heading": "Known terms"}}
+        kt = known_terms(kt_rules, str(pathlib.Path(td) / "rules.json"))
+        assert {"index data file", "IDF", "IndexDataFile", "DiscoverDataFiles", "DDF"} <= kt and "ZZQ" not in kt, kt
+        txt = "# T\n\nThe IDF call and the DDF call are known, the ZZQ call is not.\n"
+        f_kt = [x for x in check(txt, kt_rules, (), kt) if x[0] == "acronym-unexpanded"]
+        assert [q.split(":")[0] for _, q, _ in f_kt] == ["ZZQ"], f_kt
+        f_no = [x for x in check(txt, kt_rules, (), ()) if x[0] == "acronym-unexpanded"]
+        assert len(f_no) == 3, f_no
+        assert known_terms({}, None) == set() and known_terms({"known_terms_source": {"file": "nope.md"}}, str(pathlib.Path(td) / "r.json")) == set()
+    print("style-check selftest: ok (known_terms_source: IDF and DDF from the Known terms table silent, ZZQ outside it fires, 3 fire without the table; 16 rules fire on the bad text, 0 findings on the good text, 4 fix-wave false positives stay silent and their real cases still fire, 4 pass-4 rules silent on the allowed shapes and firing on the faults, 3 pass-5 rules the same, cut-title (pass 7 shape: openers and fragments, never length) and the link-label exemption the same)")
 
 
 def main():
@@ -675,7 +727,7 @@ def main():
         ap.error("draft and --rules are required")
     rules = read_rules(a.rules)
     gl = list(a.glossary) + [str(pathlib.Path(a.rules).parent / g) if not g.startswith(("/", "~")) else g for g in rules.get("glossary_files", [])]
-    f = run(a.draft, rules, gl)
+    f = run(a.draft, rules, gl, a.rules)
     if a.json:
         print(json.dumps([{"rule": r, "quote": q, "line": n} for r, q, n in f]))
     else:
