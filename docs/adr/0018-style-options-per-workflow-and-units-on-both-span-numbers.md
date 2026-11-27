@@ -17,7 +17,7 @@ The owner's fourth reading of one document produced two rulings about shapes rat
 
 - `bracket_span_format` gains `bracket-span-first-unit`: a span `A to B unit` inside brackets whose first number carries no unit token fires. Date windows and label ranges stay excluded as before.
 - `scripts/style-check.py` gains `--option key=value`, which sets one rules JSON key for that run. A workflow lists its switches under `draft_contract.style_options` as `{key: value, why}`. `vstack check-run`, `vstack record` and `vstack style-check --workflow` pass them, `vstack check` requires the `why` and refuses a key that is not a rules key shape, the schema types the object, and the rendered prompt shows the switches to the writer.
-- The first such key, `date_year_once`: when on, `date_without_year` stops counting MM/DD dates after the first line that carried a full MM/DD/YYYY. A short date above any full date still counts. Off by default, so the house rule is unchanged for every other kind.
+- The first such key, `date_year_once`: when on, `date_without_year` stops counting MM/DD dates after the first line that carried a full MM/DD/YYYY. A short date above any full date still counts. Off by default, so the house rule is unchanged for every other kind. The value is `true` for every document of the workflow, or a regex the document must match, which keys the switch to one document (the owner narrowed the ruling to a single document identified by its tracker row on the header line).
 
 `--selftest` covers the first-unit finding, the both-units pass, the switch on and off, and the short-date-first case.
 

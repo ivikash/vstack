@@ -396,7 +396,10 @@ def check(text, rules, glossary_texts=(), known_terms_set=(), bare_terms_map=Non
         # date_year_once (a workflow option, owner review 1 ruling 24, 11/27/2026): once a line has carried a full
         # MM/DD/YYYY, later MM/DD dates in the same document are read as that year and are not findings. Off by default,
         # the house rule stays MM/DD/YYYY everywhere; a kind switches it on through draft_contract.style_options
-        year_once = bool(rules.get("date_year_once"))
+        # the value is True (every document of the workflow) or a regex the document must match, which keys the switch to one
+        # document (the owner narrowed ruling 24 to Yulin's OpsWin: `Tracker row 1, Category Metadata` on the header line)
+        dyo = rules.get("date_year_once")
+        year_once = bool(dyo) and (dyo is True or (isinstance(dyo, str) and dyo.lower() in ("true", "1")) or (isinstance(dyo, str) and bool(re.search(dyo, text, re.M))))
         year_seen = False
         for i, l in enumerate(lines):
             if _exempt(l, prefixes):
@@ -963,6 +966,9 @@ def selftest():
     assert [x[0] for x in check("# T\n\nTracker row 1, read 11/27/2026.\n\nOn 10/28 we released it. On 11/07 it reached prod.\n", dy)] == ["date-without-year", "date-without-year"]
     assert [x[0] for x in check("# T\n\nTracker row 1, read 11/27/2026.\n\nOn 10/28 we released it. On 11/07 it reached prod.\n", dict(dy, date_year_once=True))] == [], "after a full date the short dates are that year"
     assert [x[0] for x in check("# T\n\nOn 10/28 we released it.\n", dict(dy, date_year_once=True))] == ["date-without-year"], "no full date above: the short date still counts"
+    scoped = dict(dy, date_year_once=r"^[^\n]*\. Tracker row 1, Category Metadata")
+    assert [x[0] for x in check("# T\n\nA line. Tracker row 1, Category Metadata, read 11/27/2026.\n\nOn 10/28 we released it.\n", scoped)] == [], "the keyed document gets the switch"
+    assert [x[0] for x in check("# T\n\nA line. Tracker row 2, Category Metadata, read 11/27/2026.\n\nOn 10/28 we released it.\n", scoped)] == ["date-without-year"], "another document of the same kind does not"
     assert [x[0] for x in check("# T\n\n| # | Item | Due |\n|---|---|---|\n| 1 | Confirm [REV-4821](https://x.y) deployed | 12/05/2026 |\n", r2)] == [], "a date in the next cell is another clause"
     assert [x[0] for x in check("# T\n\nThe plan (Stream 1 to 3) and the items (G1 to G12) stay.\n", r2)] == [], "a label range is not a quantity span"
     bt = {"CD": ["continuous deployment"], "ADC": ["a dedicated cloud region"]}
