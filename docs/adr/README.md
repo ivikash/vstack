@@ -16,3 +16,4 @@ One decision, one file, written once. Status is in the frontmatter (`proposed`, 
 | [0010](0010-countable-style-rules-every-writer-runs.md) | Countable style rules every writer runs | accepted |
 | [0011](0011-four-more-countable-style-rules.md) | Four more countable style rules: hedges, marker form, comparatives, spans | accepted |
 | [0012](0012-three-more-countable-style-rules.md) | Three more countable style rules: the marker as a verb, unclosed brackets, a space before punctuation | accepted |
+| [0013](0013-cut-title-rule-and-link-labels-keep-their-spacing.md) | A cut title in a title cell is a finding, and a link label keeps its source's spacing | accepted |
