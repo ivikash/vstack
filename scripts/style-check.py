@@ -97,15 +97,17 @@ def _is_table_header(lines, i):
 
 
 def _title_cells_blanked(line, placeholder="title"):
-    """In a table row, a cell that is wholly one link (bold or not) or wholly bold text quotes a title verbatim (a
-    task, a tracker row, a document): replace it with the placeholder so no count reads it. Other cells stay."""
+    """In a table row, a cell that is wholly one link (bold or not), wholly bold text, or opens with a bracketed tag
+    quotes a title verbatim (a task, a tracker row, a ticket, a document): replace it with the placeholder so no
+    count reads it. Other cells stay."""
     if not _is_table_row(line):
         return line
     cells = re.split(r"(?<!\\)\|", line)
     out = []
     for c in cells:
         t = c.strip()
-        if t and (re.fullmatch(r"(\*\*)?\[(?:[^\[\]\n]|\[[^\]\n]*\])*\]\([^)\s]*\)(\*\*)?", t) or re.fullmatch(r"\*\*[^*\n]+\*\*", t)):
+        # wholly a link, wholly bold, or opening with a bracketed tag such as [ALARM] or [Draft]: a title copied verbatim
+        if t and (re.fullmatch(r"(\*\*)?\[(?:[^\[\]\n]|\[[^\]\n]*\])*\]\([^)\s]*\)(\*\*)?", t) or re.fullmatch(r"\*\*[^*\n]+\*\*", t) or re.match(r"\[[A-Za-z][^\]\n]{0,30}\]", t)):
             out.append(f" {placeholder} ")
         else:
             out.append(c)
@@ -171,8 +173,8 @@ def check(text, rules, glossary_texts=()):
             for m in pat.finditer(t):
                 if re.search(r"\bhow\s*$", t[:m.start()], re.I):
                     continue  # "how many", "how much": a question, not a hedge
-                if re.search(r"\bat\s*$", t[:m.start()], re.I) and re.match(r"\s+\d", t[m.end():]):
-                    continue  # "at most 100", "at least 3": a bound with its number, not a hedge
+                if re.search(r"\bat\s*$", t[:m.start()], re.I) and re.match(r"\s+(\d|one\b|two\b|three\b|four\b|five\b|six\b|seven\b|eight\b|nine\b|ten\b)", t[m.end():], re.I):
+                    continue  # "at most 100", "at most one", "at least 3": a bound with its number, not a hedge
                 add("weasel-word", f"{m.group(1)}: {t[max(0, m.start() - 30):m.end() + 30]}", i + 1)
 
     # acronyms: first use expanded, or named by a glossary
@@ -334,6 +336,8 @@ def selftest():
     assert [x for x in check("The PPQ fired.", rules) if x[0] == "acronym-unexpanded"], "(3) a bare acronym in prose must still count"
     f = [x for x in check("# The PPQ heading\n\nThe managed queue (the queue service, PPQ) then fires. A fan-out of at most 100 pieces, several of them.", rules) if x[0] in ("acronym-unexpanded", "weasel-word")]
     assert len(f) == 1 and f[0][0] == "weasel-word" and f[0][1].startswith("several"), f"(3) a heading is not the first use, a comma-expanded term in brackets is expanded, 'at most 100' is a bound, 'several' still counts: {f}"
+    f = [x for x in check("| 7 | ticket | [ALARM] [region] Service-QQV-Alarm fired | open |\n|---|---|---|---|\n| 8 | x | at most one change | y |", rules) if x[0] in ("acronym-unexpanded", "weasel-word")]
+    assert not f, f"a cell opening with a bracketed tag is a verbatim ticket title, 'at most one' is a bound: {f}"
     f = [x for x in check("| [(ORR) Parallelize multiple accounts](https://e.com/o) | open |\n|---|---|\n| **several things** | a cell with several words |", rules) if x[0] == "weasel-word"]
     assert len(f) == 1 and "a cell with several" in f[0][1], f"weasel words inside a verbatim title (link or bold cell) do not count, in a prose cell they do: {f}"
     em = "\n".join([
