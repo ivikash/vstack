@@ -166,11 +166,13 @@ def check(text, rules, glossary_texts=()):
         for i, l in enumerate(lines):
             if _exempt(l, prefixes) or _is_table_header(lines, i) or re.match(r"^\s*\|?\s*:?-{3,}", l):
                 continue
-            t = _links_replaced(l)
+            t = _links_replaced(_title_cells_blanked(l))
             t = re.sub(r"\"[^\"\n]*\"|“[^”\n]*”", "QUOTE", t)
             for m in pat.finditer(t):
                 if re.search(r"\bhow\s*$", t[:m.start()], re.I):
                     continue  # "how many", "how much": a question, not a hedge
+                if re.search(r"\bat\s*$", t[:m.start()], re.I) and re.match(r"\s+\d", t[m.end():]):
+                    continue  # "at most 100", "at least 3": a bound with its number, not a hedge
                 add("weasel-word", f"{m.group(1)}: {t[max(0, m.start() - 30):m.end() + 30]}", i + 1)
 
     # acronyms: first use expanded, or named by a glossary
@@ -188,8 +190,8 @@ def check(text, rules, glossary_texts=()):
         tok = re.compile(r"(?<![A-Za-z0-9/&-])([A-Z]{%d}[A-Z0-9]{0,%d})s?(?![A-Za-z0-9/-])" % (lo, max(0, hi - lo)))
         seen = set()
         for i, l in enumerate(lines):
-            if _exempt(l, prefixes) or l.strip().startswith("<!--"):
-                continue
+            if _exempt(l, prefixes) or l.strip().startswith("<!--") or l.lstrip().startswith("#"):
+                continue  # a heading is a label, the first use in prose is the one that must expand
             # a link label quotes a title (a task, a tracker row, a doc), a double-quoted span is someone else's words,
             # a table cell that is wholly a title likewise: an acronym there is not the writer's to expand
             t = _title_cells_blanked(l)
@@ -205,7 +207,8 @@ def check(text, rules, glossary_texts=()):
                 seen.add(a)
                 before = t[:m.start()].rstrip()
                 after = t[m.end():]
-                in_brackets = before.endswith("(") or re.search(r"\((the |an? )?$", before) is not None
+                # inside an open bracket on this line: "(the plain phrase, TERM)" and "(TERM)" both count as expanded
+                in_brackets = before.count("(") > before.count(")")
                 expands = re.match(r"\s*\(", after) is not None
                 if not (in_brackets or expands):
                     add("acronym-unexpanded", f"{a}: {t[max(0, m.start() - 30):m.end() + 30]}", i + 1)
@@ -329,6 +332,10 @@ def selftest():
     f = [x for x in check(acr, rules) if x[0] == "acronym-unexpanded"]
     assert not f, f"(3) acronyms inside a title label, a quote, a title cell or named under Glossary or References must not count: {f}"
     assert [x for x in check("The PPQ fired.", rules) if x[0] == "acronym-unexpanded"], "(3) a bare acronym in prose must still count"
+    f = [x for x in check("# The PPQ heading\n\nThe managed queue (the queue service, PPQ) then fires. A fan-out of at most 100 pieces, several of them.", rules) if x[0] in ("acronym-unexpanded", "weasel-word")]
+    assert len(f) == 1 and f[0][0] == "weasel-word" and f[0][1].startswith("several"), f"(3) a heading is not the first use, a comma-expanded term in brackets is expanded, 'at most 100' is a bound, 'several' still counts: {f}"
+    f = [x for x in check("| [(ORR) Parallelize multiple accounts](https://e.com/o) | open |\n|---|---|\n| **several things** | a cell with several words |", rules) if x[0] == "weasel-word"]
+    assert len(f) == 1 and "a cell with several" in f[0][1], f"weasel words inside a verbatim title (link or bold cell) do not count, in a prose cell they do: {f}"
     em = "\n".join([
         "| Task | Status |", "|---|---|",
         "| [(Bloom) Manifest aggregate has no size bound — rebuild OOMs](https://e.com/c) | open |",
