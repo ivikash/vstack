@@ -613,6 +613,9 @@ def check(text, rules, glossary_texts=(), known_terms_set=(), bare_terms_map=Non
                     rest = m.group("rest")
                     if rest.startswith("%") or unit_rx.search(rest):
                         continue
+                    lead = re.search(r"([A-Za-z0-9]+)\s*$", b.group(1)[:m.start()])
+                    if lead and (lead.group(1)[0].isupper() or lead.group(1)[-1].isdigit() or (lead.group(1).endswith("s") and len(lead.group(1)) > 3)):
+                        continue  # a label range, (Stream 1 to 3), (G1 to G12), (action items 5 to 9): the numbers name things, not a quantity
                     add("bracket-span-no-unit", f"({b.group(1)}): the span ends with its unit, (2,083 to 626 µs)", i + 1)
 
     # explicit over implicit: a prose sentence outside a list does not open with It, This, The service, The system when
@@ -933,6 +936,7 @@ def selftest():
     assert [x[0] for x in check(good2, r2)] == [], check(good2, r2)
     assert [x[0] for x in check("# T\n\nThe before window (11/01/2026 to 11/06/2026) and 304 ms (11/08/2026 to 11/16/2026).\n", r2)] == [], "a date window in brackets is not a span"
     assert [x[0] for x in check("# T\n\n| # | Item | Due |\n|---|---|---|\n| 1 | Confirm [REV-4821](https://x.y) deployed | 12/05/2026 |\n", r2)] == [], "a date in the next cell is another clause"
+    assert [x[0] for x in check("# T\n\nThe plan (Stream 1 to 3) and the items (G1 to G12) stay.\n", r2)] == [], "a label range is not a quantity span"
     bt = {"CD": ["continuous deployment"], "ADC": ["a dedicated cloud region"]}
     fb2 = [x[0] for x in check("# T\n\nThe continuous deployment (CD) stage ran. ADC (the isolated regions) too. The CD stage is fine, so is ADC.\n", {}, bare_terms_map=bt)]
     assert fb2.count("bare-term-expanded") == 2, fb2
