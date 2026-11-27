@@ -503,7 +503,7 @@ def check(text, rules, glossary_texts=(), known_terms_set=()):
     # number spans inside brackets: "(~2,080 to ~630 µs)", never "(from about 2,080 to about 630)" (owner review 1)
     if rules.get("bracket_span_format"):
         BR = re.compile(r"\(([^()\n]*)\)")
-        BAD_FROM = re.compile(r"\bfrom\s+(?:about\s+|around\s+|roughly\s+|~)?\d", re.I)
+        BAD_FROM = re.compile(r"\bfrom\s+(?:about\s+|around\s+|roughly\s+|~)?\d(?!\d?/\d\d/\d{4})", re.I)  # `(carried from 11/20/2026)` is a date, not a span
         BAD_ABOUT = re.compile(r"\b(?:about|around|roughly)\s+\d", re.I)
         for i, l in enumerate(lines):
             if _exempt(l, prefixes) or l.strip().startswith("<!--"):
@@ -810,6 +810,7 @@ def selftest():
     assert fb.count("bracket-span-from") == 2 and "quantity-without-unit" in fb and "figure-sentence-date" in fb and "table-no-hash-column" in fb, fb
     assert [x[0] for x in check(good, r1)] == [], check(good, r1)
     assert [x[0] for x in check("# T\n\nIt fell 7% (about 300 ms before).\n", r1)] == ["bracket-span-about"]
+    assert [x[0] for x in check("# T\n\nAn item (carried from 11/20/2026) stays open.\n", r1)] == [], "a date after from inside brackets is not a span (team-retro carried-from phrase)"
     print("style-check selftest: ok (owner review 1: bracket-span-from x2, quantity-without-unit, figure-sentence-date and table-no-hash-column fire on the bad text and 0 on the good text; exempt_line_patterns scoped to the listed lines; known_terms_source: IDF and DDF from the Known terms table silent, ZZQ outside it fires, 3 fire without the table; 16 rules fire on the bad text, 0 findings on the good text, 4 fix-wave false positives stay silent and their real cases still fire, 4 pass-4 rules silent on the allowed shapes and firing on the faults, 3 pass-5 rules the same, cut-title (pass 7 shape: openers and fragments, never length) and the link-label exemption the same)")
 
 
