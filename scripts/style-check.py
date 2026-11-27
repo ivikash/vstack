@@ -13,19 +13,24 @@ contract check.
 
 Rules JSON keys (all optional, a missing key turns that check off):
   max_words_per_sentence   int, a sentence over it is a finding (prose only: tables, headings, code and link
-                           labels are not counted, a link label counts as one word)
+                           labels are not counted, a link label counts as one word). A bullet or numbered list
+                           item is its own sentence even without a terminal period, items are never joined
   weasel_words             list of words or phrases, each occurrence outside tables headers, quoted speech,
                            code and title-like link labels is a finding
-  acronyms                 {"min": 2, "max": 6, "allow": [...], "glossary_heading": "Glossary"}: a run of
-                           capitals of that length whose first use is neither followed by " (" nor inside
-                           round brackets, and which no glossary file and no section under the doc's own
-                           glossary heading names, is a finding
+  acronyms                 {"min": 2, "max": 6, "allow": [...], "glossary_headings": ["Glossary", "References"]}:
+                           a run of capitals of that length whose first use is neither followed by " (" nor
+                           inside round brackets, and which no glossary file and no section of the doc under one
+                           of the glossary headings names, is a finding. A link label (it quotes a title), a
+                           double-quoted span and a table cell that is wholly a title (a link or bold text) are
+                           not read: an acronym there is someone else's wording. `glossary_heading` (one string)
+                           is still accepted
   date_without_year        true: MM/DD with no /YYYY outside URLs, code and title-like link labels
   iso_dates                true: YYYY-MM-DD outside URLs and code
   url_as_label             true: a markdown link whose label is the URL itself
   semicolons               true: a semicolon outside table rows, code, title-like link labels, HTML entities,
                            the fixed heading TL;DR and lines whose prefix is in exempt_line_prefixes
-  em_dashes                true: an em-dash (U+2014) outside code and title-like link labels
+  em_dashes                true: an em-dash (U+2014) outside code, outside every link label and outside a
+                           table cell that is wholly a title (a link or bold text, a verbatim task title)
   exempt_line_prefixes     list of line prefixes no check reads (the engine's own `Sources:` header line)
 
 A title-like link label is one that opens with `[` (a bracketed tag, the label quotes a document title), a
@@ -91,6 +96,22 @@ def _is_table_header(lines, i):
     return bool(re.match(r"^\s*\|?\s*:?-{3,}", nxt))
 
 
+def _title_cells_blanked(line, placeholder="title"):
+    """In a table row, a cell that is wholly one link (bold or not) or wholly bold text quotes a title verbatim (a
+    task, a tracker row, a document): replace it with the placeholder so no count reads it. Other cells stay."""
+    if not _is_table_row(line):
+        return line
+    cells = re.split(r"(?<!\\)\|", line)
+    out = []
+    for c in cells:
+        t = c.strip()
+        if t and (re.fullmatch(r"(\*\*)?\[(?:[^\[\]\n]|\[[^\]\n]*\])*\]\([^)\s]*\)(\*\*)?", t) or re.fullmatch(r"\*\*[^*\n]+\*\*", t)):
+            out.append(f" {placeholder} ")
+        else:
+            out.append(c)
+    return "|".join(out)
+
+
 def _exempt(line, prefixes):
     s = line.lstrip()
     return any(s.startswith(p) for p in prefixes)
@@ -115,17 +136,24 @@ def check(text, rules, glossary_texts=()):
             if not para:
                 return
             blob = " ".join(para)
-            blob = _links_replaced(blob, keep_prose_labels=False)
+            # a link is one word, and the placeholder opens with a capital so a sentence that ends right before a
+            # link-led sentence still splits there
+            blob = _links_replaced(blob, keep_prose_labels=False, placeholder="Link")
             for s in re.split(r"(?<=[.!?])\s+(?=[\"'(\[*A-Z0-9])", blob):
                 n = len(s.split())
                 if n > int(limit):
                     add("sentence-length", f"{n} words: {s[:70]}", start)
+        LIST_ITEM = re.compile(r"^\s*([-*+]|\d+[.)])\s+")
         for i, l in enumerate(lines):
             bare = l.strip()
             if not bare or _is_table_row(l) or bare.startswith("#") or _exempt(l, prefixes) or bare.startswith("<!--"):
                 flush(); para, start = [], None
                 continue
-            bare = re.sub(r"^(\s*([-*+]|\d+[.)])\s+)", "", bare)
+            if LIST_ITEM.match(l):
+                # a list item is its own sentence even without a terminal period: close whatever came before and
+                # never join it with the next item (a list of link-led bullets is not one 90-word sentence)
+                flush(); para, start = [], None
+                bare = LIST_ITEM.sub("", bare)
             if start is None:
                 start = i + 1
             para.append(bare)
@@ -151,16 +179,22 @@ def check(text, rules, glossary_texts=()):
         lo, hi = int(ac.get("min", 2)), int(ac.get("max", 6))
         allow = set(ac.get("allow", [])) | ENGINE_ALLOW | ROMAN
         gl_text = "\n".join(glossary_texts)
-        heading = ac.get("glossary_heading", "Glossary")
-        own = re.search(r"^#{1,6}\s+" + re.escape(heading) + r"\b.*?(?=^#{1,6}\s|\Z)", code_free, re.M | re.S)
-        gl_text += "\n" + (own.group(0) if own else "")
+        headings = ac.get("glossary_headings") or [ac.get("glossary_heading", "Glossary"), "References"]
+        for heading in headings:
+            # every section of the document under that heading, at any level, counts as the document's own glossary
+            for own in re.finditer(r"^(#{1,6})\s+" + re.escape(heading) + r"\b.*?(?=^#{1,6}\s|\Z)", code_free, re.M | re.S):
+                gl_text += "\n" + own.group(0)
         known = set(re.findall(r"(?<![A-Za-z0-9])([A-Z]{2}[A-Z0-9]{0,8})s?(?![A-Za-z0-9])", gl_text))
         tok = re.compile(r"(?<![A-Za-z0-9/&-])([A-Z]{%d}[A-Z0-9]{0,%d})s?(?![A-Za-z0-9/-])" % (lo, max(0, hi - lo)))
         seen = set()
         for i, l in enumerate(lines):
             if _exempt(l, prefixes) or l.strip().startswith("<!--"):
                 continue
-            t = _links_replaced(l, keep_prose_labels=True)
+            # a link label quotes a title (a task, a tracker row, a doc), a double-quoted span is someone else's words,
+            # a table cell that is wholly a title likewise: an acronym there is not the writer's to expand
+            t = _title_cells_blanked(l)
+            t = _links_replaced(t, keep_prose_labels=False)
+            t = re.sub(r"\"[^\"\n]*\"|\u201c[^\u201d\n]*\u201d", "quote", t)
             t = t.replace("TL;DR", "tldr")
             t = re.sub(r"\(TO BE [A-Z]+\b[^)]*\)|\[TO BE [A-Z]+[^\]]*\]", "marker", t)
             for m in tok.finditer(t):
@@ -216,7 +250,8 @@ def check(text, rules, glossary_texts=()):
         for i, l in enumerate(lines):
             if _exempt(l, prefixes):
                 continue
-            t = _links_replaced(l)
+            # a verbatim title keeps its own punctuation: every link label, and a table cell that is wholly a title
+            t = _links_replaced(_title_cells_blanked(l), keep_prose_labels=False)
             for m in re.finditer("\u2014", t):
                 add("em-dash", t[max(0, m.start() - 40):m.end() + 20], i + 1)
     return findings
@@ -268,7 +303,43 @@ def selftest():
     ])
     g = check(good, rules)
     assert not g, f"selftest: findings on the good text: {g}"
-    print("style-check selftest: ok (8 rules fire on the bad text, 0 findings on the good text)")
+    # the four false positives of the 11/27/2026 fix wave, each a text that must produce NO finding
+    r12 = dict(rules); r12["max_words_per_sentence"] = 12
+    bullets = "\n".join([
+        "## References", "",
+        "- [Tracker](https://e.com/t): row 6, the source of the title and goal",
+        "- [Thread, #chan 11/10/2026](https://e.com/s): the audit that surfaced the dropped footer",
+        "- [Message, root cause 11/12/2026](https://e.com/m): how the delete led to repeated timeouts",
+        "- [Ticket](https://e.com/k): the 11/11/2026 customer stall and the patch",
+        "1. First numbered item without a period",
+        "2. Second numbered item, also its own sentence",
+    ])
+    f = [x for x in check(bullets, r12) if x[0] == "sentence-length"]
+    assert not f, f"(1) link-led bullets were joined into one sentence: {f}"
+    f = [x for x in check("Short one ends here. [Next link](https://e.com/n) opens the next sentence that stays under the limit.", r12) if x[0] == "sentence-length"]
+    assert not f, f"(2) the link placeholder merged two sentences: {f}"
+    assert [x for x in check("- " + " ".join(["word"] * 13), r12) if x[0] == "sentence-length"], "(1) a 13-word bullet must still count"
+    acr = "\n".join([
+        "# Doc", "",
+        "See [DP: FieldStats for map-key fields (ZQX usage analysis)](https://e.com/a) and \"the QQW service said so\".",
+        "| Task | Owner |", "|---|---|", "| **[Evaluate RRT eviction for the cache](https://e.com/b)** | a builder |", "| **VVB title without a link** | a builder |",
+        "The KKZ term is named under References below and the JJY term under the Glossary.",
+        "", "## Glossary", "| JJY | a glossary row |", "", "## References", "- KKZ: the reference list names it",
+    ])
+    f = [x for x in check(acr, rules) if x[0] == "acronym-unexpanded"]
+    assert not f, f"(3) acronyms inside a title label, a quote, a title cell or named under Glossary or References must not count: {f}"
+    assert [x for x in check("The PPQ fired.", rules) if x[0] == "acronym-unexpanded"], "(3) a bare acronym in prose must still count"
+    em = "\n".join([
+        "| Task | Status |", "|---|---|",
+        "| [(Bloom) Manifest aggregate has no size bound — rebuild OOMs](https://e.com/c) | open |",
+        "| **Stream 2: Benchmark metadata — real numbers** | open |",
+        "Prose with [a label — dashed](https://e.com/d) inside the link.",
+    ])
+    f = [x for x in check(em, rules) if x[0] == "em-dash"]
+    assert not f, f"(4) an em-dash inside a link label or a title cell must not count: {f}"
+    f = [x for x in check("| Task | Note |\n|---|---|\n| [t](https://e.com/t) | a cell — with prose |\nProse — dashed.", rules) if x[0] == "em-dash"]
+    assert len(f) == 2, f"(4) an em-dash in a prose cell or in prose must still count twice: {f}"
+    print("style-check selftest: ok (8 rules fire on the bad text, 0 findings on the good text, 4 fix-wave false positives stay silent and their real cases still fire)")
 
 
 def main():
