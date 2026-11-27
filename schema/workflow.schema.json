@@ -135,6 +135,13 @@
           "minimum": 0,
           "maximum": 100
         },
+        "extra_checklists": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "files the gate reads and scores besides its own checklist (an organisation's writing style). Each must exist once ${instance} is expanded. <instance>/gate-policy.json required_extra_checklists lists the ones every writer must carry"
+        },
         "second_opinion": {
           "enum": [
             "claude",

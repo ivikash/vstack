@@ -43,6 +43,7 @@ class at the highest level that works, architecture first, docs last.)
 | `gather.order` and `gather.step_N` render before the sources | `scripts/engine-selftest.py` gather-steps | test |
 | `${instance}` expands to the workflow's own instance in config and post_record | `scripts/engine-selftest.py` instance-var | test |
 | A `--dry-run` or `--no-publish` run on the `kirocrew` harness schedules nothing | `scripts/engine-selftest.py` no-schedule | test |
+| A gate reads every file in `gate.extra_checklists` as further scored rules, each file exists, and every writer carries the checklists `gate-policy.json` requires | `vstack check` extra_checklists and required_extra_checklists, `scripts/engine-selftest.py` extra-checklist | `vstack check` |
 
 Rows marked `skill` or `prompt` are the weakest kind: nothing fails when a model ignores them. Each
 one is a candidate for promotion to `contract` or `engine` as soon as a run shows it ignored.

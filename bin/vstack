@@ -210,6 +210,34 @@ def check(workflows_dir, private_component):
                     fails.append(f"{cid}: per-event document kind {doc.get('event')!r} is not in documents.json per_event (document budget)")
                 elif not ev.get("folder") or not ev.get("title_template"):
                     fails.append(f"{cid}: per-event kind {doc.get('event')!r} needs a folder and a title_template in documents.json")
+    # gate.extra_checklists: a list of file paths (strings) the gate reads besides its own checklist. Every path
+    # must exist once `${instance}` is expanded, so a typo cannot silently drop a rule set. An instance may name
+    # checklists every writer must carry in <instance>/gate-policy.json {"required_extra_checklists": [...]}:
+    # a writer workflow whose gate lacks one of them fails here (the instance's style gate is never optional).
+    inst_dir = Path(workflows_dir).resolve().parent
+    policy_file = inst_dir / "gate-policy.json"
+    required = []
+    if policy_file.exists():
+        try:
+            required = [str(x) for x in (load(policy_file).get("required_extra_checklists") or [])]
+        except Exception as e:
+            fails.append(f"gate-policy.json: not valid JSON ({e})")
+    for cid, (p, c) in cells.items():
+        g = c.get("gate")
+        if not isinstance(g, dict):
+            continue
+        xs = g.get("extra_checklists", [])
+        if xs is not None and not (isinstance(xs, list) and all(isinstance(x, str) and x.strip() for x in xs)):
+            fails.append(f"{cid}: gate.extra_checklists must be a list of file paths")
+            continue
+        xs = xs or []
+        for x in xs:
+            if not Path(x.replace("${instance}", str(inst_dir))).expanduser().exists():
+                fails.append(f"{cid}: gate.extra_checklists names a file that does not exist: {x}")
+        if c.get("kind") == "writer":
+            for r in required:
+                if r not in xs:
+                    fails.append(f"{cid}: writer gate lacks the required checklist {r} (gate-policy.json required_extra_checklists)")
     return fails, cells
 
 
@@ -415,7 +443,7 @@ items>; unavailable <connectors that were unmapped, skipped or empty>` (write `n
 A thin run must be visible to the reader, never papered over. Save it to {run_dir}/draft.md.
 
 ## 4. GATE (validation loop)
-Read {skills_dir}/{gate_skill}/SKILL.md and {skills_dir}/{gate_skill}/checklist.md.
+Read {skills_dir}/{gate_skill}/SKILL.md and {skills_dir}/{gate_skill}/checklist.md.{extra_checklists}
 Apply the gate to draft.md with doc type `{doc_type}`. Fix every quoted failure, re-run.
 Rules: minimum {min_passes} passes, maximum {max_passes} passes, stop when a pass has zero blockers
 and zero majors{coverage}. A fix may never invent a fact; an unfixable blocker goes under a closing
@@ -455,7 +483,7 @@ SECOND_OPINION = """# Second opinion on a draft ({harness})
 
 You are an independent critic. You did not write this draft and you must not edit it.
 Read {skills_dir}/leadership-writing/house-rules.md, {skills_dir}/{gate_skill}/SKILL.md and
-{skills_dir}/{gate_skill}/checklist.md. Read {run_dir}/draft.md and {run_dir}/evidence.json.
+{skills_dir}/{gate_skill}/checklist.md.{extra_checklists} Read {run_dir}/draft.md and {run_dir}/evidence.json.
 
 Run the gate in evaluate mode on draft.md with doc type `{doc_type}`, and additionally check
 every number, date, name and link in the draft against evidence.json.
@@ -616,10 +644,21 @@ def render(cell, tools, org_profile_text, harness, dry_run, run_dir, run_id, ski
         writer_inputs=writer_inputs,
         gate_skill=gate.get("skill", "validate-writing"), doc_type=gate.get("doc_type", "passage"),
         min_passes=gate.get("min_passes", 2), max_passes=gate.get("max_passes", 5), coverage=cov,
-        land=land, ledger_path=f"{ledger_root}/{cell.get('ledger', {}).get('file', cell['id'] + '.jsonl')}",
+        extra_checklists=extra_checklists_text(gate), land=land, ledger_path=f"{ledger_root}/{cell.get('ledger', {}).get('file', cell['id'] + '.jsonl')}",
         ledger_fields=", ".join(cell.get("ledger", {}).get("fields", [])),
         run_id=run_id, dry_json="true" if dry_run else "false", nopub_json="true" if no_publish else "false",
     )
+
+
+def extra_checklists_text(gate):
+    """gate.extra_checklists: files the gate reads and scores IN ADDITION to the gate skill's own checklist (an
+    organisation's writing style, a team's template rules). Each is rendered as one more "Read ..." line in the
+    GATE and second-opinion sections, every rule in it scored like a checklist rule: a pass names what it
+    checked, a failure quotes the offending text. The instance supplies the files, the engine stays org-neutral."""
+    xs = [str(x) for x in (gate or {}).get("extra_checklists", []) or []]
+    if not xs:
+        return ""
+    return " Then read and apply as further checklist rules, each scored the same way: " + ", ".join(xs) + "."
 
 
 def gather_preamble(g):
@@ -797,7 +836,8 @@ def run(args):
     if second and args.harness != "kirocrew" and (run_dir / "draft.md").exists():
         gate = cell.get("gate", {})
         sprompt = SECOND_OPINION.format(harness=second, skills_dir=skills_dir, run_dir=run_dir,
-                                        gate_skill=gate.get("skill", "validate-writing"), doc_type=gate.get("doc_type", "passage"))
+                                        gate_skill=gate.get("skill", "validate-writing"), doc_type=gate.get("doc_type", "passage"),
+                                        extra_checklists=extra_checklists_text(gate))
         (run_dir / "prompt-second.md").write_text(sprompt)
         scmd, sstdin = harness_cmd(second, run_dir / "prompt-second.md", run_dir, agent=None, model=None)
         with open(run_dir / "stdout-second.log", "w") as out:

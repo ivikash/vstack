@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Engine self-test: four behaviours proven against a throwaway instance, no model call, seconds.
+"""Engine self-test: five behaviours proven against a throwaway instance, no model call, seconds.
 
   record-replace   `vstack record` twice on one run id leaves ONE runs.jsonl line and the latest verdict wins
   gather-steps     the rendered prompt carries gather.order and gather.step_0 before the sources
   instance-var     `${instance}` in record.post_record and config expands to the workflow's own instance
   no-schedule      `vstack run --harness kirocrew --no-publish` registers nothing (no command.txt, status rendered)
+  extra-checklist  gate.extra_checklists renders into the GATE section, `check` fails a missing file and a writer
+                   that lacks a checklist named in <instance>/gate-policy.json required_extra_checklists
 
 Exit 1 on the first failure. Run by scripts/check.sh (group `engine`).
 """
@@ -76,6 +78,33 @@ def main():
         assert second["recorded_by"] == "vstack record" and second != first, "second record did not replace the line"
         print("record-replace ok")
         print("instance-var  ok")
+
+        # extra-checklist: gate.extra_checklists renders into the GATE section, `check` fails a missing file,
+        # and gate-policy.json required_extra_checklists fails a writer whose gate lacks the checklist
+        style = inst / "style.md"
+        style.write_text("# Style\n\n- **lead-with-outcome**: the first sentence states the result.\n")
+        wf = json.load(open(wf_path))
+        wf["gate"]["extra_checklists"] = ["${instance}/style.md"]
+        wf_path.write_text(json.dumps(wf, indent=2))
+        r = sh("render", str(wf_path), *common)
+        assert f"further checklist rules, each scored the same way: {inst.resolve()}/style.md" in r.stdout, "extra_checklists not rendered in the GATE section"
+        assert "${instance}" not in r.stdout, "${instance} left unexpanded in extra_checklists"
+        r = sh("check", "--instance", str(inst), check=False)
+        assert r.returncode == 0, f"check failed with an existing checklist:\n{r.stdout}{r.stderr}"
+        wf["gate"]["extra_checklists"] = ["${instance}/missing.md"]
+        wf_path.write_text(json.dumps(wf, indent=2))
+        r = sh("check", "--instance", str(inst), check=False)
+        assert r.returncode != 0 and "does not exist" in r.stdout + r.stderr, "check passed a checklist file that does not exist"
+        wf["gate"].pop("extra_checklists")
+        wf_path.write_text(json.dumps(wf, indent=2))
+        (inst / "gate-policy.json").write_text(json.dumps({"required_extra_checklists": ["${instance}/style.md"]}))
+        r = sh("check", "--instance", str(inst), check=False)
+        assert r.returncode != 0 and "required checklist" in r.stdout + r.stderr, "check passed a writer that lacks the required checklist"
+        wf["gate"]["extra_checklists"] = ["${instance}/style.md"]
+        wf_path.write_text(json.dumps(wf, indent=2))
+        r = sh("check", "--instance", str(inst), check=False)
+        assert r.returncode == 0, f"check failed a writer that carries the required checklist:\n{r.stdout}{r.stderr}"
+        print("extra-checklist ok")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
