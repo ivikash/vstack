@@ -31,6 +31,19 @@ Rules JSON keys (all optional, a missing key turns that check off):
                            the fixed heading TL;DR and lines whose prefix is in exempt_line_prefixes
   em_dashes                true: an em-dash (U+2014) outside code, outside every link label and outside a
                            table cell that is wholly a title (a link or bold text, a verbatim task title)
+  hedge_words              list of words or phrases that stand in for an unproven-claim marker ("likely", "may be"):
+                           each occurrence outside a marker, quoted speech, code, link labels (a label quotes a title)
+                           and verbatim-title table cells is a finding. The claim carries the marker instead
+  marker_exact             list of marker texts ("TO BE CONFIRMED"): a bracketed marker that carries any other text
+                           inside its brackets, `(TO BE CONFIRMED which date)`, is a finding. The reason goes in the
+                           sentence, the marker stays one exact form a reader and a regex both recognise
+  comparatives             list of comparative words ("faster", "fewer", "more"): one in a prose sentence or a prose
+                           table cell that holds no digit is a finding (link labels, quoted speech and title cells
+                           are not read). A comparison carries its number
+  numeric_span_needs_relative  true or {"relative": [regex, ...]}: a `from <number> to <number>` span (not a date
+                           or a clock range) whose sentence carries no relative change before it is a finding. The
+                           relative change comes first, the absolutes follow in brackets: `cut 50% (from 14 to 7)`.
+                           Default relative patterns: a percentage (`\d%`) and a multiplier (`\dx`)
   exempt_line_prefixes     list of line prefixes no check reads (the engine's own `Sources:` header line)
 
 A title-like link label is one that opens with `[` (a bracketed tag, the label quotes a document title), a
@@ -117,6 +130,51 @@ def _title_cells_blanked(line, placeholder="title"):
 def _exempt(line, prefixes):
     s = line.lstrip()
     return any(s.startswith(p) for p in prefixes)
+
+
+# an unproven-claim marker in brackets, any marker word: (TO BE CONFIRMED), [TO BE COLLECTED: text]
+MARKER = re.compile(r"\(TO BE [A-Z]+\b[^)]*\)|\[TO BE [A-Z]+[^\]]*\]")
+QUOTED = re.compile(r"\"[^\"\n]*\"|\u201c[^\u201d\n]*\u201d")
+SENTENCE_END = re.compile(r"(?<=[.!?])\s+(?=[\"'(\[*A-Z0-9])")
+LIST_ITEM = re.compile(r"^\s*([-*+]|\d+[.)])\s+")
+
+
+def _prose_units(lines, prefixes):
+    """Yield (text, lineno) for every unit a per-sentence rule reads: each prose sentence (paragraphs joined, list items
+    their own sentence, every link collapsed to one word, a label quotes a title) and each prose table cell (header
+    rows and verbatim-title cells skipped). Quoted speech is blanked, it is someone else's wording."""
+    def clean(t):
+        t = _links_replaced(t, keep_prose_labels=False, placeholder="Link")
+        return QUOTED.sub("QUOTE", t)
+    para, start = [], None
+    def flush():
+        if para:
+            for s in SENTENCE_END.split(clean(" ".join(para))):
+                if s.strip():
+                    yield s, start
+    for i, l in enumerate(lines):
+        bare = l.strip()
+        if _is_table_row(l):
+            yield from flush(); para, start = [], None
+            if _is_table_header(lines, i) or re.match(r"^\s*\|?\s*:?-{3,}", l):
+                continue
+            for c in re.split(r"(?<!\\)\|", _title_cells_blanked(l)):
+                c = c.strip()
+                if c and c != "title":
+                    for s in SENTENCE_END.split(clean(c)):
+                        if s.strip():
+                            yield s, i + 1
+            continue
+        if not bare or bare.startswith("#") or _exempt(l, prefixes) or bare.startswith("<!--"):
+            yield from flush(); para, start = [], None
+            continue
+        if LIST_ITEM.match(l):
+            yield from flush(); para, start = [], None
+            bare = LIST_ITEM.sub("", bare)
+        if start is None:
+            start = i + 1
+        para.append(bare)
+    yield from flush()
 
 
 def check(text, rules, glossary_texts=()):
@@ -259,6 +317,61 @@ def check(text, rules, glossary_texts=()):
             t = _links_replaced(_title_cells_blanked(l), keep_prose_labels=False)
             for m in re.finditer("\u2014", t):
                 add("em-dash", t[max(0, m.start() - 40):m.end() + 20], i + 1)
+
+    def word_pattern(words):
+        return re.compile(r"(?<![\w-])(" + "|".join(re.escape(w) for w in words) + r")(?![\w-])", re.I)
+
+    # hedge words: a guess written as a word ("likely leave") where the claim should carry the marker
+    hedges = [w for w in rules.get("hedge_words", []) if w.strip()]
+    if hedges:
+        pat = word_pattern(hedges)
+        for i, l in enumerate(lines):
+            if _exempt(l, prefixes) or _is_table_header(lines, i) or re.match(r"^\s*\|?\s*:?-{3,}", l) or l.strip().startswith("<!--"):
+                continue
+            t = _links_replaced(_title_cells_blanked(l), keep_prose_labels=False)
+            t = QUOTED.sub("QUOTE", t)
+            t = MARKER.sub("marker", t)
+            for m in pat.finditer(t):
+                add("hedge-word", f"{m.group(1)}: {t[max(0, m.start() - 30):m.end() + 30]}", i + 1)
+
+    # marker form: the marker is one exact bracketed form, a reason goes in the sentence, never inside the brackets
+    for marker in rules.get("marker_exact", []) or []:
+        if not str(marker).strip():
+            continue
+        esc = re.escape(marker.strip())
+        pat = re.compile(r"\(\s*" + esc + r"\b([^)]*)\)|\[\s*" + esc + r"\b([^\]]*)\]")
+        for i, l in enumerate(lines):
+            if _exempt(l, prefixes) or l.strip().startswith("<!--"):
+                continue
+            for m in pat.finditer(l):
+                inner = (m.group(1) if m.group(1) is not None else m.group(2)) or ""
+                if inner.strip():
+                    add("marker-not-exact", m.group(0), i + 1)
+
+    # comparatives: a comparison in a sentence or a prose cell that holds no digit has no data behind it
+    comps = [w for w in rules.get("comparatives", []) if w.strip()]
+    if comps:
+        pat = word_pattern(comps)
+        for unit, lineno in _prose_units(lines, prefixes):
+            if re.search(r"\d", unit):
+                continue
+            for m in pat.finditer(unit):
+                add("comparative-without-number", f"{m.group(1)}: {unit[max(0, m.start() - 40):m.end() + 30]}", lineno)
+
+    # from X to Y: the relative change leads, the absolutes follow in brackets
+    span_rule = rules.get("numeric_span_needs_relative")
+    if span_rule:
+        rel = span_rule.get("relative") if isinstance(span_rule, dict) else None
+        rel_pats = [re.compile(p, re.I) for p in (rel or [r"\d\s*%", r"\d\s*x\b"])]
+        # a plain number (not a date 11/30/2026, not a clock 07:00, not an identifier 1Q), an optional unit, then "to" and a number
+        SPAN = re.compile(r"\bfrom\s+(?:about\s+|around\s+|roughly\s+)?(\d[\d,]*(?:\.\d+)?)(?![\d/:A-Za-z])(?:\s*%|\s+[A-Za-z]+)?\s+to\s+(?:about\s+|around\s+|roughly\s+)?(\d[\d,]*(?:\.\d+)?)(?![\d/:])", re.I)
+        for unit, lineno in _prose_units(lines, prefixes):
+            for m in SPAN.finditer(unit):
+                if re.fullmatch(r"(19|20)\d\d", m.group(1)) and re.fullmatch(r"(19|20)\d\d", m.group(2)):
+                    continue  # from 2026 to 2027 is a period, not a change
+                before = unit[:m.start()]
+                if not any(p.search(before) for p in rel_pats):
+                    add("span-without-relative", f"{m.group(0)}: {unit[max(0, m.start() - 40):m.end() + 20]}", lineno)
     return findings
 
 
@@ -276,6 +389,8 @@ def selftest():
     rules = {"max_words_per_sentence": 12, "weasel_words": ["several", "significant", "a number of"],
              "acronyms": {"min": 2, "max": 6, "allow": ["CR"], "glossary_heading": "Glossary"},
              "date_without_year": True, "iso_dates": True, "url_as_label": True, "semicolons": True, "em_dashes": True,
+             "hedge_words": ["likely", "may be", "seems"], "marker_exact": ["TO BE CONFIRMED"],
+             "comparatives": ["faster", "fewer", "more"], "numeric_span_needs_relative": True,
              "exempt_line_prefixes": ["Sources:"]}
     bad = "\n".join([
         "# Title", "Sources: used a.b; unavailable c.d", "",
@@ -286,10 +401,13 @@ def selftest():
         "| col | 11/23 | a; b |", "|---|---|---|", "| [[Draft] Title (11/06-11/13)](https://e.com) | **[Task — title](https://e.com)** | [**[Tag] Task — 11/13 title**](https://e.com) |",
         "", "## Glossary", "| Term | Means |", "|---|---|", "| QQQ | a glossary term |",
         "", "A stray [bracket opens here and the date 10/09 must still count,", "then a link [CR-9](https://e.com/9) closes a bracket on another line.",
+        "", "No activity since 11/11/2026, likely leave (roster status). Written 11/27/2026 (TO BE CONFIRMED which date).",
+        "The new path is faster with fewer calls. Latency fell from 1,700 ms to 600 ms.",
     ])
     f = check(bad, rules)
     rules_hit = {r for r, _, _ in f}
-    want = {"sentence-length", "weasel-word", "acronym-unexpanded", "date-without-year", "iso-date", "url-as-label", "semicolon", "em-dash"}
+    want = {"sentence-length", "weasel-word", "acronym-unexpanded", "date-without-year", "iso-date", "url-as-label", "semicolon", "em-dash",
+            "hedge-word", "marker-not-exact", "comparative-without-number", "span-without-relative"}
     missing = want - rules_hit
     assert not missing, f"selftest: rules that did not fire on the bad text: {sorted(missing)}\n{f}"
     quotes = [q for r, q, _ in f]
@@ -350,7 +468,48 @@ def selftest():
     assert not f, f"(4) an em-dash inside a link label or a title cell must not count: {f}"
     f = [x for x in check("| Task | Note |\n|---|---|\n| [t](https://e.com/t) | a cell — with prose |\nProse — dashed.", rules) if x[0] == "em-dash"]
     assert len(f) == 2, f"(4) an em-dash in a prose cell or in prose must still count twice: {f}"
-    print("style-check selftest: ok (8 rules fire on the bad text, 0 findings on the good text, 4 fix-wave false positives stay silent and their real cases still fire)")
+    # the four rules of the 11/27/2026 fix wave pass 4 (validation pass 2): a silent case and a still-fires case each
+    # hedge words: inside a marker, a quote, a title label or a title cell they are not the writer's guess
+    hedge_ok = "\n".join([
+        "On leave per the roster status (TO BE CONFIRMED). The owner wrote \"it seems fine\" in the thread.",
+        "See [Likely causes of the stall — a review](https://e.com/l) and [**May be later**](https://e.com/m).",
+        "| Task | Note |", "|---|---|", "| **Seems slow: the likely fix** | on leave (TO BE CONFIRMED) |",
+    ])
+    f = [x for x in check(hedge_ok, rules) if x[0] == "hedge-word"]
+    assert not f, f"hedge words inside a marker, a quote, a title label or a title cell must not count: {f}"
+    f = [x for x in check("No activity since 11/11/2026, likely leave (roster status). It may be a leave. The cause seems clear.", rules) if x[0] == "hedge-word"]
+    assert len(f) == 3 and [q.split(":")[0] for _, q, _ in f] == ["likely", "may be", "seems"], f"three hedge words in prose must count once each: {f}"
+    f = [x for x in check("| Who | Likely note |\n|---|---|\n| a | the cause is likely a leave |\n| b | unlikely |", rules) if x[0] == "hedge-word"]
+    assert len(f) == 1, f"a hedge word in a prose cell counts, 'unlikely' is another word: {f}"
+    # marker form: the exact marker passes, a marker with a reason inside the brackets fails, another marker word is not read
+    f = [x for x in check("Written 11/27/2026 (TO BE CONFIRMED). Quotes [TO BE COLLECTED: feedback text] stay. The count is 0 (TO BE CONFIRMED), 4 gaps.", rules) if x[0] == "marker-not-exact"]
+    assert not f, f"the exact marker and another marker word must not count: {f}"
+    f = [x for x in check("Due 12/07/2026 (TO BE CONFIRMED which date). Read [TO BE CONFIRMED: not read] and (TO BE CONFIRMED, timestamps missing).", rules) if x[0] == "marker-not-exact"]
+    assert len(f) == 3, f"a marker with text inside its brackets must count each time: {f}"
+    # comparatives: a sentence or a prose cell with a digit carries its data, a title or a quote is not the writer's claim
+    comp_ok = "\n".join([
+        "The new path is 70% faster (from 1,200 ms to 360 ms) with 3 fewer calls. One or more of the 14 files was read.",
+        "The post says \"faster pruning for more formats\". See [Faster DDF and fewer DynamoDB calls](https://e.com/f).",
+        "| Change | Impact |", "|---|---|", "| **Fewer calls — faster DDF** | 2 fewer DynamoDB calls per query |",
+    ])
+    f = [x for x in check(comp_ok, rules) if x[0] == "comparative-without-number"]
+    assert not f, f"a comparative with a digit in its sentence or cell, in a quote, in a link label or in a title cell must not count: {f}"
+    f = [x for x in check("The new path is faster with fewer calls. It does more of the design work (TO BE CONFIRMED).\n| Change | Impact |\n|---|---|\n| x | faster DDF and fewer calls |", rules) if x[0] == "comparative-without-number"]
+    assert len(f) == 5 and f[2][1].startswith("more"), f"a comparative in a sentence or a prose cell with no digit counts each time, a marker does not excuse it: {f}"
+    # from X to Y: a percentage or a multiplier before the span passes, a date or clock range is not a span, a bare span fails
+    span_ok = "\n".join([
+        "Peak memory fell 65% (from 1,700 MB to 600 MB). Sev2s were cut 2x (from 14 to 7 a week).",
+        "Re:Invent runs from 11/30/2026 to 12/04/2026, the watcher from 07:00 to 19:00, the report from 1Q to 4Q and the plan from 2026 to 2027.",
+        "| When | What |", "|---|---|", "| 11/23/2026 | halved 50% (from 8 to 4) |",
+    ])
+    f = [x for x in check(span_ok, rules) if x[0] == "span-without-relative"]
+    assert not f, f"a span after a percentage or multiplier, a date range, a clock range, a quarter or a year span must not count: {f}"
+    f = [x for x in check("Peak memory fell from 1,700 MB to 600 MB. Sev2s went from 14 to 7 a week (a 50% cut).\n| When | What |\n|---|---|\n| 11/23/2026 | from 8 to 4 |", rules) if x[0] == "span-without-relative"]
+    assert len(f) == 3, f"a span with no relative change before it in its sentence or cell counts each time, a percentage after it does not excuse it: {f}"
+    r_rel = dict(rules); r_rel["numeric_span_needs_relative"] = {"relative": [r"\d\s*%", r"\bhalved\b"]}
+    f = [x for x in check("Sev2s halved (from 14 to 7 a week). Latency went from 9 ms to 3 ms (3x).", r_rel) if x[0] == "span-without-relative"]
+    assert len(f) == 1 and f[0][1].startswith("from 9 ms to 3"), f"the instance's relative patterns replace the default: {f}"
+    print("style-check selftest: ok (12 rules fire on the bad text, 0 findings on the good text, 4 fix-wave false positives stay silent and their real cases still fire, 4 pass-4 rules silent on the allowed shapes and firing on the faults)")
 
 
 def main():

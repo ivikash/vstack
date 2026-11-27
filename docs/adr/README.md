@@ -14,3 +14,4 @@ One decision, one file, written once. Status is in the frontmatter (`proposed`, 
 | [0008](0008-one-record-per-run-steps-instance-no-schedule.md) | One record per run, gather steps, the instance variable, dry runs never schedule | accepted |
 | [0009](0009-readiness-mode-draft-with-readiness.md) | Readiness mode draft_with_readiness, the document declares it | accepted |
 | [0010](0010-countable-style-rules-every-writer-runs.md) | Countable style rules every writer runs | accepted |
+| [0011](0011-four-more-countable-style-rules.md) | Four more countable style rules: hedges, marker form, comparatives, spans | accepted |
