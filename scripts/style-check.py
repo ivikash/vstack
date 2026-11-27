@@ -522,9 +522,19 @@ def check(text, rules, glossary_texts=(), known_terms_set=()):
     if isinstance(qu, dict) and qu.get("verbs"):
         verbs = re.compile(r"\b(?:" + "|".join(re.escape(v) for v in qu["verbs"]) + r")\b", re.I)
         units = re.compile(r"(?<![\w])(?:" + "|".join(re.escape(u) for u in (qu.get("units") or [])) + r")(?![\w])", re.I)
+        # a comparative that names its noun on the spot (`five more regions`, `9 or more customers`, `skip more data`) carries
+        # its unit in that noun: the rule reads a comparative followed by punctuation, the end, or a function word (`70% less for it`)
+        FUNCTION = r"than|for|on|per|in|at|of|to|by|a|an|the|it|its|this|that|these|those|and|or|but|so|as|with|from|before|after|since|now|today|here|there"
+        bare_cmp = re.compile(r"\b(less|more|fewer|cheaper)\b(?=\s*(?:[.,;:)!?]|$)|\s+(?:" + FUNCTION + r")\b)", re.I)
+        comparatives = {"less", "more", "fewer", "cheaper"}
         for unit, lineno in _prose_units(lines, prefixes):
             t = _links_replaced(unit, keep_prose_labels=False)
-            m = verbs.search(t)
+            m = None
+            for cand in verbs.finditer(t):
+                if cand.group(0).lower() in comparatives and not bare_cmp.match(t, cand.start()):
+                    continue  # `more regions`: the noun is the unit
+                m = cand
+                break
             if m and re.search(r"\d", t) and not units.search(t):
                 add("quantity-without-unit", f"{m.group(0)}: {t[max(0, m.start() - 40):m.end() + 40]}", lineno)
 
@@ -811,6 +821,8 @@ def selftest():
     assert [x[0] for x in check(good, r1)] == [], check(good, r1)
     assert [x[0] for x in check("# T\n\nIt fell 7% (about 300 ms before).\n", r1)] == ["bracket-span-about"]
     assert [x[0] for x in check("# T\n\nAn item (carried from 11/20/2026) stays open.\n", r1)] == [], "a date after from inside brackets is not a span (team-retro carried-from phrase)"
+    assert [x[0] for x in check("# T\n\nThe wave carried it to five more regions. Which doc names the 9 or more customers?\n", r1)] == [], "a comparative before its noun names the unit"
+    assert [x[0] for x in check("# T\n\nIt costs 70% less for it.\n", r1)] == ["quantity-without-unit"] and [x[0] for x in check("# T\n\nThere are 240 more in the folder.\n", r1)] == ["quantity-without-unit"]
     print("style-check selftest: ok (owner review 1: bracket-span-from x2, quantity-without-unit, figure-sentence-date and table-no-hash-column fire on the bad text and 0 on the good text; exempt_line_patterns scoped to the listed lines; known_terms_source: IDF and DDF from the Known terms table silent, ZZQ outside it fires, 3 fire without the table; 16 rules fire on the bad text, 0 findings on the good text, 4 fix-wave false positives stay silent and their real cases still fire, 4 pass-4 rules silent on the allowed shapes and firing on the faults, 3 pass-5 rules the same, cut-title (pass 7 shape: openers and fragments, never length) and the link-label exemption the same)")
 
 
