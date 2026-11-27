@@ -10,6 +10,7 @@
 #   triggers    every skill description wins its own prompts and loses the others (evals/triggers.json)
 #   rules       every row in docs/RULES.md names an enforcer that exists
 #   promo-lint  scripts/promo-lint.py fails the red promo-doc fixture and passes the green one
+#   engine      scripts/engine-selftest.py: record replaces by run id, gather steps render, ${instance} expands, kirocrew dry runs never schedule
 #   instance    the instance pointed at by VSTACK_INSTANCE (if set) is NOT inside this repo and is
 #               NOT a remote of it, so private files cannot be committed here by mistake
 set -euo pipefail
@@ -142,6 +143,9 @@ if ! out=$(python3 scripts/promo-copycheck.py evals/fixtures/promo-doc-good.md "
   say promo-lint "FAIL: promo-copycheck.py found a run in promo-doc-good.md"; echo "$out" | sed 's/^/    /'; fail=1
 fi
 [ $fail -eq 0 ] && say promo-lint "ok (red fixture fails with $nbad lines and $nfail failures, $nbare failures without its stage files, green fixture 0 failures and 0 warnings with and without, flattened red fixture linted through the fallback, copy check $nruns run(s) on red and 0 on green)"
+
+# engine ---------------------------------------------------------------------------------------
+if out=$(python3 scripts/engine-selftest.py 2>&1); then say engine "ok ($(echo "$out" | wc -l | tr -d ' ') behaviours)"; else say engine "FAIL:"; echo "$out" | sed 's/^/    /'; fail=1; fi
 
 # instance -------------------------------------------------------------------------------------
 if [ -n "${VSTACK_INSTANCE:-}" ]; then

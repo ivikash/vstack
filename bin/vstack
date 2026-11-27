@@ -558,7 +558,8 @@ def check_draft_contract(text, contract):
 
 
 def render(cell, tools, org_profile_text, harness, dry_run, run_dir, run_id, skills_dir, cache_root, ledger_root, fixture=None, no_publish=False, workflow_file=None):
-    env = {"config": cell.get("config", {}), "run_id": run_id, "harness": harness, "run_dir": str(run_dir)}
+    env = {"config": cell.get("config", {}), "run_id": run_id, "harness": harness, "run_dir": str(run_dir),
+           "instance": instance_of(workflow_file)}
     cell = expand_deep(cell, env)
     roles = tools.get("connectors", tools.get("roles", {}))
 
@@ -581,6 +582,7 @@ def render(cell, tools, org_profile_text, harness, dry_run, run_dir, run_id, ski
             lines.append(f"- connector `{conn}` -> {tool_for(conn)}; ref: {s.get('ref', '')}; {s.get('notes', '')}".rstrip("; "))
         gather = "Cache-first: if {cache}/last-evidence.json is newer than {ttl} hours, reuse it. Otherwise fetch:\n".format(
             cache=f"{cache_root}/{slug(cell.get('cache', {}).get('key', cell['id']))}", ttl=cell.get("cache", {}).get("ttl_hours", 0)) + "\n".join(lines)
+        gather = gather_preamble(cell.get("gather")) + gather
         gather_mode = ""
     sink = cell["sink"]
     if dry_run or no_publish:
@@ -620,6 +622,23 @@ def render(cell, tools, org_profile_text, harness, dry_run, run_dir, run_id, ski
     )
 
 
+def gather_preamble(g):
+    """gather.order (one line) and gather.step_0, step_1, ... (commands or instructions the worker runs BEFORE
+    any source, in number order) rendered into the GATHER section. A workflow that starts from a generator
+    (a card template, an export) names it here instead of hiding it in a source note."""
+    if not isinstance(g, dict):
+        return ""
+    out = []
+    if g.get("order"):
+        out.append(f"Order: {g['order']}")
+    steps = sorted((k for k in g if re.fullmatch(r"step_\d+", k)), key=lambda k: int(k.split("_")[1]))
+    for k in steps:
+        out.append(f"Step {k.split('_')[1]} (before any source below): {g[k]}")
+    if g.get("read_only"):
+        out.append(f"Read-only rule: {g['read_only']}")
+    return ("\n".join(out) + "\n") if out else ""
+
+
 # ----------------------------------------------------------------------------- harness
 def harness_cmd(harness, prompt_file, run_dir, agent=None, model=None):
     p = str(prompt_file)
@@ -653,6 +672,17 @@ def harness_cmd(harness, prompt_file, run_dir, agent=None, model=None):
             cmd += ["--agent", agent]
         return cmd, None
     die(f"unknown harness {harness}")
+
+
+def instance_of(workflow_file, explicit=None):
+    """The instance a workflow belongs to: --instance when given, else the parent of its workflows/ dir.
+    `${instance}` in a workflow string (config paths, record.post_record) expands to this, so a run from a
+    worktree reads and renders that worktree, never the main checkout (engine ask, 11/27/2026)."""
+    if explicit:
+        return str(Path(explicit).expanduser().resolve())
+    if workflow_file:
+        return str(Path(workflow_file).expanduser().resolve().parent.parent)
+    return "${instance}"
 
 
 def apply_instance(args):
@@ -722,6 +752,7 @@ def run(args):
     if args.dry_run and not fixture:
         die(f"dry run needs sample evidence: put {cell_path.stem}.sample.json beside the workflow or pass --sample")
     shown = args.harness if args.cmd == "run" else (args.harness or "print")
+    cell = expand_deep(cell, {"instance": instance_of(cell_path, getattr(args, "instance", None))})
     prompt = render(cell, tools, org_profile_text, shown, args.dry_run, run_dir, run_id, skills_dir, cache_root, ledger_root, fixture, no_publish=args.no_publish, workflow_file=str(cell_path.resolve()))
     prompt_file = run_dir / "prompt.md"
     prompt_file.write_text(prompt)
@@ -729,6 +760,14 @@ def run(args):
             "started": now(), "prompt": str(prompt_file), "run_dir": str(run_dir)}
     if args.cmd == "render" or args.harness == "print":
         print(prompt)
+        return 0
+    if args.harness == "kirocrew" and (args.dry_run or args.no_publish):
+        # --harness kirocrew is the cron-worker path: it registers a one-shot scheduled job. A dry run or a
+        # no-publish run is hand-driven, so it must never register anything (engine ask, 11/27/2026).
+        meta.update({"result": {"status": "rendered", "note": "kirocrew harness with --dry-run or --no-publish: prompt rendered, "
+                                "no cron registered. Run the prompt by hand (or use --harness print), then `vstack record`."}})
+        (run_dir / "meta.json").write_text(json.dumps(meta, indent=2))
+        print(json.dumps(meta, indent=2))
         return 0
     cmd, stdin = harness_cmd(args.harness, prompt_file, run_dir, agent=args.agent, model=args.model)
     (run_dir / "command.txt").write_text(" ".join(shlex.quote(c) if len(c) < 200 else "<prompt>" for c in cmd))
@@ -790,7 +829,7 @@ def check_run(args):
             wf = str(cand)
     if wf:
         cell = load(Path(wf).expanduser())
-        cell = expand_deep(cell, {"config": cell.get("config", {})})
+        cell = expand_deep(cell, {"config": cell.get("config", {}), "instance": instance_of(wf, getattr(args, "instance", None))})
     if cell is None:
         cell = {"gate": {"min_passes": args.min_passes}}
         print("note: no workflow resolved (pass --workflow or --instance), checking the generic contract only")
@@ -963,19 +1002,31 @@ def record_run(run_dir, cell, ledger_root, harness=None, post_record=None):
     card = scorecard(run_dir, cell, meta)
     meta["scorecard"] = {k: card.get(k) for k in SCORECARD_FIELDS}
     meta_file.write_text(json.dumps(meta, indent=2))
-    seen = set()
-    if ledger.exists():
-        for line in ledger.read_text().splitlines():
-            try:
-                seen.add(json.loads(line).get("run_id"))
-            except Exception:
-                pass
-    appended = run_id not in seen
-    if appended:
-        with open(ledger, "a") as f:
-            f.write(json.dumps(meta) + "\n")
+    appended = append_or_replace(ledger, run_id, meta)
     run_post_record(post_record, run_dir)
     return meta, appended
+
+
+def append_or_replace(ledger, run_id, meta):
+    """One runs.jsonl line per run id, the latest record wins: a rerun of `vstack record` after a fix
+    replaces the earlier line in place instead of leaving the first (stale) verdict. Returns True when the
+    line was new, False when it replaced one. Lines that do not parse are kept as they are."""
+    lines = ledger.read_text().splitlines() if ledger.exists() else []
+    out, replaced = [], False
+    for line in lines:
+        try:
+            if json.loads(line).get("run_id") == run_id:
+                out.append(json.dumps(meta)); replaced = True
+                continue
+        except Exception:
+            pass
+        out.append(line)
+    if not replaced:
+        out.append(json.dumps(meta))
+    tmp = ledger.with_suffix(".jsonl.tmp")
+    tmp.write_text("\n".join(out) + "\n")
+    tmp.replace(ledger)
+    return not replaced
 
 
 def run_post_record(cmd, run_dir):
@@ -1003,7 +1054,7 @@ def record(args):
             wf = str(cand)
     if wf:
         cell = load(Path(wf).expanduser())
-        cell = expand_deep(cell, {"config": cell.get("config", {})})
+        cell = expand_deep(cell, {"config": cell.get("config", {}), "instance": instance_of(wf, getattr(args, "instance", None))})
     post = (cell or {}).get("record", {}).get("post_record") if cell else None
     meta, appended = record_run(run_dir, cell, args.ledger_root, post_record=post)
     print(f"record: {meta['workflow']} {meta['run_id']} status={meta['result'].get('status')} contract={'MET' if meta['contract']['met'] else 'UNMET'} "

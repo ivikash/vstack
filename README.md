@@ -156,8 +156,14 @@ cd ~/github/vstack && scripts/check.sh    # the public repo's own checks, includ
 
 ```bash
 $V run ~/work/my-instance/workflows/program-update.json --harness claude --dry-run
-#                                                    --harness codex | kiro | kirocrew
+#                                                    --harness codex | kiro | kirocrew | print
 ```
+
+Which harness value is which: `claude`, `codex` and `kiro` run the prompt in a subprocess and wait.
+`kirocrew` is the cron-worker path: it registers a one-shot scheduled job on the host and returns
+`"status": "scheduled"`, so it is for live runs only. A `--dry-run` or `--no-publish` run on
+`kirocrew` renders the prompt and registers nothing (`"status": "rendered"`). For a hand-driven
+run on any host use `print` (or `vstack render`), follow the prompt yourself, then `vstack record`.
 
 The command prints `meta.json` when the harness returns. Look for `"status": "ok"` or
 `"known_gaps"` and `"contract": {"met": true}`. The run directory it names holds every artifact.
@@ -369,6 +375,9 @@ docs/RULES.md            every rule and its enforcer
 | draft says `Sources: ... unavailable chat.search` | the connector is unbound in `connectors.json`, or the tool returned nothing. Fix the binding or the `ref`, never the draft |
 | Kiro CLI denies a tool | kiro-cli 3.x denies any tool not named in `--trust-tools`; run under the `vstack-runner` template from `vstack gen-agent`, or let the adapter pass `--trust-all-tools` |
 | a `kirocrew` run shows `"status": "scheduled"` | correct: the job runs asynchronously. Its run dir fills in when it finishes; `vstack check-run` on it then |
+| a `kirocrew` run shows `"status": "rendered"` | you passed `--dry-run` or `--no-publish`: nothing was scheduled. Run the prompt by hand, then `vstack record` |
+| `vstack record` again after a fix still reads the old verdict | it no longer does: one line per run id in `runs.jsonl`, the latest record replaces the earlier one |
+| a worktree run reads the main checkout's files | write `${instance}` instead of an absolute instance path in `config` and `record.post_record`; it expands to the directory that holds the workflow's `workflows/` dir (or `--instance`) |
 | `check.sh no-org` fails on your own text | the word is on the denylist for a reason. Rephrase in the public repo; the term belongs in the instance |
 
 ## Design notes

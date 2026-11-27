@@ -11,3 +11,4 @@ One decision, one file, written once. Status is in the frontmatter (`proposed`, 
 | [0005](0005-adrs.md) | ADRs | accepted |
 | [0006](0006-adding-a-workflow.md) | Adding a workflow | accepted |
 | [0007](0007-every-writing-workflow-loops.md) | Every writing workflow loops | accepted |
+| [0008](0008-one-record-per-run-steps-instance-no-schedule.md) | One record per run, gather steps, the instance variable, dry runs never schedule | accepted |
