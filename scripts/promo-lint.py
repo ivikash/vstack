@@ -21,7 +21,7 @@ first, then this file, never the other way round.
                                             (D28: STAR is the writer's skeleton, never words the
                                             reader sees). No Ownership sentence (D59)
     > "...", <Name>, <role>                 one blockquote line, or
-    > (TO BE COLLECTED: quote from <role>)
+    > (TO BE COLLECTED: quote from <role>)   or the square form `> [TO BE COLLECTED: quote from <role>]`
     ## Best reasons not to promote
     ### <plain words>
     **Pattern** ... **Gap** ... **Also seen by** ... **Does not block** ... **Next** ...
@@ -187,7 +187,7 @@ BOLD = re.compile(r"\*\*([^*]+)\*\*")
 LINK = re.compile(r"\[[^\]]+\]\([^)]+\)")
 BARE_URL = re.compile(r"(?<!\()https?://\S+")
 BARE_ID = re.compile(r"(?<!\[)\b(CR|review|ticket|doc)[- ]?\d{2,}\b", re.I)
-QUOTE_LINE = re.compile(r'^> (".+", [A-Z][^,]+, [^,]+|\(TO BE COLLECTED: quote from [^()]+\))\s*$')
+QUOTE_LINE = re.compile(r'^> (".+", [A-Z][^,]+, [^,]+|\(TO BE COLLECTED: quote from [^()]+\)|\[TO BE COLLECTED: quote from [^\[\]()]+\])\s*$')
 DATE = re.compile(r"\b(\d{1,2}/\d{1,2}(/\d{2,4})?|\d{4}-\d{2}-\d{2}|(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{4}|Q[1-4] ?\d{2,4})\b")
 WORD = re.compile(r"[A-Za-z0-9][A-Za-z0-9'./%:-]*")
 COMPARATOR = re.compile(r"\b(from \S+( \S+){0,3} to \S+|\d[\d,.]*( [a-z/]+){0,3} to \d|down from|up from|vs\.?|versus|against|ahead of|early|earlier|instead of|fewer|more than|less than|before|cut from|to 0)\b", re.I)
@@ -201,11 +201,14 @@ PRIOR_TEAM = re.compile(r"\b(prior|previous|former|earlier|last) (team|role|org|
 DAYS = re.compile(r"\b\d[\d,]* days\b", re.I)
 TENURE_CONTEXT = re.compile(r"\b(level|role|tenure|in the job|since (joining|hire|starting))\b", re.I)
 TITLE_CONTEXT = re.compile(r"\bas an? [A-Z][A-Za-z]*")      # "as an Engineer II", case matters: "as a result" is not a title
-RELATIVE = re.compile(r"\b\d[\d.,]*\s?(%|percent|x\b|times\b|-fold\b)|\b\d[\d.,]*\s?(percentage points?)\b", re.I)
+RELATIVE = re.compile(r"(?<![.\w])\d[\d.,]*\s?(%|percent|x\b|times\b|-fold\b)|\b\d[\d.,]*\s?(percentage points?)\b", re.I)   # `CR.8X`, a product name, is not a multiplier
 ABSOLUTE_PAIR = re.compile(r"\b\d[\d,.]*( [a-zA-Z/]+){0,3} to \d[\d,.]*\b")
 ISO_DATE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
 
 MARKER_COLLECTED = re.compile(r"\(TO BE COLLECTED(: [^()]+)?\)")
+# the square quote-line form an instance may require instead of the round one (a provider quote that does not exist yet,
+# on its own `> ` line): accepted beside the round form, never inside prose
+MARKER_COLLECTED_QUOTE = re.compile(r"\[TO BE COLLECTED: quote from [^\[\]()]+\]")
 MARKER_CONFIRMED = re.compile(r"\(TO BE CONFIRMED\)")
 MARKER_ANY = re.compile(r"(?i)[\[(]?\s*(to be collected|to be confirmed|tbd|tbc|todo|unverified|to capture)\b[^)\]\n]*[\])]?")
 
@@ -893,12 +896,12 @@ def lint(text, impact=None, dates=None, held=None):
             pm = PROCESS_LEAK.search(l)
             if pm:
                 fail("no-process-leak", f"line {i}", f"`{pm.group(0)}` talks about the writing, not the candidate: `{excerpt(l)}`")
-        collected += len(MARKER_COLLECTED.findall(l))
+        collected += len(MARKER_COLLECTED.findall(l)) + (len(MARKER_COLLECTED_QUOTE.findall(l)) if l.startswith(">") else 0)
         confirmed += len(MARKER_CONFIRMED.findall(l))
         if not in_feedback:                       # providers tag principles in square brackets, verbatim (D70)
             for m in MARKER_ANY.finditer(l):
                 tok = m.group(0)
-                if MARKER_COLLECTED.fullmatch(tok) or MARKER_CONFIRMED.fullmatch(tok):
+                if MARKER_COLLECTED.fullmatch(tok) or MARKER_CONFIRMED.fullmatch(tok) or (l.startswith(">") and MARKER_COLLECTED_QUOTE.fullmatch(tok)):
                     continue
                 fail("markers-consistent", f"line {i}", f"`{excerpt(tok)}` is not (TO BE COLLECTED) or (TO BE CONFIRMED)")
             for m in MARKER_CONFIRMED.finditer(l):
@@ -1165,7 +1168,7 @@ def lint_stories(stories, fail, length_fails, warnings, counts, trait_check=lamb
         if len(quotes) != 1:
             fail("quote-per-story", sec, f"{len(quotes)} quote lines, need exactly 1")
         elif not QUOTE_LINE.match(quotes[0]):
-            fail("quote-form", sec, f"`{excerpt(quotes[0])}` is not `> \"...\", <Name>, <role>` or `> (TO BE COLLECTED: quote from <role>)`")
+            fail("quote-form", sec, f"`{excerpt(quotes[0])}` is not `> \"...\", <Name>, <role>`, `> (TO BE COLLECTED: quote from <role>)` or `> [TO BE COLLECTED: quote from <role>]`")
         links = len(LINK.findall("\n".join(sbody)))
         counts.append(f"links {sec}: {links}")
         if links == 0:
