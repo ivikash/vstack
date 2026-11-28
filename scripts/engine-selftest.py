@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Engine self-test: six behaviours proven against a throwaway instance, no model call, seconds.
+"""Engine self-test: seven behaviours proven against a throwaway instance, no model call, seconds.
 
   record-replace   `vstack record` twice on one run id leaves ONE runs.jsonl line and the latest verdict wins
   gather-steps     the rendered prompt carries gather.order and gather.step_0 before the sources
@@ -10,6 +10,8 @@
   style-rules      scripts/style-check.py self-test passes, gate-policy.json required_style_rules renders the
                    countable-rules line into the GATE section, `check` fails a writer whose gate opts out of them,
                    `check-run` marks a draft with a finding unmet and passes once it is fixed
+  new-workflow     the seven intake questions of ADR 0006 in order, defaults from the nearest workflow, the five files plus a
+                   dry run, `check` passes on the view, never overwrites, refuses a bad regex, --defaults takes all seven
 
 Exit 1 on the first failure. Run by scripts/check.sh (group `engine`).
 """
@@ -143,6 +145,45 @@ def main():
         out = r.stdout + r.stderr
         assert "style " not in out.replace("style rules:", ""), f"check-run still reports a style finding on the fixed draft:\n{out}"
         print("style-rules   ok")
+
+        # new-workflow: the seven intake questions of ADR 0006, in that order, with defaults from the nearest workflow,
+        # write the five files plus a dry run, pass `check` inside the instance, never overwrite, and refuse a bad regex
+        vm = __import__("types").ModuleType("vstack_mod"); vm.__file__ = str(VSTACK)
+        exec(compile(VSTACK.read_text(), str(VSTACK), "exec"), vm.__dict__)
+        assert [k for k, _ in vm.INTAKE] == ["document", "audience", "due", "sources", "lands", "never", "example"], "INTAKE is not the seven questions of ADR 0006 in order"
+        out = tmp / "nw-out"
+        answers = tmp / "answers.json"
+        answers.write_text(json.dumps({"document": "Weekly budget note, one rolling file", "audience": "the owner", "due": "1 0 * * MON UTC",
+                                       "sources": "docs.read, chat.search", "lands": "files.write reports/budget/<YYYY-MM-DD>.md",
+                                       "never": ["\\bforecast\\b :: no forecasts (owner ruling)", "never names a vendor price"],
+                                       "example": str(inst / "glossary.md")}))
+        r = sh("new-workflow", "budget-weekly", "--instance", str(inst), "--answers", str(answers), "--out", str(out), "--skills-dir", str(HERE / "skills"), check=False)
+        assert r.returncode == 0 and "invariants: PASS" in r.stdout, f"new-workflow failed:\n{r.stdout}{r.stderr}"
+        assert f"nearest: {wf['id']}" in r.stdout, "nearest workflow not reported"
+        for rel in ("workflows/budget-weekly.json", "workflows/budget-weekly.sample.json", "context/budget-weekly/mistakes.md",
+                    "context/budget-weekly/example.md", "adr/budget-weekly/0001-why-it-exists-and-what-it-must-never-do.md"):
+            assert (out / rel).exists(), f"new-workflow did not write {rel}"
+        nw = json.load(open(out / "workflows/budget-weekly.json"))
+        assert nw["trigger"]["cron"] == "1 0 * * MON" and nw["trigger"]["timezone"] == "UTC", nw["trigger"]
+        assert [s["connector"] for s in nw["sources"]] == ["docs.read", "chat.search"], nw["sources"]
+        assert nw["sink"]["connector"] == "files.write" and nw["sink"]["dry_run_path"] == "budget-weekly.md", nw["sink"]
+        assert nw["draft_contract"]["must_not_match"] == [{"pattern": "\\bforecast\\b", "why": "no forecasts (owner ruling)"}], nw["draft_contract"]
+        assert "Never: never names a vendor price" in nw["writer"]["extra_inputs"], "a plain never sentence did not reach the writer"
+        assert "${instance}/style.md" in nw["gate"]["extra_checklists"], "gate-policy required checklist not added to the new gate"
+        assert "never names a vendor price" in (out / "adr/budget-weekly/0001-why-it-exists-and-what-it-must-never-do.md").read_text(), "ADR 0001 lacks the never line"
+        assert "Weekly budget note" in (out / "adr/budget-weekly/0001-why-it-exists-and-what-it-must-never-do.md").read_text(), "ADR 0001 lacks the document"
+        assert (out / "context/budget-weekly/example.md").read_text().count("\n") > 2, "example.md was not copied from the given file"
+        prompts = list((out / "runs/budget-weekly").glob("print-*/prompt.md"))
+        assert len(prompts) == 1 and "Readers: the owner" in prompts[0].read_text(), "dry run prompt missing or without the audience"
+        r = sh("check", "--instance", str(out / ".instance-view"), check=False)
+        assert r.returncode == 0, f"check failed on the view with the new workflow:\n{r.stdout}{r.stderr}"
+        r = sh("new-workflow", "budget-weekly", "--instance", str(inst), "--defaults", "--out", str(out), check=False)
+        assert r.returncode != 0 and "never overwrites" in r.stderr, "new-workflow overwrote an existing workflow"
+        r = sh("new-workflow", "budget-bad", "--instance", str(inst), "--defaults", "--set", "never=( :: unclosed", "--out", str(out), check=False)
+        assert r.returncode != 0 and "not a valid regex" in r.stderr, "new-workflow accepted a never rule that is not a regex"
+        r = sh("new-workflow", "budget-defaults", "--instance", str(inst), "--defaults", "--out", str(out), "--skills-dir", str(HERE / "skills"), check=False)
+        assert r.returncode == 0 and r.stdout.count("(default)") == 7, f"--defaults did not take all seven defaults:\n{r.stdout}{r.stderr}"
+        print("new-workflow  ok")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

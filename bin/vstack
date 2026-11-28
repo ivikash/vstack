@@ -16,6 +16,8 @@ Subcommands
   link-skills   make every harness skill dir a symlink to one canonical dir
   gen-cron      emit crontab lines (or kirocrew cron commands) for every workflow with a trigger
   gen-mcp       emit an MCP server block for one harness from one servers file
+  new-workflow  the fixed intake: seven questions with defaults from the nearest workflow, then the workflow JSON,
+                its sample, mistakes.md, example.md, ADR 0001, a check and a dry run (ADR 0006)
   check-run     verify a run directory against the done-means contract (artifacts, not claims)
   style-check   run the instance's countable style rules (scripts/style-check.py) on one markdown file
   retro         read the ledger for the last N days and write a dated retro page with per-workflow
@@ -1667,6 +1669,328 @@ def gen_agent(args):
     print(json.dumps(agent, indent=2))
 
 
+# ----------------------------------------------------------------------------- new-workflow
+# The fixed intake (ADR 0006): the same seven questions every time, each with a default drawn from the
+# nearest existing workflow, then the files a workflow needs on day one. The question set is data here
+# and prose in the instance's context/factory/intake.md, the two must agree (engine self-test reads both).
+INTAKE = (
+    ("document", "What document is it? One line: the kind, its title shape, one or many"),
+    ("audience", "Who reads it?"),
+    ("due", "When is it due? A cron line in the trigger timezone, or 'on demand'"),
+    ("sources", "Which sources? Connector names, comma separated"),
+    ("lands", "Where does it land? Sink connector, then the ref"),
+    ("never", "What must it never contain? One rule per line: `regex :: why`, or a plain sentence"),
+    ("example", "One example of a good one: path to a document that passed"),
+)
+
+
+def nearest_workflow(workflows_dir, new_id, like=None):
+    """The existing workflow whose id shares the most hyphen-separated words with the new id, ties broken
+    alphabetically, or the one named by --like. Returns (path, workflow) or (None, {})."""
+    cells = {}
+    for p in sorted(Path(workflows_dir).glob("*.json")):
+        if p.name.endswith(".sample.json"):
+            continue
+        try:
+            cells[p.stem] = (p, load(p))
+        except Exception:
+            continue
+    if not cells:
+        return None, {}
+    if like:
+        if like not in cells:
+            die(f"--like {like}: no workflows/{like}.json in the instance")
+        return cells[like]
+    words = set(new_id.split("-"))
+    scored = sorted(cells.items(), key=lambda kv: (-len(words & set(kv[0].split("-"))), kv[0]))
+    return scored[0][1]
+
+
+def intake_defaults(near):
+    """One default per question, each drawn from the nearest workflow (empty when it has nothing)."""
+    sink = near.get("sink") or {}
+    doc = sink.get("document") if isinstance(sink.get("document"), dict) else {}
+    tr = near.get("trigger") or {}
+    nevers = [f"{r.get('pattern', '')} :: {r.get('why', '')}" for r in (near.get("draft_contract") or {}).get("must_not_match", []) if r.get("pattern")]
+    return {
+        "document": near.get("document") or doc.get("title") or sink.get("ref", "")[:120],
+        "audience": near.get("audience") or (near.get("brief") or {}).get("ref", ""),
+        "due": f"{tr.get('cron') or 'on demand'} {tr.get('timezone', 'UTC')}".strip(),
+        "sources": ", ".join(sorted({s.get("connector", "") for s in near.get("sources", []) if s.get("connector")})),
+        "lands": f"{sink.get('connector', 'files.write')} {sink.get('ref', '')}".strip(),
+        "never": "\n".join(nevers),
+        "example": (near.get("writer") or {}).get("template", ""),
+    }
+
+
+def intake_answers(args, defaults):
+    """Answers in order of precedence: --set key=value, --answers file, the prompt (tty only), the default."""
+    given = {}
+    if args.answers:
+        given.update(load(args.answers))
+    for kv in args.set or []:
+        if "=" not in kv:
+            die(f"--set wants key=value, got {kv!r}")
+        k, v = kv.split("=", 1)
+        given[k.strip()] = v
+    unknown = set(given) - {k for k, _ in INTAKE}
+    if unknown:
+        die(f"answers name no intake question: {', '.join(sorted(unknown))} (questions: {', '.join(k for k, _ in INTAKE)})")
+    answers = {}
+    interactive = not args.defaults and not args.answers and not args.set and sys.stdin.isatty()
+    for key, question in INTAKE:
+        if key in given:
+            answers[key] = given[key]
+        elif interactive:
+            d = defaults.get(key, "")
+            shown = d.replace("\n", " | ") if isinstance(d, str) else d
+            try:
+                raw = input(f"{question}\n  [{shown}] > ").strip()
+            except EOFError:
+                raw = ""
+            answers[key] = raw or d
+        elif args.defaults or args.answers or args.set:
+            answers[key] = defaults.get(key, "")
+        else:
+            die("no terminal: pass --answers FILE, --set key=value or --defaults")
+    return answers
+
+
+def _as_list(v):
+    if isinstance(v, list):
+        return [str(x).strip() for x in v if str(x).strip()]
+    return [x.strip() for x in re.split(r"[,\n]", str(v or "")) if x.strip()]
+
+
+def _never_rules(v):
+    """`regex :: why` lines or {pattern, why} objects become must_not_match rules, plain sentences stay prose."""
+    rules, prose = [], []
+    items = v if isinstance(v, list) else [x for x in str(v or "").split("\n") if x.strip()]
+    for it in items:
+        if isinstance(it, dict) and it.get("pattern"):
+            rules.append({"pattern": it["pattern"], "why": it.get("why", "")})
+        elif isinstance(it, str) and " :: " in it:
+            pat, why = it.split(" :: ", 1)
+            rules.append({"pattern": pat.strip(), "why": why.strip()})
+        elif str(it).strip():
+            prose.append(str(it).strip())
+    for r in rules:
+        try:
+            re.compile(r["pattern"])
+        except re.error as e:
+            die(f"never rule is not a valid regex ({e}): {r['pattern']}")
+    return rules, prose
+
+
+def build_workflow(new_id, near, answers, component, bot, policy=None):
+    policy = policy or {}
+    """The workflow JSON: the nearest workflow's shape (writer, gate, cache, ledger fields, coverage, bot,
+    workspace) with the seven answers written into their fields. Nothing else is copied blindly."""
+    due = str(answers["due"]).strip()
+    parts = due.split()
+    if due.lower().startswith("on demand"):
+        cron, tz = None, (parts[2] if len(parts) > 2 else (near.get("trigger") or {}).get("timezone", "UTC"))
+    elif len(parts) >= 6:
+        cron, tz = " ".join(parts[:5]), parts[5]
+    elif len(parts) == 5:
+        cron, tz = due, (near.get("trigger") or {}).get("timezone", "UTC")
+    else:
+        die(f"due must be five cron fields plus a timezone, or 'on demand [timezone]', got {due!r}")
+    lands = str(answers["lands"]).strip().split(None, 1)
+    if not lands or "." not in lands[0]:
+        die(f"lands must start with a namespaced sink connector (e.g. files.write), got {answers['lands']!r}")
+    sink_conn, sink_ref = lands[0], (lands[1] if len(lands) > 1 else "")
+    sources = _as_list(answers["sources"])
+    if not sources:
+        die("sources: at least one connector")
+    near_src = {s.get("connector"): s for s in near.get("sources", []) if s.get("connector")}
+    rules, prose = _never_rules(answers["never"])
+    gate = dict(near.get("gate") or {"skill": "validate-writing", "doc_type": "passage"})
+    gate["min_passes"], gate["max_passes"] = max(2, int(gate.get("min_passes", 2) or 2)), min(5, max(int(gate.get("max_passes", 5) or 5), 2))
+    for req in policy.get("required_extra_checklists") or []:
+        if req not in (gate.get("extra_checklists") or []):
+            gate["extra_checklists"] = list(gate.get("extra_checklists") or []) + [req]
+    if policy.get("required_style_rules") and "style_rules" in gate:
+        gate["style_rules"] = policy["required_style_rules"]
+    writer = {"skill": (near.get("writer") or {}).get("skill", "write-exec-update")}
+    extra = [f"Document: {answers['document']}", f"Readers: {answers['audience']}"]
+    extra += [f"Never: {p}" for p in prose]
+    extra.append("${instance}/context/" + new_id + "/example.md is one example of a good one, match its shape")
+    extra.append("${instance}/context/" + new_id + "/mistakes.md lists every owner correction, each line is binding")
+    writer["extra_inputs"] = extra
+    sink = {"connector": sink_conn, "ref": sink_ref, "dry_run_path": f"{new_id}.md"}
+    if sink_conn.startswith("docs.") and sink_conn.endswith(".write"):
+        near_doc = (near.get("sink") or {}).get("document") if isinstance((near.get("sink") or {}).get("document"), dict) else {}
+        sink["document"] = {"kind": near_doc.get("kind", "rolling"), "title": str(answers["document"]).strip()[:120]} if near_doc.get("kind", "rolling") == "rolling" \
+            else {"kind": "per_event", "event": new_id}
+    wf = {
+        "id": new_id,
+        "kind": "writer",
+        "component": component or near.get("component", "program"),
+        **({"workspace": near["workspace"]} if near.get("workspace") else {}),
+        **({"bot": bot or near["bot"]} if (bot or near.get("bot")) else {}),
+        "document": str(answers["document"]).strip(),
+        "audience": str(answers["audience"]).strip(),
+        "trigger": {**({"cron": cron} if cron else {"on_demand": "vstack run <workflow> --harness <h>"}), "timezone": tz, "events": []},
+        "sources": [dict(near_src.get(c, {}), connector=c, ref=near_src.get(c, {}).get("ref", ""), notes=near_src.get(c, {}).get("notes", "read only (TO BE CONFIRMED: narrow the ref)")) for c in sources],
+        "coverage": {"min_sources": min(2, len(sources))},
+        "cache": {"key": f"{component or near.get('component', 'program')}/{new_id}", "ttl_hours": (near.get("cache") or {}).get("ttl_hours", 20)},
+        "gather": {"read_only": "every connector above is read, list, search or get. Never post, react, mark read, resolve, comment, create or edit anything outside the sink during gather"},
+        "writer": writer,
+        "gate": gate,
+        "sink": sink,
+        "ledger": {"file": f"{new_id}.jsonl", "fields": ["file_path", "sink_mode", "gate_passes", "tbc_count", "minutes_elapsed", "tool_calls"]},
+        "config": {"mistakesFile": "${instance}/context/" + new_id + "/mistakes.md"},
+        "draft_contract": {"must_not_match": rules},
+    }
+    return wf
+
+
+def new_workflow(args):
+    """`vstack new-workflow <id> --instance d`: the seven intake questions, defaults from the nearest workflow,
+    then workflows/<id>.json, workflows/<id>.sample.json, context/<id>/mistakes.md, context/<id>/example.md,
+    adr/<id>/0001-why-it-exists-and-what-it-must-never-do.md, `check` over the instance with the new file in
+    it, and a dry run (render --dry-run --harness print) whose prompt lands under <out>/runs/<id>/. --out writes
+    everything into another directory and checks it through <out>/.instance-view, a symlink view of the instance
+    with the new files in it (kept, so the dry-run prompt's paths resolve). Exit 1 when the new
+    workflow fails the invariants."""
+    inst = Path(args.instance or os.environ.get("VSTACK_INSTANCE") or die("new-workflow needs --instance")).expanduser().resolve()
+    wdir = inst / "workflows"
+    if not wdir.is_dir():
+        die(f"{inst} has no workflows/ directory")
+    new_id = args.id
+    if not re.fullmatch(r"[a-z][a-z0-9-]*", new_id):
+        die(f"id must be lowercase words joined by hyphens, got {new_id!r}")
+    out = Path(args.out).expanduser().resolve() if args.out else inst
+    if (wdir / f"{new_id}.json").exists() or (out / "workflows" / f"{new_id}.json").exists():
+        die(f"workflows/{new_id}.json exists already, new-workflow never overwrites")
+    near_path, near = nearest_workflow(wdir, new_id, args.like)
+    defaults = intake_defaults(near)
+    answers = intake_answers(args, defaults)
+    policy = {}
+    if (inst / "gate-policy.json").exists():
+        try:
+            policy = load(inst / "gate-policy.json")
+        except Exception as e:
+            die(f"gate-policy.json: not valid JSON ({e})")
+    wf = build_workflow(new_id, near, answers, args.component, args.bot, policy)
+    today = dt.date.today()
+    mmdd = today.strftime("%m/%d/%Y")
+    rules, prose = _never_rules(answers["never"])
+    written = []
+
+    def put(rel, text):
+        p = out / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        if p.exists():
+            die(f"{p} exists already, new-workflow never overwrites")
+        p.write_text(text)
+        written.append(str(p))
+
+    put(f"workflows/{new_id}.json", json.dumps(wf, indent=2, ensure_ascii=False) + "\n")
+    # sample evidence: the nearest workflow's sample with the cadence renamed, else a stub with one entry per source
+    sample = None
+    if near_path and near_path.with_name(near_path.stem + ".sample.json").exists():
+        try:
+            sample = load(near_path.with_name(near_path.stem + ".sample.json"))
+        except Exception:
+            sample = None
+    if not isinstance(sample, dict):
+        sample = {"gathered_at": now(), "window": {"cadence": new_id}, "sources": []}
+    sample = dict(sample)
+    sample["window"] = {**(sample.get("window") or {}), "cadence": new_id}
+    sample["sources"] = [{"connector": c, "status": "ok", "items": 0} for c in _as_list(answers["sources"])]
+    sample.setdefault("note", f"sample evidence written by vstack new-workflow on {mmdd} from {near_path.stem if near_path else 'a stub'}, replace with a real gather")
+    put(f"workflows/{new_id}.sample.json", json.dumps(sample, indent=2, ensure_ascii=False) + "\n")
+    # mistakes.md: the shape every workflow's mistakes file has, no rows yet
+    put(f"context/{new_id}/mistakes.md",
+        f"# {new_id}: mistakes log\n\nEvery correction the owner makes to a landed document, dated, with the rule it became and where that rule is enforced. "
+        f"The writer reads this file on every run (`writer.extra_inputs`). A line here is binding. When a new correction lands: add a row, then add or tighten a "
+        f"`draft_contract` rule in `workflows/{new_id}.json` and prove it with `vstack check-run`. Never edit or delete an earlier row.\n\n"
+        f"| # | Date | What went wrong | Rule | Enforced by |\n|---|---|---|---|---|\n")
+    # example.md: the good one, copied when the answer is a readable file
+    ex = str(answers["example"] or "").strip().replace("${instance}", str(inst))
+    ex_path = Path(ex).expanduser() if ex else None
+    if ex_path and ex_path.is_file():
+        put(f"context/{new_id}/example.md", f"<!-- one example of a good {new_id}, copied by vstack new-workflow on {mmdd} from {ex_path} -->\n" + ex_path.read_text())
+    else:
+        put(f"context/{new_id}/example.md", f"# Example of a good {new_id}\n\n(TO BE CONFIRMED: no example given at intake on {mmdd}. Paste one document that passed, the writer matches its shape.)\n")
+    # ADR 0001, the shape the instance's gen-adr writes, so its --check finds the file and leaves it alone
+    nevers = [wf["gather"]["read_only"]] + [r["why"] for r in rules if r.get("why")] + prose
+    tr = wf["trigger"]
+    adr = (f"---\ntitle: 0001 {new_id}: why it exists and what it must never do\ndate: {today.isoformat()}\narea: {new_id}\nrealm: private\nkind: note\n"
+           f"tags: [meta, decision, workflow, {new_id}]\nstatus: accepted\n---\n# 0001 {new_id}: why it exists and what it must never do\n\n## Context\n"
+           f"Workflow `{new_id}` (component {wf['component']}, bot {wf.get('bot')}) is one recurring document defined once in `workflows/{new_id}.json`, "
+           f"written by `vstack new-workflow` on {mmdd} with defaults from `{near_path.stem if near_path else 'none'}`. Schedule: `{tr.get('cron') or 'on demand'}` {tr.get('timezone', '')}.\n\n"
+           f"## Decision\nWorkflow `{new_id}` writes {wf['document']} for {wf['audience']}. The document lands at {wf['sink']['ref'] or 'a file'} through connector `{wf['sink']['connector']}`. "
+           f"The sources are {', '.join(s['connector'] for s in wf['sources'])}. The writer is `{wf['writer']['skill']}`, the gate `{wf['gate'].get('skill')}` with "
+           f"{wf['gate']['min_passes']} to {wf['gate']['max_passes']} passes.\n\n## What it must never do\n" + "\n".join(f"- {n}" for n in nevers if n) +
+           f"\n\n## Consequences\n- Every change to its shape or sources is a new row in `context/` and a new ADR, never an edit to this one.\n"
+           f"- `vstack check` and the draft_contract enforce the never lines that are regexes, the rest are instruction only.\n\n## Enforced by\n"
+           f"`workflows/{new_id}.json` draft_contract and gather.read_only, `vstack check`, `vstack reflect` proposals\n\n## Source row\n"
+           f"`workflows/{new_id}.json` as of {mmdd}, intake answers in `context/factory/intake.md`\n")
+    put(f"adr/{new_id}/0001-why-it-exists-and-what-it-must-never-do.md", adr)
+
+    # check: the instance with the new workflow in it. With --out, a merged view (symlinks) stands in for the instance.
+    view = inst
+    tmp = None
+    if out != inst:
+        tmp = out / ".instance-view"
+        if tmp.exists():
+            shutil.rmtree(tmp)
+        tmp.mkdir(parents=True)
+        for child in inst.iterdir():
+            if child.name != "workflows":
+                (tmp / child.name).symlink_to(child)
+        (tmp / "workflows").mkdir()
+        for p in wdir.glob("*.json"):
+            (tmp / "workflows" / p.name).symlink_to(p)
+        for p in (out / "workflows").glob(f"{new_id}*.json"):
+            (tmp / "workflows" / p.name).symlink_to(p)
+        for sub in ("context", "adr"):
+            if (tmp / sub).is_symlink():
+                (tmp / sub).unlink()
+                (tmp / sub).mkdir()
+                for child in (inst / sub).iterdir():
+                    (tmp / sub / child.name).symlink_to(child)
+                if (out / sub / new_id).exists():
+                    (tmp / sub / new_id).symlink_to(out / sub / new_id)
+        view = tmp
+    fails, _ = check(view / "workflows", args.private_component)
+    mine = [f for f in fails if f.startswith(new_id + ":")]
+    # dry run: render --dry-run --harness print, the prompt lands under <out>/runs/<id>/
+    dry = None
+    if not mine:
+        ns = argparse.Namespace(cmd="render", cell=str(view / "workflows" / f"{new_id}.json"), harness="print", instance=str(view),
+                                tools=None, org_profile=None, skills_dir=args.skills_dir, extra_skill_dirs=[], skills_lock=None,
+                                private_component=args.private_component, run_root=str(out / "runs"), cache_root=str(out / "runs" / "cache"),
+                                ledger_root=str(out / "runs" / "ledger"), fixture=None, dry_run=True, no_publish=False,
+                                agent=None, model=None, timeout=0, second_opinion=None)
+        import contextlib, io
+        buf = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(buf):
+                run(ns)
+            dry = sorted((out / "runs" / new_id).glob("print-*/prompt.md"))[-1]
+        except SystemExit as e:
+            dry = f"dry run failed: {e}"
+    print(f"new-workflow: {new_id} (nearest: {near_path.stem if near_path else 'none'}, out: {out})")
+    for k, q in INTAKE:
+        v = answers[k]
+        shown = " | ".join(x if isinstance(x, str) else json.dumps(x) for x in v) if isinstance(v, list) else str(v).replace(chr(10), " | ")
+        print(f"  {k:<9} {shown[:140]}{'  (default)' if v == defaults.get(k) else ''}")
+    for w in written:
+        print(f"  wrote  {w}")
+    for f in mine:
+        print(f"  FAIL   {f}")
+    if fails and not mine:
+        print(f"  note   {len(fails)} invariant failure(s) elsewhere in the instance, none on {new_id}")
+    if dry is not None:
+        print(f"  dry-run {dry}")
+    print("invariants:", "PASS" if not mine else f"{len(mine)} failure(s)")
+    return 1 if mine else 0
+
+
 # ----------------------------------------------------------------------------- main
 def main():
     ap = argparse.ArgumentParser(prog="vstack", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -1710,7 +2034,22 @@ def main():
     sp.add_argument("--instance", help="instance directory; fills --connectors, --glossary and --workflows (default: $VSTACK_INSTANCE)")
     sp.add_argument("--connectors", "--tools", dest="tools"); sp.add_argument("--glossary", "--org-profile", dest="org_profile"); sp.add_argument("--vstack-bin", default=str(HERE / "bin/vstack")); sp.add_argument("--log-dir", default=str(HOME / ".local/state/vstack/logs"))
     sp = sub.add_parser("gen-mcp"); sp.add_argument("--servers", required=True); sp.add_argument("--target", required=True)
+    sp = sub.add_parser("new-workflow")  # the fixed intake (ADR 0006): seven questions, defaults from the nearest workflow, the files a workflow needs on day one
+    sp.add_argument("id", help="new workflow id, lowercase words joined by hyphens")
+    sp.add_argument("--instance", help="instance directory (default: $VSTACK_INSTANCE)")
+    sp.add_argument("--like", help="the existing workflow the defaults come from (default: the id sharing the most words with the new one)")
+    sp.add_argument("--answers", help="JSON file {question key: answer}; keys document, audience, due, sources, lands, never, example")
+    sp.add_argument("--set", action="append", metavar="KEY=VALUE", help="one answer, repeatable, wins over --answers")
+    sp.add_argument("--defaults", action="store_true", help="take every default, ask nothing")
+    sp.add_argument("--out", help="write into this directory instead of the instance (checked as if inside it)")
+    sp.add_argument("--component", help="component of the new workflow (default: the nearest workflow's)")
+    sp.add_argument("--bot", help="bot that hosts it (default: the nearest workflow's)")
+    sp.add_argument("--skills-dir", default=str(HOME / ".agents/skills"))
+    sp.add_argument("--private-component", default=PRIVATE_COMPONENT_DEFAULT)
     args = ap.parse_args()
+
+    if args.cmd == "new-workflow":
+        sys.exit(new_workflow(args))
 
     if args.cmd in ("check", "map"):
         args.tools = None; args.org_profile = None

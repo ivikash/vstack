@@ -29,6 +29,14 @@
       "type": "string",
       "description": "partition this workflow belongs to; the private one (default 'hr') keeps people data apart"
     },
+    "document": {
+      "type": "string",
+      "description": "intake question 1: what document it is, one line (vstack new-workflow, ADR 0006)"
+    },
+    "audience": {
+      "type": "string",
+      "description": "intake question 2: who reads it (vstack new-workflow, ADR 0006)"
+    },
     "workspace": {
       "type": "string",
       "description": "required for the private component: the folder and memory partition the cell runs in"
