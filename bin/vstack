@@ -1332,17 +1332,85 @@ def _blocks(text):
 
 
 def _norm(b):
-    """Comparison form of a block: bold markers and heading depth are rendering, not content (Chorus stores
-    `**[t](u)**` as `[**t**](u)` and demotes section sub-headings), separator rows and whitespace collapse."""
+    """Comparison form of a block: bold markers and heading depth are rendering, not content (the document store
+    demotes section sub-headings), separator rows and whitespace collapse. Emphasised links are canonicalised
+    before this by canon_markup, so the raw before and after texts agree too, not only the pairing key."""
     t = b.replace("**", "")
     t = re.sub(r"^#+\s*", "", t, flags=re.M)
     t = re.sub(r"^\|(\s*:?-{3,}:?\s*\|)+\s*$", "|---|", t, flags=re.M)
     return re.sub(r"\s+", " ", t).strip()
 
 
+# an emphasised link with the markers inside the label: `[**x**](u)`, `[*x*](u)`, `[_x_](u)`, `[***x***](u)`.
+# the label may hold brackets of its own (`[**[Tag] title**](u)`), so it runs lazily to the closing marker.
+EMPH_LINK_RX = re.compile(r"\[(\*{1,3}|_{1,3})([^\n]+?)\1\]\(([^)\n]*)\)")
+
+
+def canon_markup(text):
+    """One spelling for an emphasised link, the writers' `**[x](u)**`. The document store returns `**[x](u)**` as
+    `[**x**](u)` on read-back (every one of the 420 emphasised links read back on 11/28/2026, no italic or nested form
+    seen), which is rendering, not an owner edit. Applied to both sides before the diff so the pairing key, the
+    classification, the proposed regex, the edit ratio and the filed before and after text all see one form (ADR 0020)."""
+    return EMPH_LINK_RX.sub(lambda m: f"{m.group(1)}[{m.group(2)}]({m.group(3)}){m.group(1)}", text)
+
+
+# headings a rolling document keeps once, outside every run's section (the frame), never written by a run.
+# REFLECT_PROMPT names the same heading as the end of the section.
+FRAME_HEADINGS = ("about",)
+
+
+def _is_frame(line):
+    """`## About` and `## About this document` are the frame, `## About the incident` inside a section is not: the
+    heading text is a frame word alone or followed by `this`."""
+    t = _norm(line).lower()
+    return any(t == w or t.startswith(w + " this") for w in FRAME_HEADINGS)
+
+
+def _heading_level(line):
+    m = re.match(r"^(#+)\s", line)
+    return len(m.group(1)) if m else None
+
+
+def reflect_span(draft, landed, heading):
+    """The span the run wrote, on both sides (ADR 0020). Draft: from the section heading to the end, cut before a
+    same-level frame heading (the About block of a rolling document is written once with the document, not by the run).
+    Landed: from the heading whose text equals the section heading, cut before the first heading at the section's level
+    or above whose text is a frame heading or no heading of the draft span (the previous run's section, the document
+    title). Blocks outside either span are the document's frame or another run's section, so they are never scored
+    as the owner's edits. shortcut: a same-level heading the owner adds inside the section ends the landed span early,
+    upgrade when a reflect shows one."""
+    if not heading or heading not in draft:
+        return draft, landed
+    level = _heading_level(heading) or 2
+    lines = draft.splitlines()
+    start = next(i for i, l in enumerate(lines) if l == heading)
+    end = len(lines)
+    for i in range(start + 1, len(lines)):
+        if _heading_level(lines[i]) == level and _is_frame(lines[i]):
+            end = i; break
+    draft_span = "\n".join(lines[start:end])
+    own = {_norm(l).lower() for l in lines[start:end] if _heading_level(l)}
+    llines = landed.splitlines()
+    key = _norm(heading).lower()
+    lstart = next((i for i, l in enumerate(llines) if _heading_level(l) and _norm(l).lower() == key), None)
+    if lstart is None:
+        return draft_span, landed
+    lend = len(llines)
+    for i in range(lstart + 1, len(llines)):
+        lv = _heading_level(llines[i])
+        if lv is not None and lv <= level:
+            t = _norm(llines[i]).lower()
+            if _is_frame(llines[i]) or t not in own:
+                lend = i; break
+    return draft_span, "\n".join(llines[lstart:lend])
+
+
 def reflect_diff(draft_text, landed_text):
-    """Pair draft blocks with landed blocks (same normalised text, else best match by table-row key or position) and classify."""
+    """Pair draft blocks with landed blocks (same normalised text, else best match by table-row key or position) and
+    classify. Both sides pass canon_markup first, so an emphasised link read back with the markers inside the label is
+    the same text as the draft's."""
     import difflib
+    draft_text, landed_text = canon_markup(draft_text), canon_markup(landed_text)
     d, l = _blocks(draft_text), _blocks(landed_text)
     dn, ln = [_norm(b) for b in d], [_norm(b) for b in l]
     changes, matched_l = [], set()
@@ -1410,7 +1478,8 @@ whole doc, as markdown to {landed_file}: every block in document order, tables a
 one line per row, lists as `- ` lines, headings as `#` lines, one blank line between blocks. Keep the
 block ids and hashes as HTML comments on the line before each block, exactly as the read returns them.
 The section starts at the heading whose text equals the draft's section heading (the first `## ` line in
-{run_dir}/draft.md) and ends before the next heading of the same level or the About heading.
+{run_dir}/draft.md) and ends before the next heading of the same level or the About heading. The engine cuts
+the read-back to that span itself, so a whole-document read-back is also fine.
 
 Doc id: {doc_id}
 Section heading to find: {heading}
@@ -1505,13 +1574,21 @@ def reflect(args):
         out = {"age": age, "doc_id": doc_id, "status": "unreadable", "note": landed_text.strip(), "computed_at": now()}
         (run_dir / f"reflect-{age}.json").write_text(json.dumps(out, indent=2) + "\n")
         print(json.dumps(out)); return 0
-    # the draft section: from the first ## heading to Known Gaps inclusive (the status table is per doc, not per run)
-    sec = draft.split(heading, 1)[1] if heading and heading in draft else draft
-    sec = heading + sec
+    # the written span on both sides: the draft from its section heading to the frame (About), the read-back from the
+    # same heading to the next section or the frame. The status table before the heading is per document, not per run
     landed_clean = "\n".join(l for l in landed_text.splitlines() if not l.startswith("<!--"))
-    diff = reflect_diff(sec, landed_clean)
-    out = {"age": age, "doc_id": doc_id, "status": "ok", "computed_at": now(), "heading": heading, **diff,
+    sec, landed_span = reflect_span(draft, landed_clean, heading)
+    diff = reflect_diff(sec, landed_span)
+    span = {"draft_blocks_outside": len(_blocks(draft)) - len(_blocks(sec)), "landed_blocks_outside": len(_blocks(landed_clean)) - len(_blocks(landed_span))}
+    out = {"age": age, "doc_id": doc_id, "status": "ok", "computed_at": now(), "heading": heading, "span": span, **diff,
            "counts": {k: sum(1 for c in diff["changes"] if c["kind"] == k) for k in ("wording", "fact", "structure", "deletion")}}
+    if args.dry_run:
+        # write nothing anywhere: print the diff and what the filing below would do with it
+        out["would_file"] = {"proposals": sum(1 for c in diff["changes"] if c["kind"] in ("wording", "structure") and c.get("before")),
+                             "mistakes": sum(1 for c in diff["changes"] if c["kind"] == "fact"),
+                             "deletions": sum(1 for c in diff["changes"] if c["kind"] == "deletion" and c.get("before")),
+                             "proposed_regexes": [_proposed_regex(c["before"], c["after"]) or "" for c in diff["changes"] if c["kind"] in ("wording", "structure") and c.get("before")]}
+        print(json.dumps(out, indent=2)); return 0
     (run_dir / f"reflect-{age}.json").write_text(json.dumps(out, indent=2) + "\n")
     # scorecard: owner_edit_ratio
     sc = run_dir / "scorecard.json"
@@ -2023,6 +2100,7 @@ def main():
     sp = sub.add_parser("record"); sp.add_argument("run_dir"); sp.add_argument("--workflow", help="workflow JSON whose contract applies"); sp.add_argument("--instance", default=os.environ.get("VSTACK_INSTANCE")); sp.add_argument("--ledger-root", default=str(HOME / ".local/state/vstack/ledger"))
     sp = sub.add_parser("reflect"); sp.add_argument("run_dir", nargs="?"); sp.add_argument("--age", choices=("24h", "7d"), default="24h"); sp.add_argument("--render", action="store_true", help="print the worker prompt that writes landed-<age>.md")
     sp.add_argument("--due", action="store_true", help="list `<run_dir> --age <age>` for every landed run 24 h or 7 d old without that reflect"); sp.add_argument("--doc-id"); sp.add_argument("--harness", choices=HARNESSES, default="kirocrew")
+    sp.add_argument("--dry-run", action="store_true", help="diff and print, write nothing (no reflect-<age>.json, scorecard, ledger line or instance filing)")
     sp.add_argument("--instance", default=os.environ.get("VSTACK_INSTANCE")); sp.add_argument("--ledger-root", default=str(HOME / ".local/state/vstack/ledger"))
     sp = sub.add_parser("check"); sp.add_argument("--instance", help="instance directory (default: $VSTACK_INSTANCE); fills --workflows"); sp.add_argument("--workflows", "--cells", dest="workflows"); sp.add_argument("--private-component", default=PRIVATE_COMPONENT_DEFAULT)
     sp = sub.add_parser("map"); sp.add_argument("--instance", help="instance directory (default: $VSTACK_INSTANCE)"); sp.add_argument("--workflows", "--cells", dest="workflows"); sp.add_argument("--json", action="store_true")

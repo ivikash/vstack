@@ -23,3 +23,4 @@ One decision, one file, written once. Status is in the frontmatter (`proposed`, 
 | [0017](0017-explicit-subjects-bare-terms-link-dates-span-units.md) | Explicit subjects, bare known terms, no date after an identifier link, a unit after every span | accepted |
 | [0018](0018-style-options-per-workflow-and-units-on-both-span-numbers.md) | A workflow switches a style rule key for its own drafts, and a bracket span carries its unit on both numbers | accepted |
 | [0019](0019-the-intake-command-exists-vstack-new-workflow-is-built-decis.md) | The intake command exists: `vstack new-workflow` is built, decision 7 is no longer a record without a mechanism | accepted |
+| [0020](0020-reflect-scores-the-written-span-and-one-link-spelling.md) | Reflect scores the span the run wrote and one spelling of an emphasised link | accepted |

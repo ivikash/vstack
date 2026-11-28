@@ -12,6 +12,13 @@
                    `check-run` marks a draft with a finding unmet and passes once it is fixed
   new-workflow     the seven intake questions of ADR 0006 in order, defaults from the nearest workflow, the five files plus a
                    dry run, `check` passes on the view, never overwrites, refuses a bad regex, --defaults takes all seven
+  reflect-span     `vstack reflect` on a two-section rolling document scores only the span the run wrote: a whole-document
+                   read-back (title, status table, the previous run's section, an About edited by the owner) and the
+                   draft's own About block give 0 changes, no proposal, no deletion count (ADR 0020)
+  reflect-markup   a link read back as `[**x**](u)` for the draft's `**[x](u)**` is not an edit: alone it is 0 changes,
+                   beside a real wording edit in the same row the proposed regex names the removed words and carries no
+                   emphasis marker, and the filed before and after text agree on the spelling (ADR 0020). `--dry-run`
+                   prints the diff and writes nothing
 
 Exit 1 on the first failure. Run by scripts/check.sh (group `engine`).
 """
@@ -184,8 +191,125 @@ def main():
         r = sh("new-workflow", "budget-defaults", "--instance", str(inst), "--defaults", "--out", str(out), "--skills-dir", str(HERE / "skills"), check=False)
         assert r.returncode == 0 and r.stdout.count("(default)") == 7, f"--defaults did not take all seven defaults:\n{r.stdout}{r.stderr}"
         print("new-workflow  ok")
+
+        reflect_behaviours(tmp, inst, vm, wf["id"])
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+DRAFT_TWO_SECTIONS = """# Budget notes
+
+Sources: used docs.read; unavailable none
+
+| Last run | Items |
+|---|---|
+| 11/28/2026 | 2 |
+
+## 11/28/2026 (covers 11/25/2026 to 11/27/2026)
+
+Two items this run.
+
+## Items
+| # | Item | Owner | Note |
+|---|---|---|---|
+| 1 | **[Cache rebuild](https://example.com/t/1)** | a builder | finished 11/27/2026 |
+| 2 | **[Queue split](https://example.com/t/2)** | a builder | in review |
+
+## About
+One rolling document, newest run on top.
+"""
+
+# the whole document as the store returns it: title and status table (the frame), this run's section with its
+# sub-heading demoted and the bold links turned inside out, the previous run's section, and an About the owner edited
+LANDED_WHOLE_DOC = """<!-- id=a-0, type=heading, hash=1 -->
+# Budget notes
+
+<!-- id=a-1, type=table, hash=2 -->
+| Last run | Items |
+| --- | --- |
+| 11/28/2026 | 2 |
+
+<!-- id=a-2, type=heading, hash=3 -->
+## 11/28/2026 (covers 11/25/2026 to 11/27/2026)
+
+<!-- id=a-3, type=paragraph, hash=4 -->
+Two items this run.
+
+<!-- id=a-4, type=heading, hash=5 -->
+### Items
+
+<!-- id=a-5, type=table, hash=6 -->
+| # | Item | Owner | Note |
+| --- | --- | --- | --- |
+| 1 | [**Cache rebuild**](https://example.com/t/1) | a builder | finished 11/27/2026 |
+| 2 | [**Queue split**](https://example.com/t/2) | a builder | in review |
+
+<!-- id=b-0, type=heading, hash=7 -->
+## 11/26/2026 (covers 11/23/2026 to 11/25/2026)
+
+<!-- id=b-1, type=paragraph, hash=8 -->
+One item this run, and the owner rewrote this sentence by hand.
+
+<!-- id=b-2, type=heading, hash=9 -->
+### Items
+
+<!-- id=b-3, type=table, hash=10 -->
+| # | Item | Owner | Note |
+| --- | --- | --- | --- |
+| 1 | [**Index repair**](https://example.com/t/0) | a builder | done |
+
+<!-- id=c-0, type=heading, hash=11 -->
+## About
+
+<!-- id=c-1, type=paragraph, hash=12 -->
+One rolling document, newest run on top, edited by the owner on 11/28/2026.
+"""
+
+
+def reflect_behaviours(tmp, inst, vm, wf_id):
+    """reflect-span and reflect-markup (ADR 0020), end to end through `vstack reflect` plus the module's own functions."""
+    runs = tmp / "reflect-runs"; ledger = tmp / "reflect-ledger"
+    rd = runs / wf_id / "kirocrew-20261128-000100-abcdef"
+    rd.mkdir(parents=True)
+    (rd / "draft.md").write_text(DRAFT_TWO_SECTIONS)
+    (rd / "landed-24h.md").write_text(LANDED_WHOLE_DOC)
+    (rd / "result.json").write_text(json.dumps({"status": "ok", "landed": {"mode": "chorus", "doc_id": "docAAAAAAAAA"}}))
+    (rd / "scorecard.json").write_text(json.dumps({"run_id": "20261128-000100-abcdef", "workflow": wf_id}))
+    ctx = inst / "context" / wf_id
+    props = ctx / "proposals.md"; dels = ctx / "deletions.json"
+    before_props = props.read_text() if props.exists() else ""
+    # --dry-run writes nothing and prints the diff
+    r = sh("reflect", str(rd), "--age", "24h", "--instance", str(inst), "--ledger-root", str(ledger), "--dry-run", check=False)
+    assert r.returncode == 0, f"reflect --dry-run failed:\n{r.stdout}{r.stderr}"
+    assert not (rd / "reflect-24h.json").exists() and not (ledger / "reflect.jsonl").exists(), "reflect --dry-run wrote a file"
+    dry = json.loads(r.stdout)
+    assert dry["would_file"] == {"proposals": 0, "mistakes": 0, "deletions": 0, "proposed_regexes": []}, f"dry run would file from the frame or another section: {dry['would_file']}"
+    # the real reflect: only the written span is scored
+    r = sh("reflect", str(rd), "--age", "24h", "--instance", str(inst), "--ledger-root", str(ledger), check=False)
+    assert r.returncode == 0, f"reflect failed:\n{r.stdout}{r.stderr}"
+    out = json.load(open(rd / "reflect-24h.json"))
+    assert out["changes"] == [] and out["owner_edit_ratio"] == 0, f"reflect scored blocks outside the written span as owner edits: {out['counts']} {[(c['kind'], (c['before'] or c['after'] or '')[:60]) for c in out['changes']]}"
+    assert out["span"] == {"draft_blocks_outside": 4, "landed_blocks_outside": 8}, out["span"]  # title, status table, About heading and paragraph; those plus the previous run's four blocks
+    assert (props.read_text() if props.exists() else "") == before_props, "reflect filed a proposal from the frame or another run's section"
+    assert not dels.exists() or all(v == 0 for v in json.load(open(dels)).values()), "reflect counted the About block as a deletion"
+    print("reflect-span  ok")
+
+    # reflect-markup: the exact read-back pair alone is no edit
+    d = vm.reflect_diff("| # | Item |\n|---|---|\n| 1 | **[x](https://example.com/u)** |", "| # | Item |\n| --- | --- |\n| 1 | [**x**](https://example.com/u) |")
+    assert d["changes"] == [] and d["owner_edit_ratio"] == 0, d
+    # beside a real wording edit in the same row, the proposed regex names the removed words, not the link
+    before = "| # | Item | Note |\n|---|---|---|\n| 1 | **[Cache rebuild](https://example.com/t/1)** | finished, we think it is likely stable |"
+    after = "| # | Item | Note |\n| --- | --- | --- |\n| 1 | [**Cache rebuild**](https://example.com/t/1) | finished |"
+    d = vm.reflect_diff(before, after)
+    assert len(d["changes"]) == 1 and d["changes"][0]["kind"] == "wording", d
+    c = d["changes"][0]
+    assert "**[Cache rebuild](https://example.com/t/1)**" in c["before"] and "**[Cache rebuild](https://example.com/t/1)**" in c["after"], f"before and after disagree on the link spelling: {c}"
+    rx = vm._proposed_regex(c["before"], c["after"])
+    assert rx and "\\*" not in rx and "we" in rx and "likely" in rx, f"the proposed regex came from the link markup, not the removed words: {rx}"
+    assert d["owner_edit_ratio"] < 0.3, f"the edit ratio counts the link markup: {d['owner_edit_ratio']}"
+    # the canonical form covers italic and nested markers too, and leaves a plain link alone
+    assert vm.canon_markup("[*x*](u) [_y_](u) [***z***](u) [**[Tag] t**](u) [p](u)") == "*[x](u)* _[y](u)_ ***[z](u)*** **[[Tag] t](u)** [p](u)"
+    print("reflect-markup ok")
+
 
 if __name__ == "__main__":
     main()
