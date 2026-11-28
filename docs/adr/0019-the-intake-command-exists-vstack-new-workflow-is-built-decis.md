@@ -25,4 +25,4 @@ Engine commit on `promo-doc` (11/28/2026, parity report Needs a build 1): `vstac
 `vstack new-workflow`, `scripts/engine-selftest.py` new-workflow behaviour (seven keys in order, five files, dry run, check on the view, no overwrite, bad regex refused, `--defaults` takes all seven), `context/factory/intake.md`
 
 ## Source row
-`context/factory/decisions.md` row 85, 11/28/2026
+`context/factory/decisions.md` row 86, 11/28/2026
